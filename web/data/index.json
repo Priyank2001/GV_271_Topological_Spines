@@ -1,0 +1,94 @@
+{
+ "datasets": [
+  {
+   "file": "cyclic_3d.json",
+   "label": "cyclic_3d (point cloud, 3D)",
+   "text": "Six peaks in a ring; the answer is a 6-cycle.",
+   "peaks": 6,
+   "saddles": 6,
+   "spine_stress": 0.004505652330129116,
+   "crossings": 0,
+   "id": "cyclic_3d"
+  },
+  {
+   "file": "cyclic_10d.json",
+   "label": "cyclic_10d (point cloud, 10D)",
+   "text": "The same ring hidden in 10 dimensions.",
+   "peaks": 6,
+   "saddles": 6,
+   "spine_stress": 0.11553166513788153,
+   "crossings": 0,
+   "id": "cyclic_10d"
+  },
+  {
+   "file": "ext_10d.json",
+   "label": "ext_10d (point cloud, 10D)",
+   "text": "Many bumps in 10D; most saddles close loops.",
+   "peaks": 40,
+   "saddles": 741,
+   "spine_stress": 0.344208919984082,
+   "crossings": 84508,
+   "id": "ext_10d"
+  },
+  {
+   "file": "volcano_intact.json",
+   "label": "volcano_intact (paper Fig. 5, 2D)",
+   "text": "Crater with 6 hills on its rim; every rim saddle is a ridge, so the spine is a ring.",
+   "peaks": 6,
+   "saddles": 6,
+   "spine_stress": 1.7808186051274804e-16,
+   "crossings": 0,
+   "id": "volcano_intact"
+  },
+  {
+   "file": "volcano_notched.json",
+   "label": "volcano_notched (paper Fig. 5, 2D)",
+   "text": "One rim saddle (30\u00b0) notched but still closer to the hills than to the crater floor: the paper keeps the ring. A p_hi below 0.28 wrongly opens it.",
+   "peaks": 6,
+   "saddles": 6,
+   "spine_stress": 2.5945912864078417e-16,
+   "crossings": 0,
+   "id": "volcano_notched"
+  },
+  {
+   "file": "volcano_breached.json",
+   "label": "volcano_breached (paper Fig. 5, 2D)",
+   "text": "The rim is breached at 30\u00b0, almost down to the crater floor: the paper cuts that saddle and the ring becomes a chain. Ours still draws a ring until p_hi is set below 0.51 (try 0.3).",
+   "peaks": 6,
+   "saddles": 6,
+   "spine_stress": 2.3400447196218633e-16,
+   "crossings": 0,
+   "id": "volcano_breached"
+  },
+  {
+   "file": "fuel.json",
+   "label": "fuel (volume 64\u00b3)",
+   "text": "A jet: one elongated structure with a few maxima.",
+   "peaks": 27,
+   "saddles": 86,
+   "spine_stress": 0.20983656069514453,
+   "crossings": 215,
+   "id": "fuel"
+  },
+  {
+   "file": "neghip.json",
+   "label": "neghip (volume 64\u00b3)",
+   "text": "Electron density around a protein: mirror-symmetric blobs.",
+   "peaks": 66,
+   "saddles": 173,
+   "spine_stress": 0.1159713888686737,
+   "crossings": 392,
+   "id": "neghip"
+  },
+  {
+   "file": "silicium.json",
+   "label": "silicium (volume 98x34x34)",
+   "text": "One peak per atom on a lattice; mostly loops.",
+   "peaks": 114,
+   "saddles": 590,
+   "spine_stress": 0.2239915972658978,
+   "crossings": 4875,
+   "id": "silicium"
+  }
+ ]
+}

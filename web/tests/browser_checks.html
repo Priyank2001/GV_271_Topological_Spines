@@ -1,0 +1,327 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>browser checks</title>
+<!-- Logic checks for the paper-style spine and the data view, run inside a browser with a fake
+     renderer (no GPU). For machines without Node. Serve web/ and open /tests/browser_checks.html;
+     every line should say PASS.  Headless:
+       firefox --headless --screenshot out.png http://localhost:PORT/tests/browser_checks.html -->
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.js" } }</script>
+<style>body{font:13px monospace;margin:8px}.fail{color:#c00;font-weight:bold}.pass{color:#070}</style>
+<img src="/sleep?8" width="1" height="1" alt="">  <!-- optional: keeps headless screenshots waiting; harmless elsewhere -->
+<pre id="out"></pre>
+<script>
+  // A syntax error would otherwise leave the page blank.
+  addEventListener('error', (e) => { document.getElementById('out').insertAdjacentHTML('beforeend',
+    `<span class="fail">SCRIPT ERROR</span> ${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})\n`); });
+</script>
+<script type="module">
+const out = document.getElementById('out');
+let failures = 0;
+const check = (name, ok, detail = '') => {
+  if (!ok) failures++;
+  out.insertAdjacentHTML('beforeend', `<span class="${ok ? 'pass' : 'fail'}">${ok ? 'PASS' : 'FAIL'}</span> ${name} ${detail}\n`);
+};
+const load = (name) => {
+  const x = new XMLHttpRequest(); x.open('GET', `../data/${name}.json`, false); x.send();
+  return JSON.parse(x.responseText);
+};
+const W = 800, H = 600;
+const fakeRenderer = () => ({
+  domElement: { style: {}, clientWidth: W, clientHeight: H, addEventListener() {}, remove() {},
+                getBoundingClientRect: () => ({ left: 0, top: 0, width: W, height: H }), setPointerCapture() {} },
+  setPixelRatio() {}, setSize() {}, setClearColor() {}, render() {}, dispose() {},
+});
+const container = { clientWidth: W, clientHeight: H, appendChild() {} };
+globalThis.ResizeObserver = class { observe() {} disconnect() {} };   // the container is a stand-in, not an element
+
+try {
+  const { simplify } = await import('../src/simplify.js');
+  const { SpineView, peakColor, regionColor } = await import('../src/spineView.js');
+  const { DataView } = await import('../src/dataView.js');
+  const C = await import('../src/contours.js');
+
+  // ---- contours.js ----------------------------------------------------
+  const sl = C.sharedLevels([0.5, 0.3, 0.5, 0.9], 0, 1);
+  check('sharedLevels: critical values once, plus the minimum, sorted',
+        JSON.stringify(sl) === JSON.stringify([0, 0.3, 0.5, 0.9]), JSON.stringify(sl));
+  const slg = C.sharedLevels([0.5, 0.49, 0.3, 0.01], 0, 1, { gap: 0.05 });
+  check('sharedLevels: values closer than the gap are dropped (the higher one wins)',
+        JSON.stringify(slg) === JSON.stringify([0, 0.3, 0.5]), JSON.stringify(slg));
+  const many = Array.from({ length: 40 }, (_, k) => 0.1 + k * 0.02);
+  const slc = C.sharedLevels(many, 0, 1, { gap: 0.001, maxLevels: 6 });
+  check('sharedLevels: capped, keeps the minimum and the highest value',
+        slc.length === 6 && slc[0] === 0 && slc.includes(many[39]), JSON.stringify(slc.map((c) => +c.toFixed(2))));
+  {
+    // One peak (value 1) linked to one saddle (0.5): the critical contour (c = 0.5)
+    // must pinch to radius 0 at the saddle, and radius ~ volume (paper) by default.
+    const N = 100, values = Array.from({ length: N }, (_, k) => k / (N - 1)), region = new Array(N).fill(0);
+    const d = { meta: { value_range: [0, 1] }, data: { values }, region,
+                peaks: [{ value: 1 }, { value: 0.6 }], saddles: [{ value: 0.5, peaks: [0, 1] }] };
+    region.fill(1, 50, 60);
+    const v = { peaks: [0, 1], saddles: [0], saddleEnds: [[0, 1]], owner: Int32Array.from([0, 1]), size: [90, 10] };
+    const hh = C.regionHistograms(d, v);
+    const g1 = C.buildContours(d, v, hh, [[0, 0], [1, 0]], [[0.5, 0]], {
+      rs: 0.01, colorOf: () => [0.5, 0.5, 0.5], bg: [1, 1, 1], edge: [0, 0, 0], edgeWidth: 0, z0: 0, zRange: 1, samples: 8 });
+    check('buildContours: isovalues are the critical values and the minimum',
+          JSON.stringify(g1.levels) === JSON.stringify([0, 0.5, 0.6]), JSON.stringify(g1.levels));
+    // Points of the critical contour's fill: the z of level 0.5 (+ the fill offset).
+    const zc = 0.5 + 0.0004 + 1e-5;
+    let nearSaddle = Infinity;
+    for (let k = 0; k < g1.positions.length; k += 3) {
+      if (Math.abs(g1.positions[k + 2] - zc) > 1e-6) continue;
+      nearSaddle = Math.min(nearSaddle, Math.abs(g1.positions[k] - 0.5) + Math.abs(g1.positions[k + 1]));
+    }
+    check('buildContours: critical contour reaches the saddle with radius ~0', nearSaddle < 1e-3, nearSaddle.toExponential(2));
+    const g2 = C.buildContours(d, v, hh, [[0, 0], [1, 0]], [[0.5, 0]], {
+      rs: 0.1, exponent: 0.5, colorOf: () => [0.5, 0.5, 0.5], bg: [1, 1, 1], edge: [0, 0, 0], edgeWidth: 0, z0: 0, zRange: 1 });
+    const ratio = g1.extent[0] / g1.extent[1], ratio2 = g2.extent[0] / g2.extent[1];
+    const sS = C.spineScale(d, v, hh, 'saddle'), sH = C.spineScale(d, v, hh, 'halo');
+    // Peak 0 owns values k/99 except 50..59; points above the saddle (0.5): 0.505..1 minus 10 -> about 40.
+    check('spineScale: saddle mode uses the region above the lowest saddle, halo mode the whole region',
+          sS.ref > 30 && sS.ref < 50 && sH.ref === 90 && sS.capFactor === 2 && sH.capFactor === Infinity,
+          `saddle ${sS.ref.toFixed(1)}, halo ${sH.ref}`);
+    const gC = C.buildContours(d, v, hh, [[0, 0], [1, 0]], [[0.5, 0]], {
+      rs: 0.01, maxRadius: 0.3, colorOf: () => [0.5, 0.5, 0.5], bg: [1, 1, 1], edge: [0, 0, 0], edgeWidth: 0, z0: 0, zRange: 1 });
+    let far = 0;
+    for (let k = 0; k < gC.positions.length; k += 3) far = Math.max(far, Math.hypot(gC.positions[k], gC.positions[k + 1]));
+    check('buildContours: maxRadius caps the halo', Math.max(...gC.extent) <= 0.3 + 1e-6 && far <= 0.3 + 1 + 1e-6,
+          `extent ${Math.max(...gC.extent).toFixed(3)}`);
+    check('buildContours: radius ~ volume (paper), ~ sqrt(volume) with exponent 0.5',
+          Math.abs(ratio - ratio2 ** 2) / ratio < 0.05, `${ratio.toFixed(2)} vs ${ratio2.toFixed(2)}^2`);
+  }
+
+  // ---- simplify.js against Python (the browser twin of simplify.test.mjs) ----
+  const { simplify: simp2, saddleCount, maxSaddlePersistence, arcPath } = await import('../src/simplify.js');
+  const fxx = new XMLHttpRequest(); fxx.open('GET', 'fixtures/simplify_cases.json', false); fxx.send();
+  const fixture = JSON.parse(fxx.responseText);
+  const same = (got, want, doc) =>
+    JSON.stringify(got.peaks.map((i) => doc.peaks[i].vertex)) === JSON.stringify(want.peaks) &&
+    JSON.stringify(got.saddles.map((i) => doc.saddles[i].vertex)) === JSON.stringify(want.saddles) &&
+    JSON.stringify(got.saddleEnds) === JSON.stringify(want.saddleEnds) &&
+    JSON.stringify(got.size) === JSON.stringify(want.size) &&
+    JSON.stringify(got.arcs.map((i) => doc.saddles[i].vertex)) === JSON.stringify(want.arcs);
+  for (const c of fixture.cases) {
+    const bad = fixture.thresholds.filter((t, i) => !same(simp2(c.doc, t), c.expected[i], c.doc));
+    check(`${c.name}: p_lo only matches Python (${fixture.thresholds.length} thresholds)`, bad.length === 0, bad.join(','));
+    const badV = c.variation.filter((v) => !same(simp2(c.doc, v.threshold, v.variation), v, c.doc));
+    check(`${c.name}: p_lo + p_hi match Python (${c.variation.length} pairs)`, badV.length === 0,
+          badV.map((v) => `${v.threshold}/${v.variation}`).join(','));
+  }
+  let unlinked = 0, viaRidge = 0;
+  for (const c of fixture.cases) for (const t of fixture.thresholds) {
+    const v = simp2(c.doc, t);
+    for (const sid of v.saddles) for (const p of c.doc.saddles[sid].peaks) {
+      if (v.peaks[v.owner[p]] === p) continue;
+      if (arcPath(c.doc, v, p).length) viaRidge++; else unlinked++;
+    }
+  }
+  check('p*: arcs lead from every visible link through hidden peaks to its surviving peaks',
+        unlinked === 0 && viaRidge > 0, `${viaRidge} ends reached through ridges, ${unlinked} not`);
+  const nh0 = fixture.cases[0];
+  const cutHard = simp2(nh0.doc, 0.03, 0.05), cutNone = simp2(nh0.doc, 0.03);
+  check('p_hi cuts links but not peaks', cutHard.peaks.length === cutNone.peaks.length &&
+        cutHard.saddles.length < cutNone.saddles.length, `${cutNone.saddles.length} -> ${cutHard.saddles.length} links`);
+  check('p_hi cuts only saddles above it', cutHard.saddles.every((i) => nh0.doc.saddles[i].persistence <= 0.05));
+  const sortedP = nh0.doc.saddles.map((x) => x.persistence).sort((a, b) => a - b);
+  check('saddleCount: counts persistences <= p_hi',
+        saddleCount(sortedP, -1) === 0 && saddleCount(sortedP, Infinity) === sortedP.length &&
+        saddleCount(sortedP, sortedP[3]) >= 4 && maxSaddlePersistence(nh0.doc) === sortedP[sortedP.length - 1]);
+
+  // ---- paper-style spine on a real volume (neghip) --------------------
+  const nh = load('neghip');
+  const vis = simplify(nh, 0.1);
+  const h = C.regionHistograms(nh, vis);
+  const total = Array.from({ length: vis.peaks.length }, (_, i) => C.volumeBetween(h, i, 0, 1));
+  check('regionHistograms: every point counted once',
+        total.reduce((a, b) => a + b, 0) === nh.meta.num_points, `${total.reduce((a, b) => a + b, 0)} of ${nh.meta.num_points}`);
+  check('regionHistograms: per-peak counts equal simplify() sizes', total.every((t, i) => t === vis.size[i]));
+  check('volumeBetween: additive', Math.abs(C.volumeBetween(h, 0, 0.2, 0.9) -
+        (C.volumeBetween(h, 0, 0.2, 0.5) + C.volumeBetween(h, 0, 0.5, 0.9))) < 1e-6);
+
+  const sv = new SpineView(container, {}, { renderer: fakeRenderer() });
+  sv.setGraph(nh);
+  sv.setStyle('paper');
+  sv.setVisible(vis);
+  check('paper style active', sv.paperStyleActive);
+  check('contour mesh built', sv.contourMesh && sv.contourMesh.geometry.attributes.position.count > 0,
+        `${sv.contourMesh?.geometry.attributes.position.count / 3} triangles`);
+  check('plain links hidden in paper style', sv.linkLines.visible === false);
+  check('every vertex finite',
+        sv.contourMesh.geometry.attributes.position.array.every(Number.isFinite) &&
+        sv.contourMesh.geometry.attributes.color.array.every(Number.isFinite));
+  check('picking radius covers the outer contour (>= plain disc)', sv.radius.every((r) => r >= sv.rMin));
+  const before = sv.contourMesh.geometry.attributes.position.count;
+  sv.setContourScale(2);
+  check('contour size slider rebuilds with larger shapes',
+        sv.contourMesh.geometry.attributes.position.count >= before && sv.radius.some((r, i) => r > 0));
+  sv.setContourScale(1);
+  sv.setStyle('simple');
+  check('simple style removes contours and restores links', sv.contourMesh === null && sv.linkLines.visible === true);
+  const bare = { ...nh, region: undefined, data: undefined };
+  sv.setGraph(bare); sv.setStyle('paper'); sv.setVisible(simplify(bare, 0.1));
+  check('no per-point data: falls back to discs', !sv.paperStyleActive && sv.contourMesh === null);
+  sv.setGraph(nh); sv.setStyle('paper'); sv.setVisible(simplify(nh, 0.5));
+  check('slider change rebuilds', sv.paperStyleActive && sv.contourMesh.geometry.attributes.position.count > 0);
+  const visA = simplify(nh, 0.1);
+  sv.setShowArcs(true); sv.setVisible(visA);
+  check('p*: arcs drawn to each saddle\'s own peaks, ghosts marked',
+        sv.linkLines.visible && sv.linkGeom.drawRange.count === visA.arcs.length * 4 &&
+        sv.ghostMesh.count === visA.ghosts.length && visA.ghosts.length > 0 && visA.ridges.length > 0,
+        `${visA.arcs.length} arcs (${visA.ridges.length} beyond the ${visA.saddles.length} links), ${visA.ghosts.length} ghosts`);
+  const viaGhost = visA.saddles.findIndex((sid) => nh.saddles[sid].peaks.some((p) => visA.peaks[visA.owner[p]] !== p));
+  sv.select({ kind: 'saddle', index: viaGhost });
+  check('p*: highlight follows the ridge (more than the 2 straight links)',
+        viaGhost >= 0 && sv.highlightGeom.drawRange.count > 4, `${sv.highlightGeom.drawRange.count / 2} segments`);
+  // Paper style with p*: every lobe whose saddle's peak was merged away follows the ridge.
+  const { ridgeRoute } = await import('../src/simplify.js');
+  const routes = [];
+  visA.saddles.forEach((sid, j) => visA.saddleEnds[j].forEach((i) => {
+    const r = ridgeRoute(nh, visA, i, sid, sv.peakXY, sv.saddleXY);
+    if (r) routes.push({ i, sid, r });
+  }));
+  const near = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6;
+  check('ridgeRoute: from the visible peak, through ghosts, to the saddle',
+        routes.length > 0 && routes.every(({ i, sid, r }) =>
+          near(r[0], sv.peakXY[visA.peaks[i]]) && near(r[r.length - 1], sv.saddleXY[sid]) && r.length >= 4 && r.length % 2 === 0),
+        `${routes.length} routed lobes`);
+  const centres = (mesh) => {             // vertices of the contour mesh, rounded, as a set
+    const a = mesh.geometry.attributes.position.array, out = new Set();
+    for (let k = 0; k < a.length; k += 3) out.add(`${a[k].toFixed(5)},${a[k + 1].toFixed(5)}`);
+    return out;
+  };
+  const bends = [...new Set(routes.flatMap(({ r }) => r.slice(1, -1).map((p) => `${p[0].toFixed(5)},${p[1].toFixed(5)}`)))];
+  const onA = centres(sv.contourMesh);
+  check('p* paper style: lobes bend at the ghosts (a round join at every bend)',
+        sv.paperStyleActive && bends.every((b) => onA.has(b)), `${bends.length} bends`);
+  sv.setShowArcs(false);
+  const offA = centres(sv.contourMesh);
+  check('p* off, paper style: lobes straight again (no joins at the ghosts)',
+        bends.filter((b) => offA.has(b)).length < bends.length / 4,
+        `${bends.filter((b) => offA.has(b)).length} of ${bends.length} bend points still vertices`);
+  sv.setShowArcs(true);
+  sv.select(null); sv.setShowArcs(false);
+  check('p* off: straight links again', sv.linkGeom.drawRange.count === visA.saddles.length * 4 && sv.ghostMesh.count === 0);
+
+  // ---- data view on a real point cloud --------------------------------
+  const cy = load('cyclic_3d');
+  const dv = new DataView(container, {}, { renderer: fakeRenderer() });
+  const names = dv.setGraph(cy);
+  check('embeddings offered', names.length >= 3 && names.includes('pca') && names.includes('tsne'), names.join(', '));
+  check('default embedding is the first', dv.name === cy.data.embedding_default);
+  const pos = () => dv.geometry.attributes.position.array;
+  const flat = cy.data.embeddings;
+  check('positions follow the embedding',
+        pos()[0] === Math.fround(flat.pca[0]) && pos()[3 * 77 + 1] === Math.fround(flat.pca[2 * 77 + 1]));
+  dv.setEmbedding('tsne');
+  check('switching reduction moves the points',
+        pos()[3 * 77] === Math.fround(flat.tsne[2 * 77]) && flat.tsne[2 * 77] !== flat.pca[2 * 77]);
+  let threw = false; try { dv.setEmbedding('nope'); } catch { threw = true; }
+  check('unknown reduction is an error', threw);
+  check('volumes have no scatterplot', DataView.embeddingNames(nh).length === 0);
+
+  const cv = simplify(cy, 0.04);
+  dv.setVisible(cv);
+  const col = dv.geometry.attributes.color.array;
+  const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const i0 = 123, pk = cv.owner[cy.region[i0]];
+  const want = regionColor(cv.peaks[pk]).map(lin);
+  check('points take the colour of their peak', [0, 1, 2].every((k) => Math.abs(col[3 * i0 + k] - want[k]) < 1e-5));
+  const inSel = Array.from({ length: cy.meta.num_points }, (_, i) => cv.owner[cy.region[i]] === pk);
+  const j0 = inSel.findIndex((s) => !s);
+  const plain = Array.from(dv.geometry.attributes.color.array.slice(3 * j0, 3 * j0 + 3));
+  dv.setSelectedPeaks([pk]);
+  const nSel = inSel.filter(Boolean).length;
+  check('selected region is a proper subset', nSel > 0 && nSel < cy.meta.num_points, `${nSel} of ${cy.meta.num_points}`);
+  check('selected points are drawn on top', inSel.every((s, i) => pos()[3 * i + 2] === (s ? Math.fround(0.1) : 0)));
+  const faded = Array.from(dv.geometry.attributes.color.array.slice(3 * j0, 3 * j0 + 3));
+  const bgLin = [1, 1, 1];     // the data view's default background is white
+  check('unselected points move 82 % of the way towards the background',
+        [0, 1, 2].every((k) => Math.abs(faded[k] - (plain[k] * 0.18 + bgLin[k] * 0.82)) < 1e-5),
+        `${plain.map((v) => v.toFixed(2))} -> ${faded.map((v) => v.toFixed(2))}`);
+  const selCol = Array.from(dv.geometry.attributes.color.array.slice(3 * i0, 3 * i0 + 3));
+  check('selected points keep their colour', [0, 1, 2].every((k) => Math.abs(selCol[k] - want[k]) < 1e-5));
+  dv.setSelectedPeaks([]);
+  check('clearing the selection restores colours and depth',
+        pos()[3 * 0 + 2] === 0 && Math.abs(dv.geometry.attributes.color.array[3 * i0] - want[0]) < 1e-5);
+  dv.setColorBy('value');
+  check('colour by value runs', dv.geometry.attributes.color.array.every(Number.isFinite));
+
+  const aspect = W / H;
+  const toClient = (i) => ({ x: ((pos()[3 * i] - dv.center.x) / (dv.halfHeight * aspect) * 0.5 + 0.5) * W,
+                             y: (0.5 - (pos()[3 * i + 1] - dv.center.y) / dv.halfHeight * 0.5) * H });
+  const p = toClient(i0);
+  const hit = dv.pickPoint(p.x, p.y);
+  check('pickPoint finds the point under the pointer',
+        hit >= 0 && Math.hypot(pos()[3 * hit] - pos()[3 * i0], pos()[3 * hit + 1] - pos()[3 * i0 + 1]) < 1e-3, `picked ${hit}`);
+  check('pickPoint returns -1 far from any point', dv.pickPoint(-500, -500) === -1);
+
+  // ---- volume rendering ------------------------------------------------
+  const V = await import('../src/volumeView.js');
+  check('rampOf: 0 at the threshold, 1 above threshold + ramp, monotone',
+        V.rampOf(0.2, 0.3) === 0 && V.rampOf(0.3, 0.3) === 0 && V.rampOf(0.3 + V.RAMP, 0.3) === 1 &&
+        V.rampOf(0.36, 0.3) < V.rampOf(0.40, 0.3));
+  const [rb0, rb1] = V.rayBox([0, 0, 2], [0, 0, -1]);
+  check('rayBox: ray along -z enters at z=0.5 and leaves at z=-0.5', Math.abs(rb0 - 1.5) < 1e-9 && Math.abs(rb1 - 2.5) < 1e-9);
+  const [m0, m1] = V.rayBox([2, 0, 0], [0, 0, -1]);
+  check('rayBox: a ray beside the box misses', !(m0 <= m1));
+
+  // synthetic 8x8x8 volume with one bright voxel at (x, y, z) = (5, 2, 6)
+  const sv8 = new Float32Array(512); const hot = 5 + 8 * (2 + 8 * 6); sv8[hot] = 1;
+  const oc = [(5.5 / 8) - 0.5, (2.5 / 8) - 0.5];
+  check('pickVoxel finds the bright voxel along -z', V.pickVoxel(sv8, [8, 8, 8], [oc[0], oc[1], 2], [0, 0, -1], { thresh: 0.3 }) === hot);
+  check('pickVoxel finds it from the other side too', V.pickVoxel(sv8, [8, 8, 8], [oc[0], oc[1], -2], [0, 0, 1], { thresh: 0.3 }) === hot);
+  check('pickVoxel: a ray beside it sees nothing', V.pickVoxel(sv8, [8, 8, 8], [-0.45, -0.45, 2], [0, 0, -1], { thresh: 0.3 }) === -1);
+  check('pickVoxel: nothing above the threshold -> -1', V.pickVoxel(sv8, [8, 8, 8], [oc[0], oc[1], 2], [0, 0, -1], { thresh: 1.0 }) === -1);
+  const thick = new Float32Array(512).fill(0.9);
+  check('pickVoxel: first visible voxel is the nearest one on a solid block',
+        V.pickVoxel(thick, [8, 8, 8], [0.01, 0.01, 2], [0, 0, -1], { thresh: 0.3 }) % 64 === (4 + 8 * 4) &&
+        Math.floor(V.pickVoxel(thick, [8, 8, 8], [0.01, 0.01, 2], [0, 0, -1], { thresh: 0.3 }) / 64) >= 6);
+
+  const nhv = load('neghip'), nhVis = simplify(nhv, 0.1);
+  const vv = new V.VolumeView(container, {}, { renderer: fakeRenderer() });
+  check('VolumeView supports grids only', V.VolumeView.supports(nhv) && !V.VolumeView.supports(load('cyclic_3d')));
+  check('setGraph on a point cloud draws nothing', vv.setGraph(load('cyclic_3d')) === false && vv.material === null);
+  check('setGraph on neghip', vv.setGraph(nhv) === true && vv.volumeTex.image.width === 64 && vv.volumeTex.image.depth === 64);
+  check('longest box side is 1', Math.max(...vv.extent) === 1);
+  check('shader constants were substituted', vv.material.fragmentShader.includes('0.15') &&
+        vv.material.fragmentShader.includes('24.0') && !vv.material.fragmentShader.includes('${'));
+  check('default threshold is a quarter of the bright end (99th percentile)',
+        (() => { const s = Float32Array.from(nhv.data.values).sort(); const q99 = s[Math.floor(0.99 * s.length)];
+                 return Math.abs(vv.getThreshold() - Math.max(0.02, 0.25 * q99)) < 0.01; })(), vv.getThreshold().toFixed(3));
+  check('regionColor: distinct, in [0, 1], stable',
+        (() => { const cs = Array.from({ length: 12 }, (_, i) => regionColor(i));
+                 const ok = cs.every((c) => c.every((v) => v >= 0 && v <= 1));
+                 const far = cs.every((c, i) => cs.every((d, j) => i === j || Math.hypot(c[0] - d[0], c[1] - d[1], c[2] - d[2]) > 0.1));
+                 return ok && far && regionColor(5).join() === regionColor(5).join(); })());
+  vv.setVisible(nhVis);
+  const lab = vv.label, vi = 12345, own = nhVis.owner[nhv.region[vi]];
+  const wantCol = regionColor(nhVis.peaks[own]).map((c) => Math.round(c * 255));
+  check('voxels take the colour of their peak, weight 1 without a selection',
+        [0, 1, 2].every((k) => lab[4 * vi + k] === wantCol[k]) && lab[4 * vi + 3] === 255);
+  vv.setSelectedPeaks([own]);
+  const other = Array.from({ length: nhv.meta.num_points }, (_, i) => i).find((i) => nhVis.owner[nhv.region[i]] !== own);
+  check('selected region keeps full weight, others are dimmed',
+        lab[4 * vi + 3] === 255 && lab[4 * other + 3] === Math.round(0.1 * 255));
+  vv.setSelectedPeaks([]);
+  check('clearing the selection restores the weights', lab[4 * other + 3] === 255);
+  check('one marker per visible peak', vv.markerGeom.attributes.position.count === nhVis.peaks.length);
+
+  vv.setThreshold(0.9);
+  const [px, py, pz] = nhv.peaks[0].position;
+  const at = vv.voxelToClient([px, py, pz]);
+  const voxelHit = vv.pickAt(at.x, at.y);
+  check('pickAt through the global maximum hits a bright voxel', voxelHit >= 0 && nhv.data.values[voxelHit] > 0.9, `voxel ${voxelHit}`);
+  check('pickAt far from the volume sees nothing', vv.pickAt(-400, -400) === -1);
+  vv.setThreshold(vv.getThreshold());
+  vv.setColorBy('value'); vv.setDensity(2); vv.setShading(false);
+  check('uniforms follow the controls', vv.material.uniforms.uByRegion.value === 0 &&
+        vv.material.uniforms.uDensity.value === 2 && vv.material.uniforms.uLight.value === 0);
+  const fuelDoc = load('fuel');
+  check('silicium is not cubic: box sides keep the aspect', (() => { const sl = load('silicium'); vv.setGraph(sl); return Math.abs(vv.extent[0] / vv.extent[1] - 98 / 34) < 1e-9; })());
+} catch (e) {
+  failures++;
+  out.insertAdjacentHTML('beforeend', `<span class="fail">ERROR</span> ${e.stack || e}\n`);
+}
+out.insertAdjacentHTML('beforeend', `\n${failures ? failures + ' FAILED' : 'ALL PASSED'}\n`);
+document.title = failures ? 'FAILED' : 'passed';
+</script>

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Topological spines</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.js" } }
+  </script>
+</head>
+<body>
+  <header>
+    <h1>Extremum graph spine</h1>
+    <label>Dataset
+      <select id="dataset" aria-label="Dataset"></select>
+    </label>
+    <span id="status" role="status"></span>
+    <div class="toggles" role="group" aria-label="Show or hide panels">
+      <button id="toggleData" type="button" aria-pressed="true" title="Show or hide the data view (key: d)">Data view</button>
+      <button id="toggleSide" type="button" aria-pressed="true" title="Show or hide the controls (key: c)">Controls</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="views">
+      <section id="spine" aria-label="Spine view">
+        <div id="tooltip" hidden></div>
+        <div id="hint">drag to pan · wheel to zoom · double-click to reset · click a node to select</div>
+      </section>
+
+      <section id="data" aria-label="Data view">
+        <div id="dataBar">
+          <label id="embeddingRow">Dimensionality reduction
+            <select id="embedding" aria-label="Dimensionality reduction"></select>
+          </label>
+          <label>Colour
+            <select id="colorBy" aria-label="Colour points by">
+              <option value="region">peak region (distinct colours)</option>
+              <option value="value">field value</option>
+            </select>
+          </label>
+          <span id="volumeControls" hidden>
+            <label>Show above
+              <input id="volThresh" type="range" min="0" max="0.9" step="0.01" value="0.3" aria-label="Lowest field value shown">
+              <output id="volThreshOut"></output>
+            </label>
+            <label>Opacity
+              <input id="volDensity" type="range" min="0.1" max="3" step="0.05" value="1" aria-label="Opacity">
+            </label>
+            <label><input id="volShade" type="checkbox" checked> Shading</label>
+          </span>
+        </div>
+        <div id="dataCanvas"></div>
+        <div id="volumeCanvas" hidden></div>
+        <p id="dataNote" hidden></p>
+        <div id="colorLegend" class="color-legend" hidden aria-label="Colour legend of the data view">
+          <div class="cl-title" id="clTitle"></div>
+          <div class="cl-sub" id="clSub"></div>
+          <div class="cl-bar" id="clBar"><div class="cl-fade" id="clFade"></div><div class="cl-tick" id="clTick"></div></div>
+          <div class="cl-range" id="clRange"><span id="clLo"></span><span id="clHi"></span></div>
+          <div class="cl-swatches" id="clSwatches"></div>
+          <div class="cl-note" id="clNote"></div>
+        </div>
+        <div class="hint" id="dataHint"></div>
+      </section>
+    </div>
+
+    <aside>
+      <p id="blurb"></p>
+
+      <h2>Simplification</h2>
+      <label class="slider">
+        <span>Persistence threshold <output id="thresholdOut"></output></span>
+        <input id="threshold" type="range" min="0" max="1" step="0.001" value="0">
+      </label>
+      <label class="slider">
+        <span>Variation threshold (p_hi) <output id="variationOut"></output></span>
+        <input id="variation" type="range" min="0" max="1" step="0.001" value="1">
+      </label>
+      <canvas id="plot" aria-label="Peaks left against the noise threshold (blue) and links left against the variation threshold (red)"></canvas>
+      <p class="caption"><b class="blue">Blue</b>: peaks left at each noise threshold. <b class="red">Red</b>: links
+        left at each variation threshold; links (saddles) above p<sub>hi</sub> are cut, which can split the graph
+        into separate pieces. A flat stretch means the structure is stable. Click the plot to set the noise
+        threshold, shift+click to set p<sub>hi</sub>. Grey: below this file's base threshold.</p>
+      <p id="counts"></p>
+
+      <h2>Spine drawing</h2>
+      <label class="field">Style
+        <select id="style" aria-label="Spine drawing style">
+          <option value="paper">Contours (as in the paper)</option>
+          <option value="simple">Discs and lines</option>
+        </select>
+      </label>
+      <label class="field">Colour map
+        <select id="colormap" aria-label="Colour map for field values">
+          <option value="viridis">viridis</option>
+          <option value="plasma">plasma</option>
+          <option value="inferno">inferno</option>
+          <option value="magma">magma</option>
+          <option value="cividis">cividis</option>
+          <option value="turbo">turbo</option>
+          <option value="coolwarm">coolwarm (diverging)</option>
+          <option value="RdYlBu">RdYlBu (diverging)</option>
+          <option value="Spectral">Spectral (diverging)</option>
+          <option value="grey">grey</option>
+        </select>
+      </label>
+      <label class="check"><input id="cmapReverse" type="checkbox"> Reverse colour map</label>
+      <div class="cmap-preview" id="cmapPreview" aria-hidden="true"></div>
+      <div id="paperRows">
+      <label class="slider" id="scaleRow">
+        <span>Contour size <output id="scaleOut"></output></span>
+        <input id="scale" type="range" min="0.25" max="3" step="0.05" value="1">
+      </label>
+      <label class="field">Scale by
+        <select id="scaleMode" aria-label="Which contour sets the size">
+          <option value="saddle">lowest saddle contour (halo capped)</option>
+          <option value="halo">outer halo (field minimum)</option>
+        </select>
+      </label>
+      <label class="field">Radius
+        <select id="radiusLaw" aria-label="Contour radius law">
+          <option value="1">∝ volume (paper)</option>
+          <option value="0.5">∝ √volume (area ∝ volume)</option>
+        </select>
+      </label>
+      <label class="slider">
+        <span>Min. isovalue gap <output id="gapOut"></output></span>
+        <input id="gap" type="range" min="0.005" max="0.2" step="0.005" value="0.02">
+      </label>
+      </div>
+      <p class="caption" id="styleNote"></p>
+      <label class="check"><input id="arcs" type="checkbox" checked> Keep the arcs of merged peaks (p*)</label>
+      <p class="caption">Saturated persistence, as in the paper: a link to a peak that absorbed smaller ones runs
+        along the ridge through them (small grey dots), so a ring stays a ring after its peaks merge. Off: straight
+        links between the peaks that are left.</p>
+
+      <h2>Selection</h2>
+      <div id="info"><p class="muted">Hover or click a node.</p></div>
+
+      <h2>Legend</h2>
+      <div class="legend">
+        <div><span class="sw peak-bar" id="valueBar"></span>
+          <span class="range"><span id="vLo"></span><span>peak value</span><span id="vHi"></span></span></div>
+        <div><span class="sw disc"></span> <span id="discLegend">disc area is proportional to the points in the peak's region</span></div>
+        <div><span class="sw diamond merge"></span> saddle</div>
+        <div><span class="sw diamond loop"></span> saddle that closes a loop</div>
+        <div><span class="sw ghost"></span> peak merged away, on a kept arc (p*)</div>
+      </div>
+
+      <h2>Layout</h2>
+      <p id="layoutInfo" class="muted"></p>
+    </aside>
+  </main>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
