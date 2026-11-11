@@ -3,7 +3,7 @@
 import { simplify, maxPersistence, maxSaddlePersistence } from './simplify.js';
 import { SpineView, peakGradientCss, hexToRgb, regionColor, setColormap, getColormap } from './spineView.js';
 import { DataView } from './dataView.js';
-import { VolumeView, RAMP } from './volumeView.js';
+import { VolumeView, RAMP, bandColor } from './volumeView.js';
 import { PersistencePlot, sliderToThreshold, thresholdToSlider } from './persistencePlot.js';
 
 const $ = (id) => document.getElementById(id);
@@ -16,7 +16,8 @@ const el = {
   variation: $('variation'), variationOut: $('variationOut'),
   dataHint: $('dataHint'), volumeCanvas: $('volumeCanvas'), embeddingRow: $('embeddingRow'),
   volumeControls: $('volumeControls'), volThresh: $('volThresh'), volThreshOut: $('volThreshOut'),
-  volDensity: $('volDensity'), volShade: $('volShade'), embedding: $('embedding'), colorBy: $('colorBy'),
+  volDensity: $('volDensity'), volShade: $('volShade'), colorByIso: $('colorByIso'), isoControls: $('isoControls'),
+  volIsoLevels: $('volIsoLevels'), volIsoSurf: $('volIsoSurf'), embedding: $('embedding'), colorBy: $('colorBy'),
   style: $('style'), scale: $('scale'), scaleOut: $('scaleOut'), scaleRow: $('paperRows'),
   radiusLaw: $('radiusLaw'), gap: $('gap'), gapOut: $('gapOut'), scaleMode: $('scaleMode'),
   colormap: $('colormap'), cmapReverse: $('cmapReverse'), cmapPreview: $('cmapPreview'),
@@ -273,14 +274,24 @@ function updateLegend(picked = []) {
   const [lo, hi] = doc.meta.value_range ?? [0, 1];
   const span = hi - lo || 1;
   const byValue = el.colorBy.value === 'value';
+  const byIso = volume && el.colorBy.value === 'iso';
   const thr = volume ? Number(el.volThresh.value) : null;            // volumes hold values in [0, 1]
   const fadePct = (x) => `${(100 * Math.min(1, Math.max(0, (x - lo) / span))).toFixed(1)}%`;
 
-  el.clTitle.textContent = byValue ? `Colour: field value (${getColormap().name}${getColormap().reversed ? ', reversed' : ''})` : 'Colour: peak region';
+  const cmapLabel = `${getColormap().name}${getColormap().reversed ? ', reversed' : ''}`;
+  const levels = byIso ? volumeView.getIsoLevels?.() ?? [] : [];
+  el.clTitle.textContent = byIso ? `Colour: iso-value bands (${levels.length + 1} bands, ${cmapLabel})`
+    : byValue ? `Colour: field value (${cmapLabel})` : 'Colour: peak region';
   el.clBar.hidden = el.clRange.hidden = !byValue && !volume;
   el.clLo.textContent = fmt(lo, 3);
   el.clHi.textContent = fmt(hi, 3);
-  if (byValue) {
+  if (byIso) {                                                       // hard stops at the iso values
+    const n = levels.length + 1, edges = [lo, ...levels, hi];
+    const rgb = (k) => `rgb(${bandColor(k, n).map((c) => Math.round(c * 255)).join(',')})`;
+    const pct = (x) => `${(100 * (x - lo) / span).toFixed(2)}%`;
+    el.clBar.style.background = `linear-gradient(to right, ${Array.from({ length: n },
+      (_, k) => `${rgb(k)} ${pct(edges[k])}, ${rgb(k)} ${pct(edges[k + 1])}`).join(', ')})`;
+  } else if (byValue) {
     el.clBar.style.background = peakGradientCss();
   } else {                                                           // grey ramp: opacity only
     el.clBar.style.background = 'linear-gradient(to right, var(--muted), var(--text))';
@@ -297,7 +308,7 @@ function updateLegend(picked = []) {
   }
 
   el.clSwatches.replaceChildren();
-  if (!byValue) {
+  if (!byValue && !byIso) {
     const show = new Set(picked);
     const order = vis.peaks.map((_, i) => i).sort((a, b) => (show.has(b) - show.has(a)) || vis.size[b] - vis.size[a]);
     const MAX = 8;
@@ -311,8 +322,12 @@ function updateLegend(picked = []) {
     }
     if (order.length > MAX) el.clSwatches.append(`+${order.length - MAX} more`);
   }
-  el.clSub.textContent = !byValue ? 'as the peak dots in the spine' + (volume ? '; bar: opacity by value' : '') : '';
+  el.clSub.textContent = byIso
+    ? (el.volIsoLevels.value === 'spine' ? 'bands between the critical values of the visible peaks and saddles' : 'even bands of value')
+    : !byValue ? 'as the peak dots in the spine' + (volume ? '; bar: opacity by value' : '') : '';
   const parts = [];
+  if (byIso) parts.push(levels.length ? `Iso values: ${levels.map((c) => fmt(c, 3)).join(', ')}.` : 'No iso values inside the range: one band.');
+  if (volume && el.volIsoSurf.value !== 'off' && byIso) parts.push('Iso surfaces get extra opacity.');
   if (volume) parts.push(`Transparent below ${fmt(thr, 2)} (tick, "Show above"), fades in to ${fmt(Math.min(hi, thr + RAMP), 2)}.`);
   if (picked.length) parts.push('Hovered/selected peak in bold, others dimmed.');
   el.clNote.textContent = parts.join(' ');
@@ -328,12 +343,27 @@ el.embedding.addEventListener('change', () => dataView.setEmbedding(el.embedding
 el.colorBy.addEventListener('change', () => {
   dataView.setColorBy(el.colorBy.value);
   volumeView.setColorBy(el.colorBy.value);
+  syncIsoControls();
   syncedKey = ''; syncDataSelection();             // redraw the legend
 });
 el.volThresh.addEventListener('input', () => {
   volumeView.setThreshold(Number(el.volThresh.value));
   syncedKey = ''; syncDataSelection();             // move the legend's tick
   el.volThreshOut.textContent = Number(el.volThresh.value).toFixed(2);
+});
+/** The iso controls belong to the 'iso-value bands' colour of the volume; surfaces go off with them. */
+function syncIsoControls() {
+  const on = !el.volumeCanvas.hidden && el.colorBy.value === 'iso';
+  el.isoControls.hidden = !on;
+  if (!on && el.volIsoSurf.value !== 'off') { el.volIsoSurf.value = 'off'; volumeView.setIsoSurfaces?.('off'); }
+}
+el.volIsoLevels.addEventListener('change', () => {
+  volumeView.setIsoLevels?.(el.volIsoLevels.value);
+  syncedKey = ''; syncDataSelection();             // redraw the legend
+});
+el.volIsoSurf.addEventListener('change', () => {
+  volumeView.setIsoSurfaces?.(el.volIsoSurf.value);
+  syncedKey = ''; syncDataSelection();
 });
 el.volDensity.addEventListener('input', () => volumeView.setDensity(Number(el.volDensity.value)));
 el.volShade.addEventListener('change', () => volumeView.setShading(el.volShade.checked));
@@ -436,6 +466,8 @@ function showDataPanel(doc, names, volume) {
   el.volumeCanvas.hidden = !volume;
   el.embeddingRow.hidden = !cloud;
   el.volumeControls.hidden = !volume;
+  el.colorByIso.hidden = !volume;                  // bands are drawn by the volume view only
+  el.isoControls.hidden = true;                    // shown again by syncIsoControls for volumes
 
   if (!any) {
     el.dataNote.textContent = doc.meta.kind === 'grid'
@@ -452,6 +484,8 @@ function showDataPanel(doc, names, volume) {
     el.volThreshOut.textContent = t.toFixed(2);
     el.volDensity.value = '1'; el.volShade.checked = true;
     volumeView.setColorBy('region');
+    volumeView.setIsoLevels?.(el.volIsoLevels.value);
+    syncIsoControls();
     volumeView.resize?.();
     return;
   }

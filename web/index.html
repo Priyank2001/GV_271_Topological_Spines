@@ -38,8 +38,28 @@
             <select id="colorBy" aria-label="Colour points by">
               <option value="region">peak region (distinct colours)</option>
               <option value="value">field value</option>
+              <option value="iso" id="colorByIso" hidden>iso-value bands</option>
             </select>
           </label>
+          <span id="isoControls" hidden>
+            <label>Iso values
+              <select id="volIsoLevels" aria-label="Iso values that bound the colour bands">
+                <option value="spine">critical values (as the spine)</option>
+                <option value="4">4 even bands</option>
+                <option value="6">6 even bands</option>
+                <option value="8">8 even bands</option>
+                <option value="12">12 even bands</option>
+                <option value="16">16 even bands</option>
+              </select>
+            </label>
+            <label>Iso surfaces
+              <select id="volIsoSurf" aria-label="Draw the iso surfaces">
+                <option value="off">off</option>
+                <option value="add">over the volume</option>
+                <option value="only">only the surfaces</option>
+              </select>
+            </label>
+          </span>
           <span id="volumeControls" hidden>
             <label>Show above
               <input id="volThresh" type="range" min="0" max="0.9" step="0.01" value="0.3" aria-label="Lowest field value shown">

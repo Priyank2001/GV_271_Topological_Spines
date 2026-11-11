@@ -316,6 +316,31 @@ try {
   vv.setColorBy('value'); vv.setDensity(2); vv.setShading(false);
   check('uniforms follow the controls', vv.material.uniforms.uByRegion.value === 0 &&
         vv.material.uniforms.uDensity.value === 2 && vv.material.uniforms.uLight.value === 0);
+  // ---- iso-value bands ----
+  check('isoLevels: n even bands give n - 1 interior levels',
+        (() => { const L = V.isoLevels(nhv, nhVis, 4); return L.length === 3 && Math.abs(L[1] - 0.5) < 1e-9; })());
+  const spineLv = V.isoLevels(nhv, nhVis, 'spine');
+  check('isoLevels spine: sorted, inside (lo, hi), from critical values',
+        spineLv.length > 0 && spineLv.every((c, i) => c > 0 && c < 1 && (i === 0 || c > spineLv[i - 1])) &&
+        spineLv.every((c) => nhv.peaks.some((p) => p.value === c) || nhv.saddles.some((p) => p.value === c)), spineLv.join(' '));
+  check('bandOf counts the levels at or below', V.bandOf(0.1, [0.2, 0.5]) === 0 && V.bandOf(0.2, [0.2, 0.5]) === 1 && V.bandOf(0.9, [0.2, 0.5]) === 2);
+  const it = V.isoTable([0.5], { bins: 100, width: 0.03 });
+  check('isoTable: two flat bands, distinct colours, surface weight peaks at the level',
+        it.bands === 2 && it.rgba.slice(0, 3).join() === it.rgba.slice(4 * 40, 4 * 40 + 3).join() &&
+        it.rgba.slice(0, 3).join() !== it.rgba.slice(4 * 60, 4 * 60 + 3).join() &&
+        it.surf[49] > 0.8 && it.surf[10] === 0 && it.surf[90] === 0);
+  vv.setVisible(nhVis);
+  vv.setColorBy('iso'); vv.setIsoLevels('6'); vv.setIsoSurfaces('only');
+  check('iso uniforms follow the controls', vv.material.uniforms.uIso.value === 1 && vv.material.uniforms.uIsoSurf.value === 2 &&
+        vv.getIsoLevels().length === 5);
+  const shell = new Float32Array(512).fill(0.6);            // a block at 0.6: only-surfaces sees nothing ...
+  const tbl = V.isoTable([0.5]).surf;
+  check('pickVoxel with surfaces only: no surface crossed -> nothing',
+        V.pickVoxel(shell, [8, 8, 8], [0.01, 0.01, 2], [0, 0, -1], { thresh: 0.3, surf: tbl, surfMode: 'only' }) === -1);
+  const shell2 = new Float32Array(512).map((_, i) => (Math.floor(i / 64) >= 4 ? 0.5 : 0.2));   // ... a value 0.5 slab is seen
+  check('pickVoxel with surfaces only: hits the slab at the iso value',
+        Math.floor(V.pickVoxel(shell2, [8, 8, 8], [0.01, 0.01, 2], [0, 0, -1], { thresh: 0.3, surf: tbl, surfMode: 'only' }) / 64) >= 4);
+  vv.setColorBy('region'); vv.setIsoSurfaces('off');
   const fuelDoc = load('fuel');
   check('silicium is not cubic: box sides keep the aspect', (() => { const sl = load('silicium'); vv.setGraph(sl); return Math.abs(vv.extent[0] / vv.extent[1] - 98 / 34) < 1e-9; })());
 } catch (e) {
