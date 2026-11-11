@@ -213,6 +213,50 @@ def embed_points(points: np.ndarray, method: str, seed: int = 0) -> np.ndarray:
     return make_reducer(method, **kwargs).fit_transform(points)
 
 
+def coords_document(points: np.ndarray, names: Optional[list] = None) -> dict:
+    """Original coordinates of a point cloud for the viewer's parallel coordinates
+    (written next to the main file as ``<name>.coords.json`` and loaded only when
+    that mode is opened, so the main file stays small).
+
+    Each axis is quantised to 16 bits between its own min and max and stored as
+    base64 of little-endian uint16 (``x = min + (max - min) * u / 65535``), about
+    2.7 bytes per value instead of ~8 for decimal text. 1/65535 of the range is far
+    below a pixel on any axis.
+    """
+    import base64
+
+    points = np.asarray(points, dtype=np.float64)
+    if points.ndim != 2:
+        raise ValueError("points must be an (N, d) array")
+    if not np.isfinite(points).all():
+        raise ValueError("points contain NaN or infinity")
+    n, d = points.shape
+    names = list(names) if names is not None else [f"x{j + 1}" for j in range(d)]
+    if len(names) != d:
+        raise ValueError(f"{len(names)} names for {d} dimensions")
+    axes = []
+    for j in range(d):
+        col = points[:, j]
+        lo, hi = float(col.min()), float(col.max())
+        u = np.zeros(n) if hi == lo else (col - lo) / (hi - lo)
+        q = np.round(u * 65535).astype("<u2")
+        axes.append({"name": names[j], "min": lo, "max": hi,
+                     "data": base64.b64encode(q.tobytes()).decode("ascii")})
+    return {"version": 1, "num_points": int(n), "dimensions": int(d),
+            "encoding": "uint16-base64", "axes": axes}
+
+
+def decode_coords(doc: dict) -> np.ndarray:
+    """Inverse of ``coords_document`` (up to the 16-bit quantisation): an (N, d) array."""
+    import base64
+
+    cols = []
+    for a in doc["axes"]:
+        u = np.frombuffer(base64.b64decode(a["data"]), dtype="<u2").astype(np.float64) / 65535
+        cols.append(a["min"] + (a["max"] - a["min"]) * u)
+    return np.stack(cols, axis=1)
+
+
 def volume_data(volume, decimals: int = 4) -> dict:
     """``data`` section for a regular grid (a ``pipeline.volume_loader.Volume``):
     shape, spacing and the values scaled to [0, 1], flat in (z, y, x) order."""

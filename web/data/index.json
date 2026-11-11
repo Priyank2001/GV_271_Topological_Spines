@@ -79,7 +79,8 @@
      "pairs_only_b": 1
     }
    ],
-   "id": "cyclic_3d"
+   "id": "cyclic_3d",
+   "coords_file": "cyclic_3d.coords.json"
   },
   {
    "file": "cyclic_10d.json",
@@ -151,7 +152,8 @@
      "pairs_only_b": 28
     }
    ],
-   "id": "cyclic_10d"
+   "id": "cyclic_10d",
+   "coords_file": "cyclic_10d.coords.json"
   },
   {
    "file": "ext_10d.json",
@@ -223,7 +225,8 @@
      "pairs_only_b": 179
     }
    ],
-   "id": "ext_10d"
+   "id": "ext_10d",
+   "coords_file": "ext_10d.coords.json"
   },
   {
    "file": "two_peaks_2d.json",
@@ -294,7 +297,8 @@
      "pairs_only_b": 0
     }
    ],
-   "id": "two_peaks_2d"
+   "id": "two_peaks_2d",
+   "coords_file": "two_peaks_2d.coords.json"
   },
   {
    "file": "volcano_intact.json",
@@ -367,7 +371,8 @@
      "pairs_only_b": 3
     }
    ],
-   "id": "volcano_intact"
+   "id": "volcano_intact",
+   "coords_file": "volcano_intact.coords.json"
   },
   {
    "file": "volcano_notched.json",
@@ -440,7 +445,8 @@
      "pairs_only_b": 2
     }
    ],
-   "id": "volcano_notched"
+   "id": "volcano_notched",
+   "coords_file": "volcano_notched.coords.json"
   },
   {
    "file": "volcano_breached.json",
@@ -513,7 +519,8 @@
      "pairs_only_b": 0
     }
    ],
-   "id": "volcano_breached"
+   "id": "volcano_breached",
+   "coords_file": "volcano_breached.coords.json"
   },
   {
    "file": "fuel.json",
@@ -632,7 +639,8 @@
      "pairs_only_b": 95
     }
    ],
-   "id": "fuel"
+   "id": "fuel",
+   "coords_file": null
   },
   {
    "file": "neghip.json",
@@ -751,7 +759,8 @@
      "pairs_only_b": 264
     }
    ],
-   "id": "neghip"
+   "id": "neghip",
+   "coords_file": null
   },
   {
    "file": "bucky.json",
@@ -870,7 +879,8 @@
      "pairs_only_b": 1264
     }
    ],
-   "id": "bucky"
+   "id": "bucky",
+   "coords_file": null
   },
   {
    "file": "silicium.json",
@@ -989,7 +999,8 @@
      "pairs_only_b": 393
     }
    ],
-   "id": "silicium"
+   "id": "silicium",
+   "coords_file": null
   }
  ]
 }

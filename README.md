@@ -247,6 +247,7 @@ shrink big files.
 
 ```bash
 python3 web/build_data.py              # writes web/data/*.json (once, or after pipeline changes)
+python3 web/build_data.py --coords-only  # only the point clouds' coordinates (parallel coordinates)
 python3 -m http.server -d web 8000     # then open http://localhost:8000/#fuel
 ```
 
@@ -254,6 +255,28 @@ python3 -m http.server -d web 8000     # then open http://localhost:8000/#fuel
 it needs no build step and no network. It must be served over HTTP (not opened
 as a `file://` page).
 
+- **Mode rail** (the toolbar on the left): *Explore* (spine + data view),
+  *Compare* (two spines, see below; key `m`) and *Parallel* (spine + parallel
+  coordinates; key `p`). The parallel mode is remembered in the browser;
+  compare mode is in the link.
+- **Parallel coordinates** (`src/parallel.js` data model, `src/parallelView.js`
+  drawing): every point is a polyline across one axis per *original* dimension
+  (x1..xd of a point cloud, x, y, z of a grid voxel), the field value, and a
+  "peak" axis with one band per visible peak (highest at the top; inside a band
+  a point sits by its value within that region). No dimensionality reduction
+  is involved. Lines are coloured by peak region or value and drawn with
+  WebGL (`LineSegments`), so 100k points x 12 axes and 262k voxels stay
+  interactive; axes, labels and brushes are a 2D canvas on top. Drag along an
+  axis to brush a range (brushes on several axes combine); the strip above the
+  plot counts the points that pass and lists their peaks (click one to select
+  it in the spine). Hovering or selecting a peak or saddle in the spine colours
+  only its region's lines; clicking a line selects its peak. Click an axis name
+  to flip it, drag it to move it. The "Axes" menu shows or hides any axis (at
+  least two stay; "Only f and peak" hides the coordinates; an axis shown again
+  returns next to its natural neighbours, and hiding one drops its brush).
+  Point clouds need `<name>.coords.json` (the
+  original coordinates, 16-bit per axis, written by `web/build_data.py` and
+  loaded only when the mode is opened); grids derive x, y, z from the shape.
 - **Spine** (`src/spineView.js`, `src/contours.js`): three drawing styles, chosen
   in the side panel. *Contours (NDDAV)* (default) draws the spine the way LLNL's
   [NDDAV](https://github.com/LLNL/NDDAV) does (`hdanalysis/core/TopoSpines.py`):
@@ -340,15 +363,16 @@ as a `file://` page).
   For volumes it also shows the opacity: transparent below "Show above", fading
   in over the next 0.15 of value (`RAMP` in `volumeView.js`).
 - **Panel toggles**: the "Data view" and "Controls" buttons in the header (keys
-  `d` and `c`) hide or show the data/volume view and the side panel; the spine
-  takes the freed room. The choice is remembered in the browser.
+  `d` and `c`) hide or show the data/volume view (or the parallel coordinates)
+  and the side panel; the spine takes the freed room. The choice is remembered
+  in the browser.
 - **Slider and persistence plot** (`src/persistencePlot.js`): the threshold
   hides peaks below it. This is done in the browser (`src/simplify.js`, a port
   of `ExtremumGraph.simplify`), and the layout in the file never changes, so
   nodes do not move when the slider does. Thresholds below a file's base
   threshold (`meta.simplify_threshold`) cannot be restored; the plot greys
   that part out.
-- **Compare mode** (button "Compare", key `m`): two spines side by side, each
+- **Compare mode** ("Compare" in the mode rail, key `m`): two spines side by side, each
   with its own "Method" menu: Ours, AnyEG, and Ours on the 14-neighbour grid
   (volumes only). Every registered variant in `comparison/variants.py` is
   exported by `web/build_data.py` as `<name>.<variant>.json`. All variants of a
@@ -376,7 +400,8 @@ python3 web/tests/make_fixtures.py                        # regenerate Python-vs
 ```
 
 Without Node, serve `web/` and open `tests/browser_checks.html` (logic
-checks of the contour geometry and both views with a fake renderer, plus the
+checks of the contour geometry, both data views and the parallel coordinates
+with a fake renderer, plus the
 Python-versus-JS comparison of `simplify` for p_lo and p_hi and of the p* arcs; every line should
 say PASS). `tests/contours_preview.html?data=neghip&t=0.1&s=0.6`
 draws the contour geometry with Canvas 2D, which shows the paper-style spine

@@ -1,5 +1,7 @@
 // Wires the page together: dataset list, spine view, slider, persistence plot, info panel,
-// and compare mode (a second spine with another extraction method, see compare.js).
+// and the modes chosen in the rail on the left: explore (spine + data view), compare
+// (a second spine with another extraction method, see compare.js) and parallel
+// coordinates (spine + every point as a line across its original dimensions).
 
 import { maxPersistence, maxSaddlePersistence } from './simplify.js';
 import { visibleGraph, isSimplifiable, compareShown, traitDifferences, findAgreement, findVisible,
@@ -10,6 +12,7 @@ import { SpineView, peakGradientCss, hexToRgb, regionColor, setColormap, getColo
 import { DataView } from './dataView.js';
 import { VolumeView, RAMP, bandColor } from './volumeView.js';
 import { PersistencePlot, sliderToThreshold, thresholdToSlider } from './persistencePlot.js';
+import { ParallelView } from './parallelView.js';
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -35,6 +38,12 @@ const el = {
   toggleCompare: $('toggleCompare'), toggleSpine: $('toggleSpine'), variantA: $('variantA'), variantB: $('variantB'), barA: $('barA'),
   swapVariants: $('swapVariants'), panelB: $('panelB'), spineB: $('spineB'), compareBox: $('compareBox'),
   sliderNote: $('sliderNote'), markLegend: $('markLegend'),
+  modeButtons: [...document.querySelectorAll('#modeRail .mode')],
+  parallel: $('parallel'), pcCanvas: $('pcCanvas'), pcColorBy: $('pcColorBy'), pcOpacity: $('pcOpacity'),
+  pcOpacityOut: $('pcOpacityOut'), pcClear: $('pcClear'), pcBrush: $('pcBrush'),
+  pcAxes: $('pcAxes'), pcAxesCount: $('pcAxesCount'), pcAxesList: $('pcAxesList'), pcAxesAll: $('pcAxesAll'),
+  pcAxesCoords: $('pcAxesCoords'),
+  pcNote: $('pcNote'),
 };
 
 // ---- panel toggles ------------------------------------------------------
@@ -65,8 +74,10 @@ window.addEventListener('keydown', (e) => {
 // variation = the paper's p_hi; Infinity means no link is cut.
 // Compare mode: variantA is drawn in the main panel (and drives the data view), variantB in panelB.
 // sliderDoc: the shown document whose persistence the sliders walk (null when no shown method simplifies).
+// mode: 'explore' | 'compare' | 'parallel' (the rail on the left); compare mirrors state.compare.
 const state = { doc: null, index: [], tmax: 1, base: 0, threshold: 0, variation: Infinity, vis: null,
-                entry: null, variantA: null, variantB: null, compare: false, sliderDoc: null, traitLabels: {} };
+                entry: null, variantA: null, variantB: null, compare: false, sliderDoc: null, traitLabels: {},
+                mode: 'explore' };
 
 const fmt = (x, digits = 4) => (x === null || x === undefined ? '–' : Number(x.toPrecision(digits)).toString());
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -152,6 +163,9 @@ try {
   console.error(err);
   volumeView = new UnavailableVolume(el.volumeCanvas);
 }
+// The parallel-coordinates view is created when its mode is first opened (see setMode).
+let pcView = null;
+let pcDoc = null;              // the document the parallel view shows (it lags while coordinates load)
 view.setStyle?.(el.style.value);                        // 'simple': the page opens on the extremum graph itself
 view.setRadiusExponent?.(el.radiusLaw.value === 'nddav' ? 'nddav' : Number(el.radiusLaw.value));
 view.setScaleMode?.(el.scaleMode.value);
@@ -187,6 +201,7 @@ function applyTheme() {
   const c = themeColors();
   for (const v of spineViews()) v.setTheme(c);
   dataView.setTheme({ bg: hexToRgb(cssColor('--bg')) });
+  pcView?.setTheme(pcTheme());
   volumeView.setTheme({ bg: hexToRgb(cssColor('--bg')), marker: hexToRgb(cssColor('--ring')),
                         select: hexToRgb(cssColor('--accent')) });
   plot.setTheme({ text: cssColor('--muted'), axis: cssColor('--muted'), line: cssColor('--accent'),
@@ -206,6 +221,7 @@ function applyColormap() {
   for (const v of spineViews()) v.refreshColors?.();
   dataView.refreshColors?.();
   volumeView.refreshColors?.();
+  pcView?.refreshColors();
   syncedKey = ''; syncDataSelection();             // redraw the data-view legend
 }
 el.colormap.addEventListener('change', applyColormap);
@@ -232,6 +248,7 @@ function setThresholds(t, v) {
   view.setVisible(state.vis);
   dataView.setVisible(state.vis);
   volumeView.setVisible(state.vis);
+  if (pcReady()) pcView.setVisible(state.vis);
   if (state.compare && panelB.doc) panelB.setThresholds(t, v);
   lastHover = null;                    // hover indices refer to the previous visible lists
   syncDataSelection();
@@ -388,6 +405,12 @@ function updateComparison() {
 }
 
 // ---- linking the spine and the data view -----------------------------------
+/** Visible peaks whose regions the data views highlight: the hovered node's, else the selected one's. */
+function pickedPeaks() {
+  const node = lastHover ?? view.selected, vis = state.vis;
+  return !node || !vis ? [] : node.kind === 'peak' ? [node.index] : vis.saddleEnds[node.index];
+}
+
 /**
  * Highlight in the data view the region(s) of the node under the pointer in the
  * spine, or else of the selected one: a peak's region, or both regions a saddle
@@ -400,13 +423,13 @@ function syncDataSelection() {
   syncPending = true;
   requestAnimationFrame(() => {
     syncPending = false;
-    const node = lastHover ?? view.selected, vis = state.vis;
-    const picked = !node || !vis ? [] : node.kind === 'peak' ? [node.index] : vis.saddleEnds[node.index];
+    const vis = state.vis, picked = pickedPeaks();
     const key = `${state.loads}|${vis ? vis.peaks.length : 0}|${state.threshold}|${state.variation}|${picked.join(',')}`;
     if (key === syncedKey) return;
     syncedKey = key;
     dataView.setSelectedPeaks(picked);
     volumeView.setSelectedPeaks(picked);
+    if (pcReady()) pcView.setSelectedPeaks(picked);
     updateLegend(picked);
   });
 }
@@ -848,6 +871,7 @@ async function showVariantA() {
     state.loads = (state.loads ?? 0) + 1;
     syncedKey = '';
     setThreshold(initialThreshold());
+    if (state.mode === 'parallel') loadParallel();
     if (state.compare && panelB.doc) panelB.view.setColorIds?.(sharedColorIds(doc, panelB.doc));
     applyStyle();
     setStatus(`${count(doc.meta.num_points)} points · ${doc.meta.dimensions}D`);
@@ -886,6 +910,9 @@ async function showVariantB() {
 async function setCompare(on) {
   on = Boolean(on) && usableVariants(state.entry).length >= 2;
   state.compare = on;
+  if (on) state.mode = 'compare';
+  else if (state.mode === 'compare') state.mode = 'explore';
+  syncModeUi();
   document.body.classList.toggle('compare', on);
   el.panelB.hidden = !on;                         // shown before the view is created, so it gets a size
   el.swapVariants.hidden = !on;
@@ -939,6 +966,7 @@ async function init() {
   el.dataset.addEventListener('change', () => loadDataset(el.dataset.value, state.variantA, state.variantB));
   await loadDataset(first, a, b);
   if (b) await setCompare(true);
+  else if (storedMode() === 'parallel') await setMode('parallel');
   window.addEventListener('hashchange', () => openHash(location.hash));   // a typed or followed link
 }
 
@@ -952,7 +980,187 @@ async function openHash(hash) {
   if (b && !state.compare) await setCompare(true);
 }
 
+// ---- modes: the rail on the left ----------------------------------------------
+// Explore: spine + data view. Compare: two spines (setCompare). Parallel: spine +
+// parallel coordinates in place of the data view. The parallel mode is remembered
+// in the browser; compare mode lives in the link (#name:left:right).
+const MODE_STORE = 'gv271.mode';
+function storedMode() { try { return localStorage.getItem(MODE_STORE); } catch { return null; } }
+
+function syncModeUi() {
+  for (const b of el.modeButtons) b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode));
+  document.body.classList.toggle('mode-parallel', state.mode === 'parallel');
+  el.parallel.hidden = state.mode !== 'parallel';
+  el.data.hidden = state.mode === 'parallel';
+  el.toggleData.title = state.mode === 'parallel'
+    ? 'Show or hide the parallel coordinates (key: d)' : 'Show or hide the data view (key: d)';
+  if (state.mode !== 'parallel') pcView?.setActive(false);
+}
+
+async function setMode(mode) {
+  if (mode === 'compare') { await setCompare(true); return; }      // setCompare sets the mode
+  if (state.compare) await setCompare(false);
+  state.mode = mode;
+  try { localStorage.setItem(MODE_STORE, mode); } catch { /* storage blocked */ }
+  syncModeUi();
+  if (mode === 'parallel') await loadParallel();
+  syncedKey = ''; syncDataSelection();
+}
+
+for (const b of el.modeButtons) b.addEventListener('click', () => setMode(b.dataset.mode));
+window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, select, textarea')) return;
+  if (e.key.toLowerCase() === 'p') setMode(state.mode === 'parallel' ? 'explore' : 'parallel');
+});
+
+// ---- parallel coordinates --------------------------------------------------------
+// The view (and its WebGL context) is created the first time the mode is opened.
+// Point clouds need their original coordinates (<name>.coords.json, loaded then);
+// grids derive x, y, z from the shape.
+/** True when the parallel view holds the current document, so updates for it can be passed on. */
+function pcReady() { return Boolean(pcView && pcDoc && pcDoc === state.doc); }
+
+function pcTheme() {
+  return { bg: hexToRgb(cssColor('--bg')), text: cssColor('--text'), muted: cssColor('--muted'),
+           accent: cssColor('--accent'), context: cssColor('--link') };
+}
+
+/** Stands in for the parallel view when WebGL cannot start. */
+class UnavailableParallel {
+  constructor(container) {
+    const box = document.createElement('div');
+    box.className = 'no-webgl';
+    box.innerHTML = '<p><strong>The parallel coordinates cannot be drawn here</strong> (no WebGL).</p>';
+    container.appendChild(box);
+  }
+  setGraph() { return 0.3; } setCoords() {} setVisible() {} setSelectedPeaks() {} setColorBy() {}
+  refreshColors() {} setOpacity() {} setAxisShown() { return false; } showAllAxes() {} clearBrushes() {}
+  setTheme() {} setActive() {}
+}
+
+function ensureParallelView() {
+  if (pcView) return;
+  try {
+    pcView = new ParallelView(el.pcCanvas, { onPick: onPickPoint, onBrush: renderBrush, onAxes: renderAxesMenu });
+  } catch (err) {
+    console.error(err);
+    pcView = new UnavailableParallel(el.pcCanvas);
+  }
+  pcView.setTheme(pcTheme());
+}
+
+/** Give the parallel view the current document (and its coordinates), then show it. */
+async function loadParallel() {
+  ensureParallelView();
+  const doc = state.doc, entry = state.entry;
+  if (!doc) return;
+  if (pcDoc !== doc) {
+    let coords = null, note = '';
+    if (!doc.region) note = 'This file has no per-point regions, so the lines cannot be drawn.';
+    else if (doc.meta.kind !== 'grid') {
+      if (!entry.coords_file) {
+        note = 'No original coordinates for this file (run python3 web/build_data.py --coords-only); ' +
+               'only the value and peak axes are shown.';
+      } else {
+        try {
+          setStatus('loading coordinates…');
+          coords = await cachedJSON(entry.coords_file);
+        } catch (err) {
+          console.error(err);
+          note = `The coordinates could not be loaded (${err.message}); only the value and peak axes are shown.`;
+        }
+        setStatus(`${count(doc.meta.num_points)} points · ${doc.meta.dimensions}D`);
+      }
+    }
+    if (state.doc !== doc || state.mode !== 'parallel') return;    // the user moved on meanwhile
+    const opacity = pcView.setGraph(doc);
+    if (coords) pcView.setCoords(coords);
+    pcView.setColorBy(el.pcColorBy.value);
+    pcView.setVisible(state.vis);
+    pcView.setSelectedPeaks(pickedPeaks());
+    pcDoc = doc;
+    setPcOpacity(opacity);
+    renderBrush(null);
+    el.pcNote.textContent = note;
+    el.pcNote.hidden = !note;
+  }
+  if (state.mode === 'parallel') pcView.setActive(true);
+}
+
+function setPcOpacity(a) {
+  el.pcOpacity.value = String(a);
+  el.pcOpacityOut.textContent = Number(el.pcOpacity.value).toFixed(2);
+  pcView?.setOpacity(Number(el.pcOpacity.value));
+}
+
+/** The brush summary above the plot: how many points pass, and in which peaks (click one to select it). */
+function renderBrush(summary) {
+  el.pcClear.disabled = !summary;
+  if (!summary) {
+    el.pcBrush.innerHTML = '<span>No brush: drag along an axis to keep the points in a range; ' +
+      'brushes on several axes combine (a point must pass all).</span>';
+    return;
+  }
+  const { count: n, total, peaks } = summary;
+  const parts = [`<span><b>${count(n)}</b> of ${count(total)} points (${pct(n, total)}) pass</span>`];
+  if (n) {
+    const sel = new Set(view.selected?.kind === 'peak' ? [view.selected.index] : []);
+    parts.push('<span>in peak</span>');
+    const MAX = 6;
+    for (const p of peaks.slice(0, MAX)) {
+      const rgb = regionColor(p.id).map((c) => Math.round(c * 255)).join(',');
+      parts.push(`<button type="button" data-peak="${p.index}" class="${sel.has(p.index) ? 'on' : ''}" ` +
+        `title="Select peak ${p.id} in the spine"><i style="background:rgb(${rgb})"></i>${p.id} · ${pct(p.count, n)}</button>`);
+    }
+    if (peaks.length > MAX) parts.push(`<span>+${peaks.length - MAX} more</span>`);
+  }
+  el.pcBrush.innerHTML = parts.join(' ');
+}
+el.pcBrush.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-peak]');
+  if (!b) return;
+  const index = Number(b.dataset.peak);
+  const on = view.selected?.kind === 'peak' && view.selected.index === index;
+  view.select(on ? null : { kind: 'peak', index });
+  for (const x of el.pcBrush.querySelectorAll('button[data-peak]')) x.classList.toggle('on', !on && x === b);
+});
+el.pcColorBy.addEventListener('change', () => pcView?.setColorBy(el.pcColorBy.value));
+el.pcOpacity.addEventListener('input', () => setPcOpacity(Number(el.pcOpacity.value)));
+
+// The "Axes" menu: one checkbox per axis the data offers (rebuilt when the view reports its axes).
+function renderAxesMenu(axes) {
+  const shown = axes.filter((a) => a.shown).length;
+  el.pcAxesCount.textContent = `${shown}/${axes.length}`;
+  el.pcAxesList.replaceChildren(...axes.map((a) => {
+    const label = document.createElement('label');
+    const box = document.createElement('input');
+    box.type = 'checkbox'; box.checked = a.shown; box.dataset.key = a.key;
+    box.disabled = a.shown && shown <= 2;                  // the last two axes stay
+    label.classList.toggle('locked', box.disabled);
+    if (box.disabled) label.title = 'At least two axes are drawn';
+    label.append(box, a.label);
+    return label;
+  }));
+  el.pcAxesCoords.disabled = !axes.some((a) => a.key.startsWith('c:') || ['x', 'y', 'z'].includes(a.key));
+}
+el.pcAxesList.addEventListener('change', (e) => {
+  const box = e.target.closest('input[data-key]');
+  if (box && !pcView?.setAxisShown(box.dataset.key, box.checked)) box.checked = !box.checked;
+});
+el.pcAxesAll.addEventListener('click', () => pcView?.showAllAxes());
+el.pcAxesCoords.addEventListener('click', () => {
+  if (!pcView) return;
+  pcView.showAllAxes();
+  for (const a of pcView.axes()) if (a.key !== 'value' && a.key !== 'peak') pcView.setAxisShown(a.key, false);
+});
+// Close the menu on a click elsewhere or on Escape.
+document.addEventListener('pointerdown', (e) => { if (el.pcAxes.open && !el.pcAxes.contains(e.target)) el.pcAxes.open = false; });
+el.pcAxes.addEventListener('keydown', (e) => { if (e.key === 'Escape') { el.pcAxes.open = false; el.pcAxes.querySelector('summary').focus(); } });
+el.pcClear.addEventListener('click', () => pcView?.clearBrushes());
+
 window.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') view.select(null); });
 // ?debug exposes the page's objects for scripted checks (tests, Playwright).
-if (new URLSearchParams(location.search).has('debug')) window.gv = { state, view, panelB, setCompare };
+if (new URLSearchParams(location.search).has('debug')) {
+  window.gv = { state, view, panelB, setCompare, setMode, get pcView() { return pcView; } };
+}
 init();

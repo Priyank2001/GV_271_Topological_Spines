@@ -473,6 +473,98 @@ try {
     const n0 = cams.length;
     check('setCamera moves the view without reporting back', sv.getCamera().x === 0.3 && sv.getCamera().halfHeight === 0.7 && cams.length === n0);
   }
+
+  // ---- parallel coordinates (parallel.js, parallelView.js) ----------------
+  {
+    const PC = await import('../src/parallel.js');
+    const { ParallelView } = await import('../src/parallelView.js');
+    const tp = load('two_peaks_2d'), coords = load('two_peaks_2d.coords');
+    const n = tp.meta.num_points;
+    const x1 = PC.decodeAxis(coords.axes[0].data, n);
+    check('decodeAxis: n values in [0, 1] reaching both ends',
+          x1.length === n && Math.min(...x1) === 0 && Math.max(...x1) === 1);
+    let threw = false; try { PC.decodeAxis(coords.axes[0].data, n + 1); } catch { threw = true; }
+    check('decodeAxis refuses a wrong point count', threw);
+    const { columns, note } = PC.baseColumns(tp, coords);
+    check('point cloud columns: x1, x2, value', JSON.stringify(columns.map((c) => c.key)) === '["c:x1","c:x2","value"]' && !note);
+    check('no coords: only the value column, with a note', PC.baseColumns(tp, null).columns.length === 1 && PC.baseColumns(tp, null).note !== '');
+    const val = columns[2];
+    check('value column matches the field values', Math.abs(val.lo + val.v[7] * (val.hi - val.lo) - tp.data.values[7]) < 1e-5);
+
+    const grid = { meta: { kind: 'grid', num_points: 24, grid_shape: [2, 3, 4], spacing: [1, 2, 3] },
+                   data: { shape: [2, 3, 4], spacing: [1, 2, 3], values: Array.from({ length: 24 }, (_, i) => i / 23) } };
+    const gc = PC.baseColumns(grid).columns;
+    const at = (key, i) => gc.find((c) => c.key === key).v[i];
+    check('grid columns x, y, z, value from the (z, y, x) order',
+          gc.map((c) => c.key).join() === 'x,y,z,value' && Math.abs(at('x', 17) - 1 / 3) < 1e-6 &&
+          Math.abs(at('y', 17) - 1 / 2) < 1e-6 && at('z', 17) === 1 && gc[1].hi === 4 && gc[2].hi === 3);
+
+    const vis = simplify(tp, 0);
+    const pk = PC.peakColumn(tp, vis);
+    let inBand = true;
+    for (let i = 0; i < n; i++) {
+      const b = pk.bands.find((x) => x.index === vis.owner[tp.region[i]]);
+      if (!(pk.v[i] > b.bottom && pk.v[i] < b.top)) { inBand = false; break; }
+    }
+    check('peak column: every point inside its peak\'s band', inBand && pk.bands.length === vis.peaks.length);
+    check('peak column: the highest peak has the top band',
+          tp.peaks[pk.bands[0].id].value === Math.max(...vis.peaks.map((id) => tp.peaks[id].value)));
+
+    const cols = [{ key: 'a', v: Float32Array.from([0, 0.5, 1]) }, { key: 'b', v: Float32Array.from([1, 0.5, 0]) }];
+    const m = PC.brushMask(cols, new Map([['a', [0.4, 1]], ['b', [0, 0.6]]]), 3);
+    check('brushMask: a point must pass every brush', m.join() === '0,1,1');
+    check('brushMask: no brush gives null', PC.brushMask(cols, new Map(), 3) === null);
+    check('andMask', PC.andMask(m, Uint8Array.from([1, 1, 0])).join() === '0,1,0' && PC.andMask(null, m) === m);
+    check('lineIndex: A-1 segments per chosen point', PC.lineIndex(m, 3, 3).join() === '3,4,4,5,6,7,7,8' &&
+          PC.lineIndex(m, 3, 3, 0).join() === '0,1,1,2' && PC.lineIndex(null, 2, 2).join() === '0,1,2,3');
+    const yOf = (c, i) => 100 - 100 * c.v[i];
+    check('pickLine: nearest polyline at the pointer, none when far',
+          // at x = 25 the three lines are at y = 75, 50, 25 (they all cross at x = 50)
+          PC.pickLine(25, 52, cols, [0, 100], yOf, 3) === 1 && PC.pickLine(25, 73, cols, [0, 100], yOf, 3) === 0 &&
+          PC.pickLine(25, 38, cols, [0, 100], yOf, 3) === -1 && PC.pickLine(25, 50, cols, [0, 100], yOf, 3, Uint8Array.from([1, 0, 1])) === -1);
+
+    // The view against a fake renderer and overlay.
+    const overlay = { style: {}, width: 0, height: 0, addEventListener() {}, remove() {},
+                      getBoundingClientRect: () => ({ left: 0, top: 0, width: W, height: H }) };
+    const brushes = [];
+    const pv = new ParallelView(container, { onBrush: (s) => brushes.push(s) }, { renderer: fakeRenderer(), overlay });
+    pv.setTheme({ bg: [1, 1, 1], text: '#000', muted: '#666', accent: '#00f', context: '#999' });
+    pv.setGraph(tp); pv.setCoords(coords); pv.setVisible(vis); pv.setActive(true); pv.flush();
+    check('view: one vertex per point and axis (x1, x2, value, peak)',
+          pv.bufN === n && pv.bufA === 4 && pv.order.join() === 'c:x1,c:x2,value,peak' &&
+          pv.focusGeom.index.count === n * 2 * 3 && pv.ctxGeom.index.count === 0);
+    const pos = pv.posAttr.array;
+    check('view: positions are (axis slot, shown value)', pos[(5 * 4 + 1) * 3] === 1 && Math.abs(pos[(5 * 4 + 1) * 3 + 1] - pv.base[1].v[5]) < 1e-6);
+    pv.brushes.set('value', [0.5, 1]); pv.setSelectedPeaks([]); pv.need.add('focus'); pv.flush();
+    const s = brushes.at(-1), want = Array.from(val.v).filter((x) => x >= 0.5).length;
+    check('view: brushing reports the points that pass, per peak',
+          s && s.count === want && s.peaks.reduce((a, p) => a + p.count, 0) === want &&
+          pv.focusGeom.index.count === want * 6 && pv.ctxGeom.index.count === (n - want) * 6);
+    pv.setSelectedPeaks([0]); pv.flush();
+    const inBoth = Array.from(val.v).filter((x, i) => x >= 0.5 && vis.owner[tp.region[i]] === 0).length;
+    check('view: focus = brushed AND in the selected peak\'s region', pv.focusGeom.index.count === inBoth * 6);
+    pv.clearBrushes(); pv.setSelectedPeaks([]); pv.flush();
+    check('view: clearing reports no brush', brushes.at(-1) === null && pv.ctxGeom.index.count === 0);
+    const axesSeen = [];
+    pv.handlers.onAxes = (a) => axesSeen.push(a);
+    pv.setAxisShown('peak', false); pv.flush();
+    check('view: the peak axis can be hidden', pv.bufA === 3 && pv.order.join() === 'c:x1,c:x2,value' &&
+          axesSeen.at(-1).map((a) => `${a.key}:${a.shown}`).join() === 'c:x1:true,c:x2:true,value:true,peak:false');
+    pv.brushes.set('value', [0.2, 0.4]);
+    check('view: hiding an axis drops its brush', pv.setAxisShown('value', false) && !pv.brushes.has('value'));
+    check('view: at least two axes stay', !pv.setAxisShown('c:x1', false) && pv.order.join() === 'c:x1,c:x2');
+    pv.order = ['c:x2', 'c:x1']; pv.setAxisShown('value', true); pv.setAxisShown('peak', true);
+    check('view: a re-shown axis returns after its natural predecessor', pv.order.join() === 'c:x2,c:x1,value,peak', pv.order.join());
+    pv.setAxisShown('c:x1', false); pv.showAllAxes(); pv.flush();
+    check('view: show all', pv.bufA === 4 && pv.hiddenAxes.size === 0);
+    check('view: unknown axes are refused', !pv.setAxisShown('nope', true));
+    pv.order = []; pv.setAxisShown('peak', false); pv.flush();
+    check('view: order rebuilt without the hidden axis', pv.order.join() === 'c:x1,c:x2,value' && pv.bufA === 3);
+    pv.columns()[0].flipped = true; pv.need.add('positions'); pv.flush();
+    check('view: a flipped axis draws 1 - v', Math.abs(pv.posAttr.array[(5 * 3) * 3 + 1] - (1 - pv.base[0].v[5])) < 1e-6);
+    pv.setActive(false); pv.setVisible(simplify(tp, 1e9)); pv.flush();
+    check('view: an inactive view defers its rebuild', pv.need.has('peak'));
+  }
 } catch (e) {
   failures++;
   out.insertAdjacentHTML('beforeend', `<span class="fail">ERROR</span> ${e.stack || e}\n`);

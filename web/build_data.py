@@ -16,6 +16,10 @@ registered extraction variant (``comparison/variants.py``: AnyEG, ours on the
 14-neighbour grid, ...) is written as ``<name>.<variant>.json`` for the viewer's
 compare mode, in the same 2D frame. ``--no-variants`` skips them (and keeps the
 variants already listed in index.json).
+
+Point clouds also get ``<name>.coords.json``: the original coordinates of every
+point, for the parallel-coordinates mode (loaded only when that mode is opened).
+``--coords-only`` writes just these files and leaves the graphs as they are.
 """
 
 from __future__ import annotations
@@ -32,7 +36,7 @@ sys.path.insert(0, str(ROOT))
 from comparison.sources import FieldSource  # noqa: E402
 from comparison.variants import TRAIT_LABELS  # noqa: E402
 from comparison.viewer_export import export_variants  # noqa: E402
-from pipeline.export_json import build_document, write_json  # noqa: E402
+from pipeline.export_json import build_document, coords_document, write_json  # noqa: E402
 
 OUT = Path(__file__).resolve().parent / "data"
 
@@ -91,11 +95,34 @@ ENTRIES = {
 }
 
 
+def write_coords(name: str, spec: dict) -> str | None:
+    """Write ``<name>.coords.json`` for a point-cloud entry; returns its file name.
+
+    Checks that the generator still gives the field values stored in ``<name>.json``,
+    so the coordinates line up with the regions in that file.
+    """
+    if "dataset" not in spec:
+        return None                                   # grids: the browser derives x, y, z
+    import numpy as np
+    from pipeline.data_loader import load_dataset
+
+    ds = load_dataset(spec["dataset"])
+    main_file = OUT / f"{name}.json"
+    if main_file.exists():
+        stored = np.asarray(json.loads(main_file.read_text())["data"]["values"])
+        if stored.shape != np.shape(ds.values) or np.abs(stored - np.asarray(ds.values)).max() > 1e-3:
+            raise SystemExit(f"{name}: the dataset no longer matches {main_file.name}; rebuild it first")
+    path = write_json(coords_document(ds.points), OUT / f"{name}.coords.json")
+    return path.name
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("names", nargs="*", help=f"entries to build (default: all of {list(ENTRIES)})")
     ap.add_argument("--no-variants", action="store_true",
                     help="only our own graph; keep the variant files listed in index.json")
+    ap.add_argument("--coords-only", action="store_true",
+                    help="only write <name>.coords.json for point clouds (parallel coordinates)")
     args = ap.parse_args()
     names = args.names or list(ENTRIES)
     unknown = [n for n in names if n not in ENTRIES]
@@ -108,6 +135,11 @@ def main() -> None:
     for name in names:
         spec = dict(ENTRIES[name])
         label, text = spec.pop("label"), spec.pop("text")
+        if args.coords_only:
+            if name in index:
+                index[name]["coords_file"] = write_coords(name, spec)
+                print(f"{name:11s} coords: {index[name]['coords_file'] or '(grid, none needed)'}")
+            continue
         t0 = time.time()
         doc = build_document(**spec)
         old = index.get(name, {})
@@ -122,7 +154,8 @@ def main() -> None:
                        "peaks": len(doc["peaks"]), "saddles": len(doc["saddles"]),
                        "spine_stress": doc.get("spine", {}).get("stress"),
                        "crossings": doc.get("spine", {}).get("crossings"),
-                       "variants": variants, "comparisons": comparisons}
+                       "variants": variants, "comparisons": comparisons,
+                       "coords_file": write_coords(name, spec)}
         print(f"{name:11s} {len(doc['peaks']):4d} peaks {len(doc['saddles']):5d} saddles "
               f"{path.stat().st_size / 1e6:6.2f} MB  {time.time() - t0:5.1f}s")
 

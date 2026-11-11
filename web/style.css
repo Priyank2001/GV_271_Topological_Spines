@@ -68,10 +68,33 @@ select {
 }
 .toggles button[aria-pressed="true"] { color: var(--text); background: var(--panel); border-color: var(--accent); }
 .toggles button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-body.hide-data #data, body.hide-side aside { display: none; }
+body.hide-data #data, body.hide-data #parallel, body.hide-side aside { display: none; }
 #status.error { color: #dc2626; }
 
 main { flex: 1; display: flex; min-height: 0; }
+
+/* ---- mode rail: the toolbar on the left that switches between modes ---- */
+#modeRail {
+  flex: none; width: 68px; display: flex; flex-direction: column; gap: 4px; padding: 8px 6px;
+  background: var(--panel); border-right: 1px solid var(--border);
+}
+#modeRail .mode {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 2px 6px; font: inherit; font-size: 11px; line-height: 1.2; color: var(--muted);
+  background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer;
+}
+#modeRail .mode svg {
+  width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.6;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+#modeRail .mode:hover:not(:disabled) { color: var(--text); background: var(--bg); }
+#modeRail .mode[aria-pressed="true"] { color: var(--accent); background: var(--bg); border-color: var(--border); }
+#modeRail .mode[aria-pressed="true"]::before {
+  content: ""; position: absolute; left: -7px; top: 9px; bottom: 9px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--accent);
+}
+#modeRail .mode:disabled { opacity: 0.4; cursor: default; }
+#modeRail .mode:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 #views { flex: 1; display: flex; min-width: 0; min-height: 0; }
 #spines { flex: 1 1 0; display: flex; min-width: 0; min-height: 0; }
@@ -95,11 +118,64 @@ body.compare #spines { flex: 2 1 0; }                 /* two spines get twice th
   position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
   border-left: 1px solid var(--border);
 }
-#dataBar {
-  display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 8px 12px;
+#dataBar, .view-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 8px 12px;
   border-bottom: 1px solid var(--border); background: var(--panel);
 }
-#dataBar label { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+#dataBar label, .view-bar label { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.view-bar input[type=range] { width: 90px; }
+.view-bar output { min-width: 2.5em; font-variant-numeric: tabular-nums; color: var(--text); }
+.view-bar button, .pc-brush button {
+  font: inherit; font-size: 13px; color: var(--text); background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 2px 10px; cursor: pointer;
+}
+.view-bar button:disabled { opacity: 0.45; cursor: default; }
+
+/* the "Axes" menu of the parallel coordinates */
+.pc-axes { position: relative; }
+.pc-axes summary {
+  list-style: none; cursor: pointer; color: var(--text); background: var(--bg); font-size: 13px;
+  border: 1px solid var(--border); border-radius: 6px; padding: 2px 10px; user-select: none;
+}
+.pc-axes summary::-webkit-details-marker { display: none; }
+.pc-axes summary::after { content: " ▾"; color: var(--muted); }
+.pc-axes[open] summary { border-color: var(--accent); }
+.pc-axes summary span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.pc-axes-menu {
+  position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; width: max-content; max-width: min(360px, 80vw);
+  padding: 8px 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+.pc-axes-head { display: flex; gap: 6px; margin-bottom: 6px; }
+.pc-axes-list { display: grid; grid-template-columns: repeat(3, auto); gap: 2px 14px; }
+.pc-axes-list label { display: flex; align-items: center; gap: 5px; color: var(--text); font-size: 13px; white-space: nowrap; }
+.pc-axes-list label.locked { color: var(--muted); }
+.pc-axes-note { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
+
+/* ---- parallel coordinates ---- */
+#parallel {
+  position: relative; flex: 1.6 1 0; min-width: 0; display: flex; flex-direction: column;
+  border-left: 1px solid var(--border);
+}
+#pcCanvas { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.pc-brush {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 34px; padding: 5px 12px;
+  border-bottom: 1px solid var(--border); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.pc-brush b { color: var(--text); }
+.pc-brush button { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; font-size: 12px; }
+.pc-brush button.on { border-color: var(--accent); color: var(--accent); }
+.pc-brush i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.pc-note { margin: 0; padding: 6px 12px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); }
+#parallel .hint {
+  padding: 4px 12px 6px; font-size: 12px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pc-tip {
+  position: absolute; z-index: 5; pointer-events: none; white-space: nowrap;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  padding: 3px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
 #dataCanvas, #volumeCanvas { position: relative; flex: 1; min-height: 0; }
 #volumeCanvas canvas { display: block; }
 #volumeControls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
@@ -209,7 +285,16 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .compare-box .facts li { margin: 2px 0; }
 
 @media (max-width: 760px) {
+  header { flex-wrap: wrap; gap: 8px 12px; }
   main { flex-direction: column; }
+  #modeRail {
+    width: auto; flex-direction: row; justify-content: center; padding: 4px 16px;
+    border-right: 0; border-bottom: 1px solid var(--border);
+  }
+  #modeRail .mode { flex-direction: row; gap: 6px; padding: 5px 10px; }
+  #modeRail .mode svg { width: 20px; height: 20px; }
+  #modeRail .mode[aria-pressed="true"]::before { display: none; }
+  #parallel { border-left: 0; border-top: 1px solid var(--border); min-height: 60vh; }
   #views { flex-direction: column; }
   #data { border-left: 0; border-top: 1px solid var(--border); min-height: 50vh; }
   aside { width: auto; border-left: 0; border-top: 1px solid var(--border); max-height: 50vh; }

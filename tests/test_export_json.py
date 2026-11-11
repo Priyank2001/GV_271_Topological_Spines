@@ -9,8 +9,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from pipeline.export_json import (check_export, export_extremum_graph,
-                                  extremum_graph_to_dict, points_data, volume_data)
+from pipeline.export_json import (check_export, coords_document, decode_coords,
+                                  export_extremum_graph, extremum_graph_to_dict,
+                                  points_data, volume_data)
 from pipeline.extremum_graph import extremum_graph
 from pipeline.neighbor_graph import NeighborGraph, grid_graph, knn_graph
 
@@ -167,3 +168,21 @@ def test_points_data_embeddings_are_scaled_flat_and_named():
     assert flat == [-1.0, -0.5, 0.0, 0.0, 1.0, 0.5]            # [-1, 1], aspect kept
     with pytest.raises(ValueError):
         points_data(values, embeddings={"bad": np.zeros((3, 3))})
+
+
+def test_coords_document_round_trips_within_the_16_bit_step():
+    rng = np.random.default_rng(0)
+    pts = rng.normal(size=(500, 4)) * [1.0, 10.0, 0.01, 3.0]
+    pts[:, 3] = 2.5                                             # a constant axis
+    doc = json.loads(json.dumps(coords_document(pts)))
+    assert doc["num_points"] == 500 and doc["dimensions"] == 4
+    assert [a["name"] for a in doc["axes"]] == ["x1", "x2", "x3", "x4"]
+    back = decode_coords(doc)
+    step = (pts.max(0) - pts.min(0)) / 65535
+    assert np.all(np.abs(back - pts) <= step / 2 + 1e-12)
+    assert np.all(back[:, 3] == 2.5)
+    assert doc["axes"][0]["min"] == pts[:, 0].min() and doc["axes"][0]["max"] == pts[:, 0].max()
+    with pytest.raises(ValueError):
+        coords_document(pts, names=["a"])
+    with pytest.raises(ValueError):
+        coords_document(np.array([[np.nan, 0.0]]))

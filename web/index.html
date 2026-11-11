@@ -20,11 +20,28 @@
       <button id="toggleSpine" type="button" aria-pressed="false" title="Draw the topological spine (nested contours) around the extremum graph (key: s)">Spine</button>
       <button id="toggleData" type="button" aria-pressed="true" title="Show or hide the data view (key: d)">Data view</button>
       <button id="toggleSide" type="button" aria-pressed="true" title="Show or hide the controls (key: c)">Controls</button>
-      <button id="toggleCompare" type="button" aria-pressed="false" title="Compare two extraction methods side by side (key: m)">Compare</button>
     </div>
   </header>
 
   <main>
+    <nav id="modeRail" aria-label="Modes">
+      <button type="button" class="mode" data-mode="explore" aria-pressed="true"
+              title="Explore: the spine next to the scatterplot or volume">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.6"/><circle cx="19" cy="5.5" r="2.6"/><circle cx="19" cy="18.5" r="2.6"/><path d="M7.4 10.9l9.2-4.3M7.4 13.1l9.2 4.3M19 8.1v7.8"/></svg>
+        <span>Explore</span>
+      </button>
+      <button type="button" class="mode" id="toggleCompare" data-mode="compare" aria-pressed="false"
+              title="Compare two extraction methods side by side (key: m)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4" width="8.5" height="16" rx="1.6"/><rect x="13" y="4" width="8.5" height="16" rx="1.6"/><circle cx="6.75" cy="10" r="1.4"/><circle cx="17.25" cy="10" r="1.4"/><path d="M5 15h3.5M15.5 15h3.5"/></svg>
+        <span>Compare</span>
+      </button>
+      <button type="button" class="mode" data-mode="parallel" aria-pressed="false"
+              title="Parallel coordinates: every point as a line across all original dimensions (key: p)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18M12 3v18M20 3v18"/><path d="M4 6.5l8 10 8-11" opacity=".9"/><path d="M4 17l8-9 8 7"/></svg>
+        <span>Parallel</span>
+      </button>
+    </nav>
+
     <div id="views">
       <div id="spines">
         <div class="spine-panel">
@@ -125,6 +142,38 @@
           <div class="cl-note" id="clNote"></div>
         </div>
         <div class="hint" id="dataHint"></div>
+      </section>
+
+      <section id="parallel" aria-label="Parallel coordinates" hidden>
+        <div id="pcBar" class="view-bar">
+          <label>Colour
+            <select id="pcColorBy" aria-label="Colour lines by">
+              <option value="region">peak region (distinct colours)</option>
+              <option value="value">field value</option>
+            </select>
+          </label>
+          <label>Line opacity
+            <input id="pcOpacity" type="range" min="0.01" max="1" step="0.01" value="0.3" aria-label="Line opacity">
+            <output id="pcOpacityOut"></output>
+          </label>
+          <details id="pcAxes" class="pc-axes">
+            <summary title="Choose which axes are drawn">Axes <span id="pcAxesCount"></span></summary>
+            <div class="pc-axes-menu" role="group" aria-label="Axes to draw">
+              <div class="pc-axes-head">
+                <button id="pcAxesAll" type="button">Show all</button>
+                <button id="pcAxesCoords" type="button" title="Hide the coordinates, keep f and peak">Only f and peak</button>
+              </div>
+              <div id="pcAxesList" class="pc-axes-list"></div>
+              <p class="pc-axes-note">At least two axes stay. Hiding an axis removes its brush.</p>
+            </div>
+          </details>
+          <button id="pcClear" type="button" disabled title="Remove every brush (or double-click the plot)">Clear brushes</button>
+        </div>
+        <div id="pcBrush" class="pc-brush" aria-live="polite"></div>
+        <div id="pcCanvas"></div>
+        <p id="pcNote" class="pc-note" hidden></p>
+        <div class="hint" id="pcHint">drag along an axis to brush · click an axis to clear its brush ·
+          click a name to flip the axis, drag it to move · click a line to select its peak</div>
       </section>
     </div>
 
