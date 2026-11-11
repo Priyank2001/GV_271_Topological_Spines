@@ -37,6 +37,21 @@
 // A lobe normally runs straight from u to s. With ``o.route`` it follows a
 // polyline instead (the p* ridge through merged-away peaks, spineView.js);
 // f(p) then runs linearly in arc length.
+//
+// ``o.shape = 'nddav'`` draws the spine the way LLNL's NDDAV does
+// (hdanalysis/core/TopoSpines.py, ``buildContours``). The point counts are the
+// same; the shapes, isovalues and colours differ:
+//
+//   * c > f(s): a circle centred on the peak, radius size(V(c, f(u))). Contours
+//     above every saddle are concentric rings around the peak.
+//   * c <= f(s): the hull of that circle and a circle at the saddle, with the
+//     radius changing linearly along the link. The saddle radius is how much the
+//     region has grown since the saddle value, size(V(c, f(u))) - size(V(f(s), f(u))),
+//     the larger of the saddle's two peaks; so both lobes meet it with the same
+//     width, and it is 0 at c = f(s) (the figure-eight). NDDAV joins the two
+//     circles with a quad; the swept hull here is the same shape without kinks.
+//   * isovalues: ``nddavLevels`` (evenly spaced levels plus every saddle value);
+//   * opaque fills and full-strength outlines (``o.fade = false``).
 
 export const BINS = 64;
 
@@ -127,6 +142,43 @@ export function sharedLevels(critical, lo, hi, { gap = 0.02, maxLevels = 40 } = 
 }
 
 /**
+ * Isovalues of NDDAV's spine (TopoSpines.generateSpine), lowest first: every
+ * distinct saddle value, plus ``count`` evenly spaced levels lo, lo + step, ...,
+ * lo + (count-1) step (step = (hi - lo) / count). An even level is added only
+ * when it is more than ``(count-1) step / count`` away from every value kept so
+ * far (saddles first, then the even levels in increasing order). The field
+ * minimum ``lo`` is the first even level, so it gives the outer halo unless a
+ * saddle lies close to it.
+ */
+export function nddavLevels(saddleValues, lo, hi, count = 10) {
+  const n = Math.max(1, Math.round(count));
+  const step = (hi - lo) / n;
+  const even = Array.from({ length: n }, (_, i) => lo + i * step);
+  const evenSpan = even[even.length - 1] - even[0];
+  const delta = evenSpan / n;
+  const kept = [...new Set(saddleValues)];
+  for (const v of even) {
+    let diff = evenSpan;
+    for (const k of kept) diff = Math.min(diff, Math.abs(v - k));
+    if (diff > delta || (kept.length === 0 && n === 1)) kept.push(v);
+  }
+  return kept.sort((a, b) => a - b);
+}
+
+/**
+ * At most about ``max`` of the distinct ``values``, keeping the highest first and then any value
+ * at least (hi - lo) / max below the last one kept. Returns all of them when there are few.
+ */
+export function thinValues(values, lo, hi, max) {
+  const vals = [...new Set(values)].sort((a, b) => b - a);
+  if (vals.length <= max) return vals;
+  const sep = (hi - lo) / max;
+  const kept = [];
+  for (const v of vals) if (!kept.length || kept[kept.length - 1] - v >= sep) kept.push(v);
+  return kept;
+}
+
+/**
  * Outline of the Minkowski sum of circles along a polyline: radius ``rad(t)``
  * at arc-length fraction t in [0, tEnd]. Calls ``tri`` for the swept band and
  * ``disc`` for the circles at the ends, bends, and wherever one circle swallows
@@ -177,11 +229,14 @@ function sweep(pts, at, total, tEnd, samples, rad, grow, tri, disc) {
  * @param h          result of regionHistograms()
  * @param peakXY     layout of every document peak
  * @param saddleXY   layout of every document saddle
- * @param o          {rs, maxRadius (optional cap on every radius), exponent (1 = paper, 0.5 = sqrt), gap (min isovalue gap, fraction
+ * @param o          {rs, maxRadius (optional cap on every radius), knee (soft cap, see ``size``), exponent (1 = paper, 0.5 = sqrt), gap (min isovalue gap, fraction
  *                    of the value range), colorOf(t)->[r,g,b] sRGB, bg, edge: [r,g,b] sRGB,
  *                    edgeWidth, z0, zRange, maxLevels, samples,
  *                    route(i, sid) -> [[x, y], ...] from the peak to the saddle, or null
- *                    for a straight lobe (optional)}
+ *                    for a straight lobe (optional),
+ *                    shape: 'paper' (default) or 'nddav' (see the top of this file),
+ *                    levelCount: even levels of the 'nddav' shape (default 10; ``gap`` is not used then),
+ *                    fade: low isovalues fade towards bg (default true for 'paper', false for 'nddav')}
  * @returns {{positions: Float32Array, colors: Float32Array, triangles: number,
  *            extent: Float32Array, levels: number[]}}  ``extent[i]``: outer radius around visible peak i
  */
@@ -194,16 +249,27 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
   const m = o.samples ?? (many ? 10 : 32);
   const segs = many ? 24 : 48;
   const edgeW = o.edgeWidth ?? 0.003;
+  const nddav = o.shape === 'nddav';
+  const fade = o.fade ?? !nddav;
 
   const inc = Array.from({ length: P }, () => []);      // saddles (document ids) per visible peak
+  const ends = new Map();                               // saddle id -> its visible peaks
   vis.saddles.forEach((id, j) => {
     const [a, b] = vis.saddleEnds[j];
     inc[a].push(id);
     if (b !== a) inc[b].push(id);
+    ends.set(id, b !== a ? [a, b] : [a]);
   });
-  const levels = sharedLevels(
-    [...vis.saddles.map((id) => doc.saddles[id].value), ...vis.peaks.map((id) => doc.peaks[id].value)],
-    lo, hi, { gap: o.gap ?? 0.02, maxLevels: o.maxLevels ?? (many ? 12 : 40) });
+  const saddleValues = vis.saddles.map((id) => doc.saddles[id].value);
+  // NDDAV draws one contour per distinct saddle value. A graph with hundreds of saddles
+  // (e.g. the 32^3 Bucky ball) would need millions of triangles, so the saddle values are thinned
+  // until the number of sweeps (lobes x levels) fits ``o.sweepBudget``; small graphs keep them all.
+  const lobeCount = inc.reduce((n, l) => n + l.length, 0);
+  const maxSaddleLevels = Math.max(4, Math.floor((o.sweepBudget ?? 8000) / Math.max(1, lobeCount)) - (o.levelCount ?? 10));
+  const levels = nddav
+    ? nddavLevels(thinValues(saddleValues, lo, hi, maxSaddleLevels), lo, hi, o.levelCount ?? 10)
+    : sharedLevels([...saddleValues, ...vis.peaks.map((id) => doc.peaks[id].value)],
+      lo, hi, { gap: o.gap ?? 0.02, maxLevels: o.maxLevels ?? (many ? 12 : 40) });
 
   // The path of each lobe, from the peak to the saddle, with its arc length
   // (0 at the peak, 1 at the saddle) at every vertex. Computed once per lobe.
@@ -222,8 +288,33 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
   const pos = [], col = [];
   const extent = new Float32Array(P);
   const cap = o.maxRadius ?? Infinity;                  // monotone, so nesting is kept
-  const size = (v) => Math.min(cap, o.rs * Math.max(0, v) ** exponent);
+  // ``o.knee`` (with a finite ``maxRadius``): instead of a hard clamp, radii above ``knee`` are
+  // squeezed towards the cap as knee + D u / (1 + u), u = (r - knee) / D, D = cap - knee. The slope is 1
+  // at the knee and stays positive, so the wide outer contours keep tapering towards the saddle
+  // (a clamp turns them into equal circles) and stay nested.
+  const knee = o.knee;
+  const size = (v) => {
+    const r = o.rs * Math.max(0, v) ** exponent;
+    if (knee === undefined || !(cap < Infinity)) return Math.min(cap, r);
+    if (r <= knee) return r;
+    const D = Math.max(1e-9, cap - knee), u = (r - knee) / D;
+    return knee + (D * u) / (1 + u);
+  };
   const lin = (rgb) => rgb.map(srgbToLinear);
+
+  const tops = vis.peaks.map((id) => doc.peaks[id].value);
+  // 'nddav': radius at saddle ``sid`` for isovalue c <= f(s), the larger growth
+  // of its peaks' regions between f(s) and c (TopoSpines.generateSpine).
+  const saddleRadius = (sid, c) => {
+    const fs = doc.saddles[sid].value;
+    let r = 0;
+    for (const u of ends.get(sid)) {
+      if (c >= tops[u]) continue;
+      const g = size(volumeBetween(h, u, c, tops[u])) - size(volumeBetween(h, u, Math.min(fs, tops[u]), tops[u]));
+      if (g > r) r = g;
+    }
+    return r;
+  };
 
   for (const c of levels) {
     const t = (c - lo) / span;
@@ -231,8 +322,9 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
     const base = o.colorOf(tc);
     // Low isovalues fade towards the background, like the paper's transfer
     // function (section 4.4): the large outer contours read as pale halos and
-    // do not hide the structure drawn on top of them.
-    const a = 0.22 + 0.68 * tc, ae = 0.3 + 0.7 * tc;
+    // do not hide the structure drawn on top of them. NDDAV draws every
+    // level opaque with a full-strength outline instead.
+    const a = fade ? 0.22 + 0.68 * tc : 1, ae = fade ? 0.3 + 0.7 * tc : 1;
     const mixed = lin(base.map((v, k) => v * a + o.bg[k] * (1 - a)));
     const rim = lin(o.edge.map((v, k) => v * ae + o.bg[k] * (1 - ae)));
     const z = o.z0 + o.zRange * Math.min(1, Math.max(0, t));
@@ -268,11 +360,18 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
         for (const { sid, pts, at, total } of lobes[i]) {
           const s = doc.saddles[sid];
           if (s.value >= top || total < 1e-9) continue;
+          if (nddav && c > s.value) continue;           // above the saddle: only the peak's circle
           const tEnd = c > s.value ? Math.min(1, (top - c) / (top - s.value)) : 1;
-          const rad = (tt) => {
-            const f = top + (s.value - top) * tt;
-            return size(volumeBetween(h, i, Math.min(c, f), Math.max(c, f)));
-          };
+          let rad;
+          if (nddav) {                                  // linear from the peak's circle to the saddle's
+            const rS = saddleRadius(sid, c);
+            rad = (tt) => r0 + (rS - r0) * tt;
+          } else {
+            rad = (tt) => {
+              const f = top + (s.value - top) * tt;
+              return size(volumeBetween(h, i, Math.min(c, f), Math.max(c, f)));
+            };
+          }
           const r = sweep(pts, at, total, tEnd, m, rad, grow, tri, disc);
           if (pass === 1) extent[i] = Math.max(extent[i], r);
           drawn = true;

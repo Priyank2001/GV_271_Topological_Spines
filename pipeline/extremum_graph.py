@@ -6,8 +6,13 @@ the links between neighbouring maxima. It is computed on any
 ``NeighborGraph`` (kNN graph of a point cloud, or a regular grid), so the
 dimension of the data does not matter.
 
-Algorithm (three vectorised steps plus one small sweep)
--------------------------------------------------------
+Algorithm (three vectorised steps plus small sweeps)
+----------------------------------------------------
+Steps 1-3 (and the relief of step 5) are bulk array work done by a
+``ComputeBackend`` (``pipeline/backends.py``): NumPy on the CPU or PyTorch on
+the GPU, with identical results. Steps 4-6 are short sequential sweeps over
+the saddles and stay in plain Python.
+
 1. *Order.* Points get a total order by (value, index), so equal values never
    make two points incomparable.
 2. *Maxima and regions.* Every point points to its highest neighbour, if that
@@ -71,6 +76,7 @@ from typing import Optional
 
 import numpy as np
 
+from .backends import BackendSpec, ComputeBackend, get_backend
 from .neighbor_graph import NeighborGraph
 
 
@@ -229,21 +235,28 @@ class ExtremumGraph:
 # Computation
 # ---------------------------------------------------------------------------
 def extremum_graph(values: np.ndarray, graph: NeighborGraph,
-                   min_loop_relief: float = 0.5) -> ExtremumGraph:
+                   min_loop_relief: float = 0.5,
+                   backend: BackendSpec = None) -> ExtremumGraph:
     """Compute the extremum graph of ``values`` sampled on ``graph``.
 
     Saddles that join two separate groups of peaks (``merge``) are always
     kept. A saddle that only closes a loop is kept when its relief is at
     least ``min_loop_relief`` (see ``_relief``); lower values drop more
     loops. Use ``0`` to keep every pass between adjacent regions.
+
+    ``backend`` chooses where steps 1-3 and the relief run: ``"auto"``
+    (default: GPU for large graphs), ``"numpy"``, ``"torch"``, ``"cuda:N"``,
+    or a ``ComputeBackend``. Every backend gives the same result. The
+    union-find sweeps (steps 4-6) are sequential and always run on the CPU.
     """
     values = np.asarray(values)
     n = graph.num_nodes
     if values.shape != (n,):
         raise ValueError(f"values must have shape ({n},), got {values.shape}")
+    kernels = get_backend(backend)
 
-    rank = _total_order(values)
-    up = _steepest_ascent(rank, graph)
+    rank = kernels.total_order(values)
+    up = kernels.steepest_ascent(rank, graph)
 
     # Maxima, numbered from the highest down so peak id 0 is the global maximum.
     max_vertices = np.flatnonzero(up == np.arange(n))
@@ -253,9 +266,9 @@ def extremum_graph(values: np.ndarray, graph: NeighborGraph,
     peak_id[max_vertices] = np.arange(num_peaks)
     region = peak_id[up]
 
-    sad_vertex, sad_peaks, sad_support = _passes(rank, region, graph, num_peaks)
+    sad_vertex, sad_peaks, sad_support = kernels.passes(rank, region, graph, num_peaks)
     persistence = _sweep(values, max_vertices, sad_vertex, sad_peaks)
-    relief = _relief(values, rank, graph, sad_vertex)
+    relief = _relief(values, rank, graph, sad_vertex, kernels)
 
     is_merge, sad_pers = persistence["is_merge"], persistence["saddle"]
     keep = is_merge | (relief >= min_loop_relief)
@@ -286,74 +299,6 @@ def extremum_graph(values: np.ndarray, graph: NeighborGraph,
         region=region,
         region_size=np.bincount(region, minlength=num_peaks),
     )
-
-
-def _total_order(values: np.ndarray) -> np.ndarray:
-    """rank[i] = position of point i when sorted by (value, index), ascending."""
-    n = values.shape[0]
-    order = np.lexsort((np.arange(n), values))
-    rank = np.empty(n, dtype=np.int64)
-    rank[order] = np.arange(n)
-    return rank
-
-
-def _steepest_ascent(rank: np.ndarray, graph: NeighborGraph) -> np.ndarray:
-    """For each vertex, the maximum reached by always stepping to the highest neighbour."""
-    n = graph.num_nodes
-    up = np.arange(n, dtype=np.int64)
-
-    has_nbr = graph.degree > 0
-    if has_nbr.any():
-        starts = graph.indptr[:-1][has_nbr]
-        best_rank = np.maximum.reduceat(rank[graph.indices], starts)
-        vertex_at_rank = np.empty(n, dtype=np.int64)
-        vertex_at_rank[rank] = np.arange(n)
-        v = np.flatnonzero(has_nbr)
-        higher = best_rank > rank[v]
-        up[v[higher]] = vertex_at_rank[best_rank[higher]]
-
-    # Pointer jumping: follow pointers until every vertex points at a maximum.
-    while True:
-        nxt = up[up]
-        if np.array_equal(nxt, up):
-            return up
-        up = nxt
-
-
-def _passes(rank: np.ndarray, region: np.ndarray, graph: NeighborGraph,
-            num_peaks: int):
-    """Highest pass between every pair of adjacent regions.
-
-    Returns (saddle vertices, (S, 2) peak ids, (S,) boundary-edge counts),
-    sorted from the highest saddle to the lowest.
-    """
-    e = graph.edges
-    ra, rb = region[e[:, 0]], region[e[:, 1]]
-    cross = ra != rb
-    e, ra, rb = e[cross], ra[cross], rb[cross]
-    if e.shape[0] == 0:
-        empty = np.empty(0, dtype=np.int64)
-        return empty, np.empty((0, 2), dtype=np.int64), empty
-
-    r0, r1 = rank[e[:, 0]], rank[e[:, 1]]
-    level = np.minimum(r0, r1)                           # pass height of each edge
-    low_vertex = np.where(r0 < r1, e[:, 0], e[:, 1])     # its lower endpoint
-    a, b = np.minimum(ra, rb), np.maximum(ra, rb)        # a < b: a is the higher peak
-    key = a * num_peaks + b
-
-    order = np.lexsort((level, key))                     # by pair, then by height
-    key, a, b, level, low_vertex = key[order], a[order], b[order], level[order], low_vertex[order]
-    first = np.r_[True, key[1:] != key[:-1]]
-    group_start = np.flatnonzero(first)
-    group_end = np.r_[group_start[1:], key.shape[0]] - 1  # highest edge of each pair
-    support = group_end - group_start + 1
-
-    sad_vertex = low_vertex[group_end]
-    sad_peaks = np.stack([a[group_end], b[group_end]], axis=1)
-    sad_level = level[group_end]
-
-    top_down = np.argsort(-sad_level)
-    return sad_vertex[top_down], sad_peaks[top_down], support[top_down]
 
 
 def _sweep(values, max_vertices, sad_vertex, sad_peaks) -> dict:
@@ -523,7 +468,7 @@ def _saturation(peak_vals: np.ndarray, sad_vals: np.ndarray, sad_peaks: np.ndarr
 
 
 def _relief(values: np.ndarray, rank: np.ndarray, graph: NeighborGraph,
-            sad_vertex: np.ndarray) -> np.ndarray:
+            sad_vertex: np.ndarray, kernels: ComputeBackend) -> np.ndarray:
     """How deep the valley below each saddle goes, as a fraction in [0, 1].
 
     Take all points with value <= f(saddle) and the connected piece of them
@@ -541,14 +486,14 @@ def _relief(values: np.ndarray, rank: np.ndarray, graph: NeighborGraph,
     """
     n = values.shape[0]
     flipped = n - 1 - rank                      # rank of -values
-    up = _steepest_ascent(flipped, graph)       # steepest descent of the field
+    up = kernels.steepest_ascent(flipped, graph)  # steepest descent of the field
     min_vertices = np.flatnonzero(up == np.arange(n))
     min_id = np.full(n, -1, dtype=np.int64)
     min_id[min_vertices] = np.arange(min_vertices.shape[0])
     min_region = min_id[up]
 
     # Passes between minima, already sorted from lowest to highest in `values`.
-    pass_vertex, pass_minima, _ = _passes(flipped, min_region, graph, min_vertices.shape[0])
+    pass_vertex, pass_minima, _ = kernels.passes(flipped, min_region, graph, min_vertices.shape[0])
 
     parent = list(range(min_vertices.shape[0]))
     lowest = values[min_vertices].astype(np.float64).tolist()   # lowest value per group

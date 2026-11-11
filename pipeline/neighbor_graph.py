@@ -10,6 +10,8 @@ the graph that connects them here, after loading:
 Both return a ``NeighborGraph``: an undirected graph stored as a unique edge
 list plus CSR adjacency, which is what extremum-graph extraction needs
 (for every vertex, look at all neighbours to see which ones are higher).
+Building the adjacency runs on the GPU for large graphs (``backend=``, see
+``pipeline.backends``).
 
 Usage
 -----
@@ -29,6 +31,8 @@ from typing import Literal
 
 import numpy as np
 
+from .backends import BackendSpec, get_backend
+
 
 @dataclass(frozen=True)
 class NeighborGraph:
@@ -40,21 +44,15 @@ class NeighborGraph:
     indices: np.ndarray   # (2E,) CSR column indices (neighbours)
 
     @classmethod
-    def from_edges(cls, num_nodes: int, edges: np.ndarray) -> "NeighborGraph":
-        """Build from any (E, 2) edge list. Self loops and duplicates are dropped."""
-        e = np.asarray(edges, dtype=np.int64).reshape(-1, 2)
-        e = np.sort(e, axis=1)
-        e = e[e[:, 0] != e[:, 1]]
-        e = np.unique(e, axis=0)
+    def from_edges(cls, num_nodes: int, edges: np.ndarray,
+                   backend: BackendSpec = None) -> "NeighborGraph":
+        """Build from any (E, 2) edge list. Self loops and duplicates are dropped.
 
-        # CSR over both directions
-        src = np.concatenate([e[:, 0], e[:, 1]])
-        dst = np.concatenate([e[:, 1], e[:, 0]])
-        order = np.lexsort((dst, src))
-        src, dst = src[order], dst[order]
-        indptr = np.zeros(num_nodes + 1, dtype=np.int64)
-        np.cumsum(np.bincount(src, minlength=num_nodes), out=indptr[1:])
-        return cls(num_nodes, e, indptr, dst)
+        ``backend`` chooses where the sorting runs (see ``pipeline.backends``;
+        default: GPU for large graphs). The result is the same on every backend.
+        """
+        csr = get_backend(backend).build_csr(num_nodes, edges)
+        return cls(num_nodes, csr.edges, csr.indptr, csr.indices)
 
     @property
     def num_edges(self) -> int:
@@ -156,7 +154,7 @@ def _drop_self(idx: np.ndarray, k: int) -> np.ndarray:
 
 def knn_graph(points: np.ndarray, k: int,
               mode: Literal["union", "mutual"] = "union",
-              device: str | None = None) -> NeighborGraph:
+              device: str | None = None, backend: BackendSpec = None) -> NeighborGraph:
     """Undirected k-nearest-neighbour graph.
 
     The raw kNN relation is not symmetric (j can be among i's neighbours
@@ -165,6 +163,9 @@ def knn_graph(points: np.ndarray, k: int,
     * ``"union"``  : edge if i is in kNN(j) OR j is in kNN(i). Every vertex
                      has degree >= k; the usual choice.
     * ``"mutual"`` : edge only if both hold. Sparser and can disconnect.
+
+    ``device`` is for the neighbour search (high dimensions only), ``backend``
+    for building the adjacency (see ``pipeline.backends``).
     """
     idx = knn_indices(points, k, device=device)
     n = idx.shape[0]
@@ -179,17 +180,17 @@ def knn_graph(points: np.ndarray, k: int,
     elif mode != "union":
         raise ValueError(f"mode must be 'union' or 'mutual', got {mode!r}")
 
-    return NeighborGraph.from_edges(n, edges)
+    return NeighborGraph.from_edges(n, edges, backend=backend)
 
 
 # ---------------------------------------------------------------------------
 # Regular grids
 # ---------------------------------------------------------------------------
-def grid_graph(shape: tuple[int, ...]) -> NeighborGraph:
+def grid_graph(shape: tuple[int, ...], backend: BackendSpec = None) -> NeighborGraph:
     """Axis-aligned adjacency of a regular grid (2d neighbours per vertex).
 
     Vertices are numbered in C order, matching ``values.reshape(-1)`` of a
-    grid array with this ``shape``.
+    grid array with this ``shape``. ``backend``: see ``NeighborGraph.from_edges``.
     """
     ids = np.arange(int(np.prod(shape)), dtype=np.int64).reshape(shape)
     parts = []
@@ -198,4 +199,4 @@ def grid_graph(shape: tuple[int, ...]) -> NeighborGraph:
         b = np.take(ids, np.arange(1, shape[axis]), axis=axis).reshape(-1)
         parts.append(np.stack([a, b], axis=1))
     edges = np.concatenate(parts) if parts else np.empty((0, 2), np.int64)
-    return NeighborGraph.from_edges(ids.size, edges)
+    return NeighborGraph.from_edges(ids.size, edges, backend=backend)

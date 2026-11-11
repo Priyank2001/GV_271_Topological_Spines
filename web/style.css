@@ -12,6 +12,7 @@
   --plot-fill: rgba(37, 99, 235, 0.12);
   --locked: rgba(120, 120, 120, 0.18);
   --variation: #dc2626;
+  --mark: #c026d3;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -29,6 +30,7 @@
     --plot-fill: rgba(96, 165, 250, 0.16);
     --locked: rgba(200, 200, 200, 0.1);
     --variation: #f87171;
+    --mark: #e879f9;
   }
 }
 
@@ -72,8 +74,22 @@ body.hide-data #data, body.hide-side aside { display: none; }
 main { flex: 1; display: flex; min-height: 0; }
 
 #views { flex: 1; display: flex; min-width: 0; min-height: 0; }
-#spine { position: relative; flex: 1 1 0; min-width: 0; }
-#spine canvas, #dataCanvas canvas { display: block; }
+#spines { flex: 1 1 0; display: flex; min-width: 0; min-height: 0; }
+body.compare #spines { flex: 2 1 0; }                 /* two spines get twice the room of the data view */
+.spine-panel { flex: 1 1 0; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.spine-panel + .spine-panel { border-left: 1px solid var(--border); }
+.panel-bar {
+  display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding: 6px 12px;
+  border-bottom: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 13px;
+}
+.panel-bar label { display: flex; align-items: center; gap: 8px; }
+.panel-bar button {
+  font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 2px 10px; cursor: pointer;
+}
+#spine, #spineB { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; }
+#spine canvas, #spineB canvas, #dataCanvas canvas { display: block; }
+.toggles button:disabled { opacity: 0.45; cursor: default; }
 
 #data {
   position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
@@ -172,11 +188,32 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .diamond.loop { background: var(--loop); }
 .ghost { width: 6px; height: 6px; margin: 0 4px; border-radius: 50%; background: var(--link, #8a8f98); }
 .check { display: flex; align-items: center; gap: 6px; margin: 8px 0 2px; }
+.mark-ring, .mark-key {
+  width: 13px; height: 13px; border: 2px solid var(--mark); border-radius: 50%; display: inline-block;
+  vertical-align: -2px;
+}
+
+.compare-box {
+  margin: 4px 0 10px; padding: 8px 10px; border: 1px solid var(--border); border-left: 3px solid var(--mark);
+  border-radius: 6px; background: var(--bg); font-size: 13px;
+}
+.compare-box .title { font-weight: 600; margin-bottom: 4px; }
+.compare-box .who { font-weight: 600; color: var(--text); }
+.compare-box p { margin: 5px 0; }
+.compare-box .sel { color: var(--accent); }
+.compare-box .why dl { margin: 4px 0 0; }
+.compare-box .why dt { font-weight: 600; color: var(--muted); margin-top: 5px; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.04em; }
+.compare-box .why dd { margin: 1px 0 0; }
+.compare-box .facts ul { margin: 4px 0 0; padding-left: 18px; }
+.compare-box .facts li { margin: 2px 0; }
 
 @media (max-width: 760px) {
   main { flex-direction: column; }
   #views { flex-direction: column; }
   #data { border-left: 0; border-top: 1px solid var(--border); min-height: 50vh; }
   aside { width: auto; border-left: 0; border-top: 1px solid var(--border); max-height: 50vh; }
-  #spine { min-height: 50vh; }
+  #spines { flex-direction: column; }
+  #spine, #spineB { min-height: 50vh; }
+  .spine-panel + .spine-panel { border-left: 0; border-top: 1px solid var(--border); }
 }

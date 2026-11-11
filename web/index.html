@@ -17,17 +17,33 @@
     </label>
     <span id="status" role="status"></span>
     <div class="toggles" role="group" aria-label="Show or hide panels">
+      <button id="toggleSpine" type="button" aria-pressed="false" title="Draw the topological spine (nested contours) around the extremum graph (key: s)">Spine</button>
       <button id="toggleData" type="button" aria-pressed="true" title="Show or hide the data view (key: d)">Data view</button>
       <button id="toggleSide" type="button" aria-pressed="true" title="Show or hide the controls (key: c)">Controls</button>
+      <button id="toggleCompare" type="button" aria-pressed="false" title="Compare two extraction methods side by side (key: m)">Compare</button>
     </div>
   </header>
 
   <main>
     <div id="views">
-      <section id="spine" aria-label="Spine view">
-        <div id="tooltip" hidden></div>
-        <div id="hint">drag to pan · wheel to zoom · double-click to reset · click a node to select</div>
-      </section>
+      <div id="spines">
+        <div class="spine-panel">
+          <div class="panel-bar" id="barA" hidden>
+            <label>Method <select id="variantA" aria-label="Extraction method of the left spine"></select></label>
+            <button id="swapVariants" type="button" hidden title="Swap the two methods">⇄ swap</button>
+          </div>
+          <section id="spine" aria-label="Spine view">
+            <div id="tooltip" hidden></div>
+            <div id="hint">drag to pan · wheel to zoom · double-click to reset · click a node to select</div>
+          </section>
+        </div>
+        <div class="spine-panel" id="panelB" hidden>
+          <div class="panel-bar" title="Selecting a node in one spine selects the node at the same vertex in the other">
+            <label>Method <select id="variantB" aria-label="Extraction method of the right spine"></select></label>
+          </div>
+          <section id="spineB" aria-label="Second spine view (compare mode)"></section>
+        </div>
+      </div>
 
       <section id="data" aria-label="Data view">
         <div id="dataBar">
@@ -52,6 +68,32 @@
                 <option value="16">16 even bands</option>
               </select>
             </label>
+            <label>Band colours
+              <select id="volIsoCmap" aria-label="Colour map of the iso bands">
+                <option value="spine">as the spine colour map</option>
+                <optgroup label="Sequential">
+                  <option value="viridis">viridis</option>
+                  <option value="plasma">plasma</option>
+                  <option value="inferno">inferno</option>
+                  <option value="magma">magma</option>
+                  <option value="cividis">cividis</option>
+                  <option value="turbo">turbo</option>
+                  <option value="grey">grey</option>
+                </optgroup>
+                <optgroup label="Diverging">
+                  <option value="coolwarm">coolwarm</option>
+                  <option value="RdYlBu">RdYlBu</option>
+                  <option value="Spectral">Spectral</option>
+                </optgroup>
+                <optgroup label="Qualitative (one colour per band)">
+                  <option value="tab10">tab10</option>
+                  <option value="Set1">Set1</option>
+                  <option value="Dark2">Dark2</option>
+                  <option value="Paired">Paired</option>
+                </optgroup>
+              </select>
+            </label>
+            <label><input id="volIsoRev" type="checkbox"> Reverse</label>
             <label>Iso surfaces
               <select id="volIsoSurf" aria-label="Draw the iso surfaces">
                 <option value="off">off</option>
@@ -88,6 +130,7 @@
 
     <aside>
       <p id="blurb"></p>
+      <section id="compareBox" class="compare-box" hidden aria-live="polite"></section>
 
       <h2>Simplification</h2>
       <label class="slider">
@@ -103,13 +146,15 @@
         left at each variation threshold; links (saddles) above p<sub>hi</sub> are cut, which can split the graph
         into separate pieces. A flat stretch means the structure is stable. Click the plot to set the noise
         threshold, shift+click to set p<sub>hi</sub>. Grey: below this file's base threshold.</p>
+      <p id="sliderNote" class="caption" hidden></p>
       <p id="counts"></p>
 
       <h2>Spine drawing</h2>
       <label class="field">Style
         <select id="style" aria-label="Spine drawing style">
-          <option value="paper">Contours (as in the paper)</option>
-          <option value="simple">Discs and lines</option>
+          <option value="simple" selected>Extremum graph</option>
+          <option value="nddav">Spine: NDDAV contours</option>
+          <option value="paper">Spine: paper contours</option>
         </select>
       </label>
       <label class="field">Colour map
@@ -123,6 +168,7 @@
           <option value="coolwarm">coolwarm (diverging)</option>
           <option value="RdYlBu">RdYlBu (diverging)</option>
           <option value="Spectral">Spectral (diverging)</option>
+          <option value="BrBG">BrBG (diverging, as in NDDAV)</option>
           <option value="grey">grey</option>
         </select>
       </label>
@@ -135,19 +181,24 @@
       </label>
       <label class="field">Scale by
         <select id="scaleMode" aria-label="Which contour sets the size">
-          <option value="saddle">lowest saddle contour (halo capped)</option>
+          <option value="saddle" selected>lowest saddle contour (halo capped)</option>
           <option value="halo">outer halo (field minimum)</option>
         </select>
       </label>
       <label class="field">Radius
         <select id="radiusLaw" aria-label="Contour radius law">
+          <option value="nddav" selected>∝ volume^(2/d) (NDDAV)</option>
           <option value="1">∝ volume (paper)</option>
           <option value="0.5">∝ √volume (area ∝ volume)</option>
         </select>
       </label>
-      <label class="slider">
+      <label class="slider" id="gapRow" hidden>
         <span>Min. isovalue gap <output id="gapOut"></output></span>
         <input id="gap" type="range" min="0.005" max="0.2" step="0.005" value="0.02">
+      </label>
+      <label class="slider" id="levelsRow">
+        <span>Even isovalues <output id="levelsOut"></output></span>
+        <input id="levels" type="range" min="3" max="30" step="1" value="10">
       </label>
       </div>
       <p class="caption" id="styleNote"></p>
@@ -167,6 +218,7 @@
         <div><span class="sw diamond merge"></span> saddle</div>
         <div><span class="sw diamond loop"></span> saddle that closes a loop</div>
         <div><span class="sw ghost"></span> peak merged away, on a kept arc (p*)</div>
+        <div id="markLegend" hidden><span class="sw mark-ring"></span> maximum the other method does not have</div>
       </div>
 
       <h2>Layout</h2>

@@ -24,15 +24,14 @@
 // Drag to rotate, wheel to zoom, double-click to reset.
 
 import * as THREE from 'three';
-import { peakColor, regionColor } from './spineView.js';
+import { peakColor, regionColor, COLORMAPS } from './spineView.js';
 import { sharedLevels } from './contours.js';
 
 export const RAMP = 0.15;        // value range over which a voxel fades in above the threshold
 export const DENSITY = 24;       // opacity per unit length (box side = 1) at full density
 const DIM = 0.1;                 // weight of unselected regions while a selection exists
 export const ISO_BINS = 1024;    // resolution of the iso-band table (value -> band colour, surface weight)
-export const ISO_WIDTH = 0.006;  // half-width, in value, of the opacity spike at each iso surface
-export const ISO_GAIN = 3;       // opacity of an iso surface relative to a fully faded-in voxel
+export const ISO_ALPHA = 0.5;    // opacity of one iso surface at Opacity 1 (where a ray crosses a level)
 
 /**
  * Iso values (sorted, strictly inside (lo, hi)) that cut [lo, hi] into bands.
@@ -57,30 +56,50 @@ export function bandOf(v, levels) {
   return k;
 }
 
-/** Colour ([r, g, b] sRGB) of band ``k`` of ``n``: evenly spread over the value colour map. */
-export function bandColor(k, n) { return peakColor(n > 1 ? k / (n - 1) : 0.5); }
+// Qualitative palettes (matplotlib / ColorBrewer) for the iso bands: one colour per band,
+// repeated when there are more bands than colours.
+const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+export const BAND_PALETTES = {
+  tab10: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'].map(hex),
+  Set1: ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33', '#a65628', '#f781bf', '#999999'].map(hex),
+  Dark2: ['#1b9e77', '#d95f02', '#7570b3', '#e7298a', '#66a61e', '#e6ab02', '#a6761d', '#666666'].map(hex),
+  Paired: ['#a6cee3', '#1f78b4', '#b2df8a', '#33a02c', '#fb9a99', '#e31a1c', '#fdbf6f', '#ff7f00', '#cab2d6', '#6a3d9a', '#ffff99', '#b15928'].map(hex),
+};
 
 /**
- * Table over values [0, 1] (the volume texture's range), ``bins`` entries:
- * ``rgba`` (Uint8, for the shader) holds the band colour and, in alpha, how close the
- * value is to an iso level (1 on it, 0 farther than ``width``); ``surf`` is that
- * closeness as floats, for picking on the CPU.
+ * Colour ([r, g, b] sRGB) of band ``k`` of ``n``. ``map``: 'spine' (the shared value colour
+ * map, ``peakColor``), a key of ``COLORMAPS`` (sampled evenly over the bands) or of
+ * ``BAND_PALETTES`` (one colour per band). ``reversed`` runs the bands the other way.
  */
-export function isoTable(levels, { bins = ISO_BINS, width = ISO_WIDTH } = {}) {
-  const rgba = new Uint8Array(bins * 4), surf = new Float32Array(bins);
-  const n = levels.length + 1;
-  const cols = Array.from({ length: n }, (_, k) => bandColor(k, n).map((c) => Math.round(c * 255)));
-  for (let b = 0; b < bins; b++) {
-    const v = (b + 0.5) / bins;
-    const k = bandOf(v, levels);
-    let d = Infinity;
-    for (const c of levels) d = Math.min(d, Math.abs(v - c));
-    const w = Math.max(0, 1 - d / width);
-    surf[b] = w;
-    rgba.set([...cols[k], Math.round(w * 255)], 4 * b);
-  }
-  return { rgba, surf, bands: n };
+export function bandColor(k, n, map = 'spine', reversed = false) {
+  if (reversed) k = n - 1 - k;
+  const pal = BAND_PALETTES[map];
+  if (pal) return pal[k % pal.length];
+  const t = n > 1 ? k / (n - 1) : 0.5;
+  const S = COLORMAPS[map];
+  if (!S) return peakColor(t);
+  const x = t * (S.length - 1), i = Math.min(S.length - 2, Math.floor(x)), f = x - i;
+  return S[i].map((c, j) => c + (S[i + 1][j] - c) * f);
 }
+
+/**
+ * Table over values [0, 1] (the volume texture's range), ``bins`` RGBA entries: rgb is
+ * the band colour, a the band index (a band change between two ray samples means the
+ * ray crossed an iso surface; at most 256 bands, far more than the menus offer).
+ */
+export function isoTable(levels, { bins = ISO_BINS, map = 'spine', reversed = false } = {}) {
+  const rgba = new Uint8Array(bins * 4);
+  const n = levels.length + 1;
+  const cols = Array.from({ length: n }, (_, k) => bandColor(k, n, map, reversed).map((c) => Math.round(c * 255)));
+  for (let b = 0; b < bins; b++) {
+    const k = bandOf((b + 0.5) / bins, levels);
+    rgba.set([...cols[k], Math.min(255, k)], 4 * b);
+  }
+  return { rgba, bands: n };
+}
+
+/** Opacity of one iso surface at opacity multiplier ``density``. */
+export function surfaceAlpha(density) { return Math.min(0.95, ISO_ALPHA * density); }
 
 /** Smooth fade-in of opacity with value: 0 at ``thresh``, 1 at ``thresh + RAMP``. */
 export function rampOf(v, thresh) {
@@ -105,15 +124,17 @@ export function rayBox(o, d) {
  * It is the first voxel at which the accumulated opacity reaches ``stop``. A thin
  * feature may never get that opaque, so otherwise the voxel that contributed most
  * is returned, provided the ray accumulated at least ``minAlpha`` (faintly visible).
- * ``surf`` / ``surfMode`` add the iso-surface opacity as the shader does (``isoTable``).
+ * ``levels`` / ``surfMode`` add the iso surfaces as the shader does: a sample in a different
+ * band from the previous one (and above ``thresh``) gets ``surfaceAlpha(density)``.
  * @param values  flat voxel values in [0, 1], index = x + nx * (y + ny * z)
  * @param shape   [nz, ny, nx]
  * @param o, d    ray in box coordinates (box = [-0.5, 0.5]^3), d a unit vector
  */
 export function pickVoxel(values, shape, o, d, { thresh, density = 1, steps = 384, stop = 0.35, minAlpha = 0.05,
-                                                  surf = null, surfMode = 'off' }) {
-  const nb = surf?.length ?? 0;
-  const useSurf = nb > 0 && surfMode !== 'off', only = useSurf && surfMode === 'only';
+                                                  levels = null, surfMode = 'off' }) {
+  const useSurf = Boolean(levels) && surfMode !== 'off', only = useSurf && surfMode === 'only';
+  const aSurf = surfaceAlpha(density);
+  let prevBand = -1;
   const [nz, ny, nx] = shape;
   const [t0, t1] = rayBox(o, d);
   if (!(t0 <= t1) || t1 < 0) return -1;
@@ -126,11 +147,15 @@ export function pickVoxel(values, shape, o, d, { thresh, density = 1, steps = 38
     const z = Math.min(nz - 1, Math.max(0, Math.floor((o[2] + t * d[2] + 0.5) * nz)));
     const i = x + nx * (y + ny * z);
     const v = values[i];
-    let op = only ? 0 : rampOf(v, thresh);
-    if (useSurf && v >= thresh) op += ISO_GAIN * surf[Math.min(nb - 1, Math.max(0, Math.floor(v * nb)))];
-    const sigma = density * DENSITY * op;
-    if (sigma > 0) {
-      const gain = (1 - alpha) * (1 - Math.exp(-sigma * dt));
+    const sigma = only ? 0 : density * DENSITY * rampOf(v, thresh);
+    let a = 1 - Math.exp(-sigma * dt);
+    if (useSurf) {
+      const k = bandOf(v, levels);
+      if (prevBand >= 0 && k !== prevBand && v >= thresh) a = 1 - (1 - a) * (1 - aSurf);
+      prevBand = k;
+    }
+    if (a > 0) {
+      const gain = (1 - alpha) * a;
       alpha += gain;
       if (alpha >= stop) return i;
       if (gain > bestGain) { bestGain = gain; best = i; }
@@ -169,7 +194,7 @@ uniform float uDensity;
 uniform float uByRegion;     // 1: colour by peak region, 0: by value
 uniform float uIso;          // 1: colour by iso-value band (overrides uByRegion)
 uniform float uIsoSurf;      // 0: no iso surfaces, 1: added to the volume, 2: surfaces only
-uniform sampler2D uIsoLut;   // ISO_BINS x 1: rgb band colour, a: closeness to an iso level
+uniform sampler2D uIsoLut;   // ISO_BINS x 1: rgb band colour, a: band index / 255
 uniform float uLight;        // 1: shade with the gradient of the field
 uniform vec3 uVoxel;         // 1 / grid size, for the gradient
 
@@ -195,6 +220,7 @@ void main() {
   vec3 p = vOrigin + bounds.x * rayDir;
 
   vec4 acc = vec4(0.0);
+  float prevBand = -1.0;
   for (float t = bounds.x; t < bounds.y; t += delta) {
     vec3 q = p + 0.5;
     float v = texture(uVolume, q).r;
@@ -202,11 +228,15 @@ void main() {
     s = s * s * (3.0 - 2.0 * s);
     vec4 iso = texture(uIsoLut, vec2(v, 0.5));
     if (uIsoSurf > 1.5) s = 0.0;
-    if (uIsoSurf > 0.5 && v >= uThresh) s += ${ISO_GAIN.toFixed(1)} * iso.a;
     vec4 lab = texture(uLabel, q);
     float sigma = uDensity * ${DENSITY.toFixed(1)} * s * lab.a;
-    if (sigma > 0.0) {
-      float a = 1.0 - exp(-sigma * delta);
+    float a = 1.0 - exp(-sigma * delta);
+    if (uIsoSurf > 0.5) {                                    // crossed an iso surface since the last sample
+      if (prevBand >= 0.0 && abs(iso.a - prevBand) > 0.001 && v >= uThresh)
+        a = 1.0 - (1.0 - a) * (1.0 - min(0.95, ${ISO_ALPHA.toFixed(2)} * uDensity) * lab.a);
+      prevBand = iso.a;
+    }
+    if (a > 0.0) {
       vec3 c = uIso > 0.5 ? iso.rgb : uByRegion > 0.5 ? lab.rgb : texture(uLut, vec2(v, 0.5)).rgb;
       if (uLight > 0.5) {
         vec3 g = vec3(
@@ -259,6 +289,7 @@ export class VolumeView {
     this.light = true;
     this.isoSource = 'spine';                      // 'spine' or a number of even bands
     this.isoSurf = 'off';                          // 'off' | 'add' | 'only'
+    this.bandMap = { map: 'spine', reversed: false };   // colours of the iso bands (bandColor)
     this.levels = [];
     this.dirty = true;
     this.#bindEvents();
@@ -398,6 +429,13 @@ export class VolumeView {
     this.dirty = true;
   }
 
+  /** Colours of the iso bands: 'spine', a ``COLORMAPS`` key or a ``BAND_PALETTES`` key; optionally reversed. */
+  setBandColormap(map, reversed = false) {
+    this.bandMap = { map, reversed: Boolean(reversed) };
+    if (this.isoTex) this.#fillIso();
+    this.dirty = true;
+  }
+
   /** The current iso values (sorted), for the legend. */
   getIsoLevels() { return this.levels; }
 
@@ -452,7 +490,7 @@ export class VolumeView {
     const o = [ray.ray.origin.x / e[0], ray.ray.origin.y / e[1], ray.ray.origin.z / e[2]];
     const dv = new THREE.Vector3(ray.ray.direction.x / e[0], ray.ray.direction.y / e[1], ray.ray.direction.z / e[2]).normalize();
     return pickVoxel(this.doc.data.values, this.shape, o, [dv.x, dv.y, dv.z],
-                     { thresh: this.thresh, density: this.density, surf: this.isoSurfW, surfMode: this.isoSurf });
+                     { thresh: this.thresh, density: this.density, levels: this.levels, surfMode: this.isoSurf });
   }
 
   /** Client position of a voxel's centre (for tests and tooltips). */
@@ -478,16 +516,14 @@ export class VolumeView {
     for (const o of [this.box, this.markers]) if (o) { this.scene.remove(o); o.geometry.dispose(); o.material.dispose(); }
     for (const t of [this.volumeTex, this.labelTex, this.lutTex, this.isoTex]) t?.dispose();
     this.box = this.markers = this.material = this.volumeTex = this.labelTex = this.lutTex = this.isoTex = null;
-    this.levels = []; this.isoSurfW = null;
+    this.levels = [];
   }
 
   /** Rebuild the iso-band table from the current levels and colour map. */
   #fillIso() {
     this.levels = isoLevels(this.doc, this.vis, this.isoSource);
-    const { rgba, surf } = isoTable(this.levels);
-    this.isoTex.image.data.set(rgba);
+    this.isoTex.image.data.set(isoTable(this.levels, this.bandMap).rgba);
     this.isoTex.needsUpdate = true;
-    this.isoSurfW = surf;
     this.dirty = true;
   }
 

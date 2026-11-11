@@ -86,6 +86,7 @@ def extremum_graph_to_dict(
     full_peak_persistence: Optional[np.ndarray] = None,
     data: Optional[dict] = None,
     spine: Optional[SpineLayout] = None,
+    saddle_extra: Optional[dict] = None,
     decimals: int = 6,
 ) -> dict:
     """Turn ``eg`` into a JSON-ready dict (see the module docstring).
@@ -99,6 +100,8 @@ def extremum_graph_to_dict(
              persistence plot even when ``eg`` is already simplified.
     data:    the ``data`` section, from ``points_data`` or ``volume_data``.
     spine:   a ``SpineLayout`` of this same graph; becomes the ``spine`` section.
+    saddle_extra: ``{field name: one JSON value per saddle}``, extra fields
+             added to every saddle (e.g. what another extraction method knows).
     """
     if spine is not None and (len(spine.peak_xy) != eg.num_peaks
                               or len(spine.saddle_xy) != eg.num_saddles):
@@ -138,6 +141,8 @@ def extremum_graph_to_dict(
                 "saturation": saturation[i]}
         if saddle_pos is not None:
             node["position"] = saddle_pos[i].tolist()
+        for name, column in (saddle_extra or {}).items():
+            node[name] = column[i]
         saddles.append(node)
 
     values = np.asarray(eg.values, dtype=np.float64)

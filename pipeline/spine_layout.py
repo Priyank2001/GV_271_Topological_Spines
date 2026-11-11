@@ -41,12 +41,15 @@ Usage
     layout.peak_xy, layout.saddle_xy               # (P, 2), (S, 2), fitted to [-1, 1]
     layout.stress, layout.pca_stress               # normalised, lower is better
     layout.crossings                               # number of crossing link pairs
+
+    # a second graph of the same field, drawn in the frame of the first one:
+    other = anchored_layout(eg2, ds.points, anchors={vertex: xy, ...}, scale=layout.scale)
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Optional, Union
+from typing import Callable, Dict, Optional, Sequence, Union
 
 import numpy as np
 
@@ -122,6 +125,58 @@ def spine_layout(eg: ExtremumGraph, coords: Coords, *,
         peak_xy=xy[:p], saddle_xy=xy[p:], scale=scale,
         stress=final_stress, pca_stress=pca_stress,
         crossings=count_crossings(xy, _links(eg)), iterations=iterations,
+    )
+
+
+def anchored_layout(eg: ExtremumGraph, coords: Coords, anchors: Dict[int, Sequence[float]],
+                    scale: float, *, spacing: Optional[np.ndarray] = None,
+                    max_iter: int = 300, tol: float = 1e-6) -> SpineLayout:
+    """Lay out ``eg`` in the frame of an existing layout, keeping known vertices in place.
+
+    Used to compare two extremum graphs of the same field side by side: a
+    vertex that is a node in both (the same maximum, or the same saddle) gets
+    the same position in both drawings.
+
+    anchors: vertex id -> [x, y] in the existing layout. Nodes whose vertex is
+             in ``anchors`` stay exactly there; the others are placed by
+             stress majorisation (SMACOF with the anchors held fixed).
+    scale:   data distance per layout unit of the existing layout
+             (``SpineLayout.scale``), so distances keep the same meaning.
+
+    The result is *not* re-fitted into [-1, 1] (that would move the anchors);
+    new nodes can lie a little outside. Nodes that share a vertex (one saddle
+    stored several times) get one position.
+    """
+    vertices = np.concatenate([eg.peaks, eg.saddles])
+    unique, inverse = np.unique(vertices, return_inverse=True)
+    n = len(unique)
+    if n > MAX_NODES:
+        raise ValueError(f"{n} nodes is more than MAX_NODES={MAX_NODES}")
+
+    X = coords(unique) if callable(coords) else np.asarray(coords)[unique]
+    X = np.asarray(X, dtype=np.float64)
+    if spacing is not None:
+        X = X * np.asarray(spacing, dtype=np.float64)
+    D = _pairwise_distances(X) / scale                    # target distances in layout units
+
+    fixed = np.array([int(v) in anchors for v in unique], dtype=bool)
+    start = pca_layout(X) / scale
+    if fixed.any():
+        target = np.array([anchors[int(v)] for v in unique[fixed]], dtype=np.float64)
+        start = _align_to(start, fixed, target)
+        start[fixed] = target
+    pca_stress = stress(start, D)
+    if fixed.any():
+        xy, iterations = _smacof_fixed(start, D, fixed, max_iter=max_iter, tol=tol)
+    else:                                                  # nothing shared: an ordinary layout
+        xy, iterations = _smacof(start, D, max_iter=max_iter, tol=tol)
+        xy = xy - (xy.min(axis=0) + xy.max(axis=0)) / 2.0
+    node_xy = xy[inverse]
+    p = eg.num_peaks
+    return SpineLayout(
+        peak_xy=node_xy[:p], saddle_xy=node_xy[p:], scale=float(scale),
+        stress=stress(xy, D), pca_stress=pca_stress,
+        crossings=count_crossings(node_xy, _links(eg)), iterations=iterations,
     )
 
 
@@ -256,6 +311,53 @@ def _smacof(start: np.ndarray, D: np.ndarray, max_iter: int, tol: float):
             return X, it
         prev = cur
     return X, max_iter
+
+
+def _smacof_fixed(start: np.ndarray, D: np.ndarray, fixed: np.ndarray, max_iter: int, tol: float):
+    """Weighted SMACOF that moves only the nodes where ``fixed`` is False.
+
+    The majorisation step solves ``L X = B(Z) Z`` for the free rows only:
+    ``X_free = L_ff^-1 (B(Z) Z - L_fa X_fixed)_free``. ``L_ff`` is invertible
+    because every free node has a positive weight to every fixed node.
+    """
+    free = ~fixed
+    X = start.copy()
+    if not free.any():
+        return X, 0
+    W, Dc = _weights(D)
+    L = np.diag(W.sum(axis=1)) - W
+    L_ff_inv = np.linalg.inv(L[np.ix_(free, free)])
+    L_fa = L[np.ix_(free, fixed)]
+
+    prev = _raw_stress(X, W, Dc)
+    for it in range(1, max_iter + 1):
+        low = np.linalg.norm(X[:, None, :] - X[None, :, :], axis=-1)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            B = np.where(low > 1e-12, -W * Dc / low, 0.0)
+        np.fill_diagonal(B, 0.0)
+        np.fill_diagonal(B, -B.sum(axis=1))
+        BX = B @ X
+        X[free] = L_ff_inv @ (BX[free] - L_fa @ X[fixed])
+        cur = _raw_stress(X, W, Dc)
+        if prev - cur <= tol * max(prev, 1e-30):
+            return X, it
+        prev = cur
+    return X, max_iter
+
+
+def _align_to(xy: np.ndarray, fixed: np.ndarray, target: np.ndarray) -> np.ndarray:
+    """Rotate (or reflect) and shift ``xy`` so its fixed rows best match ``target``.
+
+    Orthogonal Procrustes without scaling: both are already in layout units.
+    With one fixed node only the shift is used.
+    """
+    src = xy[fixed]
+    if len(src) < 2:
+        return xy + (target.mean(axis=0) - src.mean(axis=0))
+    mu_s, mu_t = src.mean(axis=0), target.mean(axis=0)
+    u, _, vt = np.linalg.svd((src - mu_s).T @ (target - mu_t))
+    R = u @ vt
+    return (xy - mu_s) @ R + mu_t
 
 
 def _raw_stress(X, W, Dc) -> float:

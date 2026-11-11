@@ -88,6 +88,48 @@ try {
           `extent ${Math.max(...gC.extent).toFixed(3)}`);
     check('buildContours: radius ~ volume (paper), ~ sqrt(volume) with exponent 0.5',
           Math.abs(ratio - ratio2 ** 2) / ratio < 0.05, `${ratio.toFixed(2)} vs ${ratio2.toFixed(2)}^2`);
+
+    // ---- 'nddav' shape (NDDAV's TopoSpines.py) on the same two peaks ----
+    const r2 = (a) => a.map((c) => +c.toFixed(2));
+    const nl = C.nddavLevels([0.45], 0, 1, 10);
+    check('nddavLevels: even levels plus the saddle, none within 0.09 of a kept value',
+          JSON.stringify(r2(nl)) === JSON.stringify([0, 0.1, 0.2, 0.3, 0.45, 0.6, 0.7, 0.8, 0.9]), JSON.stringify(r2(nl)));
+    check('nddavLevels: no saddles gives the even levels only',
+          JSON.stringify(r2(C.nddavLevels([], 0, 1, 4))) === JSON.stringify([0, 0.25, 0.5, 0.75]));
+    const gray = 0.5;
+    const gN = C.buildContours(d, v, hh, [[0, 0], [1, 0]], [[0.5, 0]], {
+      shape: 'nddav', rs: 0.004, colorOf: () => [gray, gray, gray], bg: [1, 1, 1], edge: [0, 0, 0],
+      edgeWidth: 0, z0: 0, zRange: 1, samples: 8 });
+    check('nddav: isovalues from nddavLevels', JSON.stringify(gN.levels) === JSON.stringify(C.nddavLevels([0.5], 0, 1, 10)),
+          JSON.stringify(r2(gN.levels)));
+    const fillAt = (g, c) => {                     // fill vertices of level c
+      const pts = [];
+      for (let k = 0; k < g.positions.length; k += 3) {
+        if (Math.abs(g.positions[k + 2] - (c + 0.0004 + 1e-5)) < 1e-6) pts.push([g.positions[k], g.positions[k + 1], k / 3]);
+      }
+      return pts;
+    };
+    const above = fillAt(gN, gN.levels.find((c) => c > 0.55 && c < 0.6 + 0.2)).filter((p) => p[0] < 0.5);
+    const r07 = 0.004 * C.volumeBetween(hh, 0, gN.levels.find((c) => c > 0.55 && c < 0.8), 1);
+    const dist = above.map(([x, y]) => Math.hypot(x, y));
+    check('nddav: above the saddle the contour is a circle centred on the peak',
+          above.length > 0 && Math.max(...dist) <= r07 + 1e-6 && Math.abs(Math.max(...above.map((p) => p[0])) +
+          Math.min(...above.map((p) => p[0]))) < 1e-3, `r ${r07.toFixed(3)}, max ${Math.max(...dist).toFixed(3)}`);
+    let pinch = Infinity;
+    for (const [x, y] of fillAt(gN, 0.5)) pinch = Math.min(pinch, Math.abs(x - 0.5) + Math.abs(y));
+    check('nddav: the saddle-value contour pinches to radius 0 at the saddle', pinch < 1e-3, pinch.toExponential(2));
+    const lin = C.srgbToLinear(gray);
+    const fillCols = fillAt(gN, 0).map(([, , i]) => gN.colors[i * 3]);
+    check('nddav: lowest level is opaque (no fade towards the background)',
+          fillCols.length > 0 && fillCols.every((c) => Math.abs(c - lin) < 1e-6), `${fillCols[0]?.toFixed(3)} vs ${lin.toFixed(3)}`);
+    // Below the saddle both lobes reach the saddle with one radius (the larger growth).
+    const lowC = gN.levels.find((c) => c > 0 && c < 0.5);
+    const atSaddle = fillAt(gN, lowC).filter(([x]) => Math.abs(x - 0.5) < 1e-3).map(([, y]) => Math.abs(y));
+    const rS = Math.max(0.004 * C.volumeBetween(hh, 0, lowC, 1) - 0.004 * C.volumeBetween(hh, 0, 0.5, 1),
+                        0.004 * C.volumeBetween(hh, 1, lowC, 0.6) - 0.004 * C.volumeBetween(hh, 1, 0.5, 0.6));
+    check('nddav: below the saddle the lobes meet the saddle circle (the larger growth)',
+          atSaddle.length > 0 && Math.abs(Math.max(...atSaddle) - rS) < 0.02 * rS + 1e-6,
+          `${Math.max(...atSaddle).toFixed(4)} vs ${rS.toFixed(4)}`);
   }
 
   // ---- simplify.js against Python (the browser twin of simplify.test.mjs) ----
@@ -155,6 +197,17 @@ try {
   check('contour size slider rebuilds with larger shapes',
         sv.contourMesh.geometry.attributes.position.count >= before && sv.radius.some((r, i) => r > 0));
   sv.setContourScale(1);
+  sv.setStyle('nddav'); sv.setRadiusExponent('nddav'); sv.setScaleMode('halo');
+  check('nddav style active, radius exponent 2/d (neghip: d = 3)',
+        sv.paperStyleActive && sv.contourMesh.geometry.attributes.position.count > 0 &&
+        Math.abs(sv.effectiveExponent - 2 / 3) < 1e-12, `exponent ${sv.effectiveExponent}`);
+  const nd10 = sv.contourMesh.geometry.attributes.position.count;
+  sv.setLevelCount(20);
+  check('nddav: more even isovalues give more geometry', sv.contourMesh.geometry.attributes.position.count > nd10);
+  sv.setLevelCount(10); sv.setRadiusExponent(1); sv.setScaleMode('saddle');
+  let styleThrew = false;
+  try { sv.setStyle('nope'); } catch { styleThrew = true; }
+  check('unknown style rejected', styleThrew && sv.style === 'nddav');
   sv.setStyle('simple');
   check('simple style removes contours and restores links', sv.contourMesh === null && sv.linkLines.visible === true);
   const bare = { ...nh, region: undefined, data: undefined };
@@ -162,13 +215,16 @@ try {
   check('no per-point data: falls back to discs', !sv.paperStyleActive && sv.contourMesh === null);
   sv.setGraph(nh); sv.setStyle('paper'); sv.setVisible(simplify(nh, 0.5));
   check('slider change rebuilds', sv.paperStyleActive && sv.contourMesh.geometry.attributes.position.count > 0);
-  const visA = simplify(nh, 0.1);
+  // A threshold at which some drawn saddle's own peak was merged away (which one depends on the data).
+  const viaGhostAt = (v) => v.saddles.findIndex((sid) => nh.saddles[sid].peaks.some((p) => v.peaks[v.owner[p]] !== p));
+  const tGhost = [0.1, 0.08, 0.12, 0.06, 0.15, 0.05, 0.2, 0.04, 0.3].find((t) => viaGhostAt(simplify(nh, t)) >= 0) ?? 0.1;
+  const visA = simplify(nh, tGhost);
   sv.setShowArcs(true); sv.setVisible(visA);
   check('p*: arcs drawn to each saddle\'s own peaks, ghosts marked',
         sv.linkLines.visible && sv.linkGeom.drawRange.count === visA.arcs.length * 4 &&
         sv.ghostMesh.count === visA.ghosts.length && visA.ghosts.length > 0 && visA.ridges.length > 0,
         `${visA.arcs.length} arcs (${visA.ridges.length} beyond the ${visA.saddles.length} links), ${visA.ghosts.length} ghosts`);
-  const viaGhost = visA.saddles.findIndex((sid) => nh.saddles[sid].peaks.some((p) => visA.peaks[visA.owner[p]] !== p));
+  const viaGhost = viaGhostAt(visA);
   sv.select({ kind: 'saddle', index: viaGhost });
   check('p*: highlight follows the ridge (more than the 2 straight links)',
         viaGhost >= 0 && sv.highlightGeom.drawRange.count > 4, `${sv.highlightGeom.drawRange.count / 2} segments`);
@@ -324,25 +380,99 @@ try {
         spineLv.length > 0 && spineLv.every((c, i) => c > 0 && c < 1 && (i === 0 || c > spineLv[i - 1])) &&
         spineLv.every((c) => nhv.peaks.some((p) => p.value === c) || nhv.saddles.some((p) => p.value === c)), spineLv.join(' '));
   check('bandOf counts the levels at or below', V.bandOf(0.1, [0.2, 0.5]) === 0 && V.bandOf(0.2, [0.2, 0.5]) === 1 && V.bandOf(0.9, [0.2, 0.5]) === 2);
-  const it = V.isoTable([0.5], { bins: 100, width: 0.03 });
-  check('isoTable: two flat bands, distinct colours, surface weight peaks at the level',
+  const it = V.isoTable([0.5], { bins: 100 });
+  check('isoTable: two flat bands, distinct colours, band index in alpha',
         it.bands === 2 && it.rgba.slice(0, 3).join() === it.rgba.slice(4 * 40, 4 * 40 + 3).join() &&
         it.rgba.slice(0, 3).join() !== it.rgba.slice(4 * 60, 4 * 60 + 3).join() &&
-        it.surf[49] > 0.8 && it.surf[10] === 0 && it.surf[90] === 0);
+        it.rgba[4 * 10 + 3] === 0 && it.rgba[4 * 90 + 3] === 1);
+  check('bandColor: palettes give one colour per band and wrap; reverse flips the order',
+        V.bandColor(0, 3, 'tab10').join() === V.BAND_PALETTES.tab10[0].join() &&
+        V.bandColor(10, 12, 'tab10').join() === V.BAND_PALETTES.tab10[0].join() &&
+        V.bandColor(0, 3, 'viridis', true).join() === V.bandColor(2, 3, 'viridis').join() &&
+        V.bandColor(2, 3, 'grey').every((c) => Math.abs(c - 1) < 1e-9));
   vv.setVisible(nhVis);
   vv.setColorBy('iso'); vv.setIsoLevels('6'); vv.setIsoSurfaces('only');
+  vv.setBandColormap('Set1');
+  check('setBandColormap recolours the band table', [0, 1, 2].every((j) =>
+        vv.isoTex.image.data[j] === Math.round(V.BAND_PALETTES.Set1[0][j] * 255)));
+  vv.setBandColormap('spine');
   check('iso uniforms follow the controls', vv.material.uniforms.uIso.value === 1 && vv.material.uniforms.uIsoSurf.value === 2 &&
         vv.getIsoLevels().length === 5);
   const shell = new Float32Array(512).fill(0.6);            // a block at 0.6: only-surfaces sees nothing ...
-  const tbl = V.isoTable([0.5]).surf;
   check('pickVoxel with surfaces only: no surface crossed -> nothing',
-        V.pickVoxel(shell, [8, 8, 8], [0.01, 0.01, 2], [0, 0, -1], { thresh: 0.3, surf: tbl, surfMode: 'only' }) === -1);
-  const shell2 = new Float32Array(512).map((_, i) => (Math.floor(i / 64) >= 4 ? 0.5 : 0.2));   // ... a value 0.5 slab is seen
-  check('pickVoxel with surfaces only: hits the slab at the iso value',
-        Math.floor(V.pickVoxel(shell2, [8, 8, 8], [0.01, 0.01, 2], [0, 0, -1], { thresh: 0.3, surf: tbl, surfMode: 'only' }) / 64) >= 4);
+        V.pickVoxel(shell, [8, 8, 8], [0.01, 0.01, 2], [0, 0, -1], { thresh: 0.3, levels: [0.5], surfMode: 'only' }) === -1);
+  const shell2 = new Float32Array(512).map((_, i) => (Math.floor(i / 64) >= 4 ? 0.6 : 0.4));   // ... crossing 0.5 is seen
+  check('pickVoxel with surfaces only: hits where the ray crosses the iso value',
+        [3, 4].includes(Math.floor(V.pickVoxel(shell2, [8, 8, 8], [0.01, 0.01, 2], [0, 0, -1], { thresh: 0.3, levels: [0.5], surfMode: 'only' }) / 64)));
   vv.setColorBy('region'); vv.setIsoSurfaces('off');
   const fuelDoc = load('fuel');
   check('silicium is not cubic: box sides keep the aspect', (() => { const sl = load('silicium'); vv.setGraph(sl); return Math.abs(vv.extent[0] / vv.extent[1] - 98 / 34) < 1e-9; })());
+
+  // ---- compare mode (compare.js, comparePanel.js, simplify.showAll, SpineView marks) ----
+  {
+    const CMP = await import('../src/compare.js');
+    const { showAll } = await import('../src/simplify.js');
+    const { ComparePanel } = await import('../src/comparePanel.js');
+    const index = JSON.parse((() => { const x = new XMLHttpRequest(); x.open('GET', '../data/index.json', false); x.send(); return x.responseText; })());
+    const entry = index.datasets.find((d) => d.id === 'fuel');
+    const ours = fuelDoc, anyeg = load('fuel.anyeg');
+    check('index.json lists the variants of fuel and the trait labels',
+          entry.variants.map((v) => v.id).join() === 'ours,anyeg,ours14' && Object.keys(index.trait_labels).length === 6);
+    check('isSimplifiable: ours yes, AnyEG no', CMP.isSimplifiable(ours) && !CMP.isSimplifiable(anyeg));
+    const all = showAll(anyeg);
+    check('showAll: every peak and saddle, nothing merged or deduplicated',
+          all.peaks.length === anyeg.peaks.length && all.saddles.length === anyeg.saddles.length &&
+          all.owner.every((o, i) => o === i) && all.size.reduce((a, b) => a + b, 0) === anyeg.meta.num_points);
+    const visA = CMP.visibleGraph(ours, 0.1), visB = CMP.visibleGraph(anyeg, 0.1);
+    check('visibleGraph ignores the threshold for AnyEG', visB.peaks.length === anyeg.peaks.length && visA.peaks.length < ours.peaks.length);
+    const shown = CMP.compareShown(ours, visA, anyeg, visB);
+    check('compareShown: every shown peak of ours is an AnyEG maximum on fuel (AnyEG ⊂ ours there)',
+          shown.missingA.length === 0 && shown.shared === visA.peaks.length, JSON.stringify({ ...shown, missingB: shown.missingB.length }));
+    const v0 = ours.peaks[visA.peaks[0]].vertex;
+    check('findVisible finds the same vertex in the other file', anyeg.peaks[visB.peaks[CMP.findVisible(anyeg, visB, 'peak', v0)]].vertex === v0);
+    const sharedXY = ours.peaks.every((p, i) => {
+      const j = anyeg.peaks.findIndex((q) => q.vertex === p.vertex);
+      return j < 0 || (Math.abs(anyeg.spine.peaks[j][0] - ours.spine.peaks[i][0]) < 1e-9 && Math.abs(anyeg.spine.peaks[j][1] - ours.spine.peaks[i][1]) < 1e-9);
+    });
+    check('a maximum in both files has the same layout position', sharedXY);
+    const diffs = CMP.traitDifferences(entry.variants[0], entry.variants[1], index.trait_labels);
+    check('traitDifferences: ours vs AnyEG differ in every listed choice', diffs.length === 6, diffs.map((d) => d.key).join());
+    check('traitDifferences: ours vs ours14 differ only in the neighbourhood',
+          CMP.traitDifferences(entry.variants[0], entry.variants[2], index.trait_labels).map((d) => d.key).join() === 'neighbourhood');
+    const ag = CMP.findAgreement(entry, 'anyeg', 'ours14'), agRev = CMP.findAgreement(entry, 'ours14', 'anyeg');
+    check('findAgreement works in both orders (AnyEG and ours14 share all maxima)',
+          ag.maxima_jaccard === 1 && agRev.pairs_only_a === ag.pairs_only_b);
+    const ids = CMP.sharedColorIds(ours, anyeg);
+    check('sharedColorIds: a shared maximum borrows the colour id of its peak in the other file',
+          anyeg.peaks.every((p, j) => { const i = ours.peaks.findIndex((q) => q.vertex === p.vertex); return i < 0 ? ids[j] >= ours.peaks.length : ids[j] === i; }));
+
+    // The second panel with a fake view: linked selection by vertex, no echo.
+    const selected = [];
+    const fakeView = () => ({ selected: null, setGraph() {}, setVisible() {},
+      select(n) { this.selected = n; this.h.onSelect?.(n); }, h: null });
+    let echoed = 0;
+    const panel = new ComparePanel(null, { onSelect: () => echoed++ }, (_, h) => { const v = fakeView(); v.h = h; return v; });
+    panel.ensureView(); panel.setDocument(anyeg); panel.setThresholds(0.5, Infinity);
+    const found = panel.selectVertex('peak', v0);
+    check('ComparePanel.selectVertex selects the node at that vertex without echoing',
+          found && panel.vertexOf({ ...panel.view.selected, docId: panel.vis.peaks[panel.view.selected.index] }) === v0 && echoed === 0);
+    check('ComparePanel.selectVertex clears the selection when the vertex is not shown',
+          !panel.selectVertex('peak', -5) && panel.view.selected === null);
+
+    // SpineView: rings on marked peaks, shared colour ids, camera linking.
+    const cams = [];
+    const sv = new SpineView(container, { onCamera: (c) => cams.push(c) }, { renderer: fakeRenderer() });
+    sv.setGraph(anyeg); sv.setVisible(visB);
+    sv.setMarked([0, 1, 2]);
+    check('setMarked draws one ring per marked visible peak', sv.markMesh.count === 3);
+    sv.setGraph(ours); sv.setVisible(visA);
+    check('a new graph clears the marks', sv.markMesh.count === 0);
+    sv.fit();
+    check('fit reports the camera (to link the other spine)', cams.length > 0 && cams.at(-1).halfHeight === sv.getCamera().halfHeight);
+    sv.setCamera({ x: 0.3, y: -0.2, halfHeight: 0.7 });
+    const n0 = cams.length;
+    check('setCamera moves the view without reporting back', sv.getCamera().x === 0.3 && sv.getCamera().halfHeight === 0.7 && cams.length === n0);
+  }
 } catch (e) {
   failures++;
   out.insertAdjacentHTML('beforeend', `<span class="fail">ERROR</span> ${e.stack || e}\n`);

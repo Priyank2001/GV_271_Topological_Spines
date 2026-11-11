@@ -39,6 +39,16 @@ import numpy as np
 DEFAULT_ROOT = Path(__file__).resolve().parent.parent / "data" / "klacansky"
 INDEX_URL = "http://klacansky.com/open-scivis-datasets/datasets.json"
 
+# Volumes that are not in the Open SciVis index. Same fields as its datasets.json entries
+# (``name`` is the key). ``bucky`` is the C60 (Buckminsterfullerene) electron density from the
+# Erlangen Volume Library (originally AVS), the "Bucky Ball" of Correa et al. 2011; the copy is the
+# one a UMBC course page serves with a .mhd header (DimSize 32 32 32, MET_UCHAR).
+EXTRA_VOLUMES = {
+    "bucky": {"name": "Bucky Ball", "type": "uint8", "size": [32, 32, 32], "spacing": [1, 1, 1],
+              "description": "Simulated electron density of a C60 (Buckminster-fullerene) molecule.",
+              "url": "https://userpages.cs.umbc.edu/olano/class/491-19-8/bucky.raw"},
+}
+
 # Small volumes (at most 128^3) used by notebooks/klacansky_extremum_graphs.ipynb.
 SMALL_DATASETS = ("nucleon", "marschner_lobb", "silicium", "fuel", "neghip", "hydrogen_atom")
 
@@ -77,7 +87,7 @@ def _index(root: Path) -> dict:
         root.mkdir(parents=True, exist_ok=True)
         urllib.request.urlretrieve(INDEX_URL, path)
     with open(path) as f:
-        return json.load(f)
+        return {**json.load(f), **EXTRA_VOLUMES}
 
 
 def list_volumes(root: str | Path = DEFAULT_ROOT, max_voxels: int | None = None) -> list[str]:

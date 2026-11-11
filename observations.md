@@ -6,6 +6,117 @@ and what is still open.
 
 ---
 
+## 2026-11-11 — AnyEG vs our pipeline, and our pipeline on the GPU
+
+**What we did.** `anyeg/` is a separate pipeline that computes extremum
+graphs the way AnyEG does (https://github.com/BuptCIAGroup/AnyEG, commit
+08068c2). AnyEG is a TTK filter, and its CMake file does not build on its own,
+so `anyeg/native/build.sh` compiles its CUDA source (`cudaHelper.cu`,
+unchanged except one include path) with a small driver instead of TTK.
+`anyeg.TorchKernels` is a PyTorch port of its four GPU modules, and
+`anyeg/assembly.py` ports its CPU post-processing (arcs, `.vtp` output).
+`python3 -m comparison` runs both pipelines on AnyEG's three sample files and
+six Open SciVis volumes, each with three value variants (raw; AnyEG's own
+`preprocess_vti.py` recipe; values replaced by their rank). Full tables:
+`comparison/results/anyeg_vs_ours.md`.
+
+**1. The PyTorch port is exact.** It gives exactly the original's output
+(maxima, saddles, both link arrays) in all 27 cases, on the GPU and on the
+CPU. So does our new torch backend against NumPy (27/27).
+
+**2. AnyEG does not break ties, so 8-bit volumes give absurd counts.** A
+vertex is a maximum when no neighbour is *strictly* higher, so every voxel of
+a flat region is a maximum: 243,266 maxima on `fuel` (93 % of the voxels),
+124,320 on `neghip`, 1,562,047 on `hydrogen_atom`. Its own preprocessing
+(`v + 1e-8·rank`, then stored as float32) does not fix this, because the
+offsets fall below float32 resolution above about 0.1. Leftover maxima:
+`neghip` 3,904 (vs 175 with distinct values), `hydrogen_atom` 7,975 (vs 938).
+AnyEG's own samples are fine because their generator uses 1e-5 on values up
+to 100.
+
+**3. Same neighbourhood and same order: same maxima and basins.** With values
+made distinct (rank) and our algorithm run on AnyEG's 14-neighbour grid,
+maxima and basins agree exactly in all 9 inputs (Jaccard 1.000, 100 % of
+voxels in the same basin). Steepest ascent is the same method in both. The
+differences are only in the saddles:
+
+| (rank values, 14 neighbours) | linked pairs AnyEG | ours | both | only ours | only AnyEG |
+|---|---|---|---|---|---|
+| scalar_field_v1 | 3 | 5 | 3 | 2 | 0 |
+| fuel | 156 | 331 | 147 | 184 | 9 |
+| neghip | 595 | 903 | 430 | 473 | 165 |
+| silicium | 263 | 703 | 263 | 440 | 0 |
+| hydrogen_atom | 2,270 | 6,019 | 1,828 | 4,191 | 442 |
+
+* *Only ours:* we link every two basins that touch, through their highest
+  pass. AnyEG keeps a vertex only if its upper link falls into two or more
+  pieces, a real piecewise-linear saddle. Most of our extra pairs are passes
+  that fail that test (fuel: 165 of 184), and almost all are loop-closing
+  saddles kept by the relief filter (fuel: 183 of 184), not merge saddles.
+  On AnyEG's designed sample both extra links have persistence 0 (they join
+  the background ramp), so `simplify` removes them. On `silicium` they have
+  persistence about 0.8 of the value range: basins that touch in the zero
+  background. Those are the deep valley passes the paper's p_hi threshold
+  cuts.
+* *Only AnyEG:* its arcs also start at neighbours *below* the saddle, and a
+  saddle gets an arc to every basin among its neighbours, so degenerate
+  saddles link three or more maxima (`hydrogen_atom`: 1,610 saddles). Of
+  AnyEG's 442 extra pairs on `hydrogen_atom`, 315 exist only through such a
+  downhill arc, and 74 are pairs our relief filter dropped.
+* AnyEG has no persistence or simplification. Its two thresholds are
+  hard-coded to `[0, 20000)`, so it keeps everything. It has no saturated
+  persistence, no p_lo/p_hi, and no point clouds (meshes only).
+
+**4. Our 6-neighbour grid makes false maxima.** Our `grid_graph` joins only
+axis neighbours, so a ridge that runs diagonally is cut into separate peaks.
+AnyEG's v1 sample (3 designed maxima on diagonal ridges, plus the background
+ramp's corner maximum): 7 maxima with 6 neighbours, 4 with 14. With
+rank values: `neghip` 900 vs 175, `hydrogen_atom` 6,184 vs 938, `nucleon` 301
+vs 65. Basins agree for only 29–77 % of the voxels between the two grids
+(`nucleon` 29 %, `fuel` 77 %).
+TTK, TACHYON and AnyEG all use the 14-neighbour Freudenthal triangulation.
+**Open:** switch `grid_graph` (and so the web files) to 14 neighbours? It
+changes every volume result.
+
+**5. GPU speed.** Our pipeline now has a `ComputeBackend` (`pipeline/backends.py`).
+Sorting, steepest ascent, the passes and the CSR build run in torch, and the
+union-find sweeps stay on the CPU. Results are bit-identical. Graph build
+plus extremum graph, NumPy vs torch on a shared RTX 3090
+(`benchmarks/backend_benchmark.py`): 32³ 0.03 vs 0.10 s (GPU slower), 64³ 0.30
+vs 0.13 s, `hydrogen_atom` 128³ 2.9 vs 0.70 s, smooth 256³ field 43 vs 5.7 s,
+kNN 10⁶ points 4.9 vs 1.2 s. The default `AutoBackend` therefore uses the GPU
+from 100,000 vertices. AnyEG's own GPU modules take 0.13 s on
+`hydrogen_atom`, and our full `extremum_graph` 0.35–0.55 s on the GPU. That
+is not like for like: ours also computes persistence, relief and p* on the
+CPU.
+
+**Side effect of the backend change.** Saddles at the same height (one
+vertex being the pass for several pairs of peaks) used to be ordered by
+NumPy's unstable quicksort, which is arbitrary and cannot be reproduced on a
+GPU. They are now kept in pair order (stable sort). Peaks, persistence and
+regions are unchanged on all nine test inputs. `peak_parent` changed for
+peaks whose two candidate parents have the same persistence (`ext_50d` 43 of
+1,061, `neghip` 1 of 900), and `neghip` has one saddle row different
+(2,627 in all). The files in `web/data/` were rebuilt with it on 2026-11-11. In
+`neghip` this moved one label: two saddles sit at the same vertex (103487),
+between peaks 6–21 and 21–23. The merge is now the one to the higher peak (6),
+and the other closes a loop (its prominence went from 0.102 to 0.059). Both
+labellings are valid for a tie. A browser check that assumed such a ridge at
+threshold 0.1 now searches for a threshold with one.
+
+**Compare mode in the viewer (2026-11-11).** AnyEG is exported for every
+dataset where its graph fits the spine layout (≤ 3,000 nodes). On the kNN
+point clouds its maxima and basins equal ours exactly (same graph, same order),
+but its saddle test is far more permissive there. A kNN graph is not a
+triangulation, so the "upper link in two or more pieces" test passes for most
+candidates. Results: `cyclic_3d` 212 AnyEG saddles against our 23; `ext_10d`
+13,328 saddles, 12,752 of them reaching three or more maxima (83k nodes, not
+exported); `cyclic_10d` 27k nodes (not exported). On the volcano fields the linked
+pairs are identical to ours (Jaccard 1.0); AnyEG just draws 48–57 saddles for
+the 6 links. Design: `docs/extremum_graph_variants.md`.
+
+---
+
 ## 2026-11-10 — the paper's volcano (Fig. 5): a breached rim still gives a ring
 
 **What we did.** `generator/make_volcano_dataset.py` makes the "cycle of

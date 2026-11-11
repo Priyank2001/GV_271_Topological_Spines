@@ -92,6 +92,23 @@ export function simplify(doc, threshold, variation = Infinity) {
 }
 
 /**
+ * Every peak and every saddle of ``doc``, nothing merged or deduplicated: the
+ * view of a graph from a method without simplification (``meta.variant.simplifiable``
+ * is false, e.g. AnyEG). Same shape as the result of ``simplify``.
+ */
+export function showAll(doc) {
+  const peaks = doc.peaks.map((_, i) => i);
+  const saddles = doc.saddles.map((_, i) => i);
+  return {
+    peaks, saddles,
+    saddleEnds: doc.saddles.map((s) => [s.peaks[0], s.peaks[1]]),
+    size: doc.peaks.map((p) => p.size),
+    owner: Int32Array.from(peaks),
+    arcs: saddles.slice(), ridges: [], ghosts: [],
+  };
+}
+
+/**
  * Document saddle ids on the drawn path from document peak ``from`` to the
  * surviving peak it belongs to, through hidden peaks only (breadth first over
  * ``vis.arcs``). Empty if ``from`` survives, or if no such path exists.

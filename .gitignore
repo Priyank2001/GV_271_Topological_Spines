@@ -12,3 +12,7 @@ venv/
 
 # Generated datasets (regenerate with generator/make_*.py)
 generator/datasets/
+
+# AnyEG sources and build output (anyeg/native/build.sh recreates them)
+third_party/
+anyeg/native/build/

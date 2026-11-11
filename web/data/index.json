@@ -1,4 +1,12 @@
 {
+ "trait_labels": {
+  "neighbourhood": "Neighbourhood",
+  "ties": "Equal values",
+  "saddles": "Saddles",
+  "links": "Links",
+  "loops": "Loop saddles",
+  "simplification": "Simplification"
+ },
  "datasets": [
   {
    "file": "cyclic_3d.json",
@@ -8,6 +16,69 @@
    "saddles": 6,
    "spine_stress": 0.004505652330129116,
    "crossings": 0,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 20",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "cyclic_3d.json",
+     "peaks": 6,
+     "saddles": 6,
+     "notes": {
+      "maxima": 11,
+      "saddles": 23,
+      "loop_saddles": 13
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "neighbourhood": "the same kNN graph as ours, k = 20 (AnyEG itself takes meshes only)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "cyclic_3d.anyeg.json",
+     "peaks": 11,
+     "saddles": 297,
+     "notes": {
+      "maxima": 11,
+      "saddles": 212,
+      "saddles_reaching_3plus": 77,
+      "pieces": 1,
+      "raw_maxima": 11,
+      "preprocess_maxima": 11
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.0639269406392694,
+     "pair_jaccard": 0.9583333333333334,
+     "pairs_only_a": 0,
+     "pairs_only_b": 1
+    }
+   ],
    "id": "cyclic_3d"
   },
   {
@@ -18,6 +89,68 @@
    "saddles": 6,
    "spine_stress": 0.11553166513788153,
    "crossings": 0,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 20",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "cyclic_10d.json",
+     "peaks": 6,
+     "saddles": 6,
+     "notes": {
+      "maxima": 44,
+      "saddles": 407,
+      "loop_saddles": 364
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "neighbourhood": "the same kNN graph as ours, k = 20 (AnyEG itself takes meshes only)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": null,
+     "error": "27626 nodes: too many for the spine layout",
+     "notes": {
+      "maxima": 44,
+      "saddles": 8964,
+      "saddles_reaching_3plus": 7746,
+      "pieces": 1,
+      "raw_maxima": 44,
+      "preprocess_maxima": 44
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.025074232926426923,
+     "pair_jaccard": 0.9126436781609195,
+     "pairs_only_a": 10,
+     "pairs_only_b": 28
+    }
+   ],
    "id": "cyclic_10d"
   },
   {
@@ -27,8 +160,141 @@
    "peaks": 40,
    "saddles": 741,
    "spine_stress": 0.344208919984082,
-   "crossings": 84508,
+   "crossings": 84516,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 20",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "ext_10d.json",
+     "peaks": 40,
+     "saddles": 741,
+     "notes": {
+      "maxima": 73,
+      "saddles": 1859,
+      "loop_saddles": 1787
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "neighbourhood": "the same kNN graph as ours, k = 20 (AnyEG itself takes meshes only)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": null,
+     "error": "83312 nodes: too many for the spine layout",
+     "notes": {
+      "maxima": 73,
+      "saddles": 13328,
+      "saddles_reaching_3plus": 12752,
+      "pieces": 2,
+      "raw_maxima": 73,
+      "preprocess_maxima": 73
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.07011997988361234,
+     "pair_jaccard": 0.8140333660451423,
+     "pairs_only_a": 200,
+     "pairs_only_b": 179
+    }
+   ],
    "id": "ext_10d"
+  },
+  {
+   "file": "two_peaks_2d.json",
+   "label": "two_peaks_2d (2D, simplest case)",
+   "text": "Two Gaussian peaks and one saddle between them: the spine is a single path, peak - saddle - peak.",
+   "peaks": 2,
+   "saddles": 1,
+   "spine_stress": 8.604027367806863e-17,
+   "crossings": 0,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "two_peaks_2d.json",
+     "peaks": 2,
+     "saddles": 1,
+     "notes": {
+      "maxima": 2,
+      "saddles": 1,
+      "loop_saddles": 0
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "neighbourhood": "the same kNN graph as ours, k = 15 (AnyEG itself takes meshes only)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "two_peaks_2d.anyeg.json",
+     "peaks": 2,
+     "saddles": 5,
+     "notes": {
+      "maxima": 2,
+      "saddles": 5,
+      "saddles_reaching_3plus": 0,
+      "pieces": 1
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.2,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    }
+   ],
+   "id": "two_peaks_2d"
   },
   {
    "file": "volcano_intact.json",
@@ -38,6 +304,69 @@
    "saddles": 6,
    "spine_stress": 1.7808186051274804e-16,
    "crossings": 0,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "volcano_intact.json",
+     "peaks": 6,
+     "saddles": 6,
+     "notes": {
+      "maxima": 7,
+      "saddles": 7,
+      "loop_saddles": 1
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "neighbourhood": "the same kNN graph as ours, k = 15 (AnyEG itself takes meshes only)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "volcano_intact.anyeg.json",
+     "peaks": 7,
+     "saddles": 53,
+     "notes": {
+      "maxima": 7,
+      "saddles": 52,
+      "saddles_reaching_3plus": 3,
+      "pieces": 1,
+      "raw_maxima": 7,
+      "preprocess_maxima": 7
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.1346153846153846,
+     "pair_jaccard": 0.7,
+     "pairs_only_a": 0,
+     "pairs_only_b": 3
+    }
+   ],
    "id": "volcano_intact"
   },
   {
@@ -48,6 +377,69 @@
    "saddles": 6,
    "spine_stress": 2.5945912864078417e-16,
    "crossings": 0,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "volcano_notched.json",
+     "peaks": 6,
+     "saddles": 6,
+     "notes": {
+      "maxima": 6,
+      "saddles": 6,
+      "loop_saddles": 1
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "neighbourhood": "the same kNN graph as ours, k = 15 (AnyEG itself takes meshes only)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "volcano_notched.anyeg.json",
+     "peaks": 6,
+     "saddles": 57,
+     "notes": {
+      "maxima": 6,
+      "saddles": 56,
+      "saddles_reaching_3plus": 1,
+      "pieces": 1,
+      "raw_maxima": 6,
+      "preprocess_maxima": 6
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.10714285714285714,
+     "pair_jaccard": 0.75,
+     "pairs_only_a": 0,
+     "pairs_only_b": 2
+    }
+   ],
    "id": "volcano_notched"
   },
   {
@@ -58,6 +450,69 @@
    "saddles": 6,
    "spine_stress": 2.3400447196218633e-16,
    "crossings": 0,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "volcano_breached.json",
+     "peaks": 6,
+     "saddles": 6,
+     "notes": {
+      "maxima": 6,
+      "saddles": 6,
+      "loop_saddles": 1
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "neighbourhood": "the same kNN graph as ours, k = 15 (AnyEG itself takes meshes only)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "volcano_breached.anyeg.json",
+     "peaks": 6,
+     "saddles": 48,
+     "notes": {
+      "maxima": 6,
+      "saddles": 48,
+      "saddles_reaching_3plus": 0,
+      "pieces": 1,
+      "raw_maxima": 6,
+      "preprocess_maxima": 6
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.125,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    }
+   ],
    "id": "volcano_breached"
   },
   {
@@ -68,6 +523,115 @@
    "saddles": 86,
    "spine_stress": 0.20983656069514453,
    "crossings": 215,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "grid with 6 axis neighbours (a diagonal ridge can split into several maxima)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "fuel.json",
+     "peaks": 27,
+     "saddles": 86,
+     "notes": {
+      "maxima": 88,
+      "saddles": 332,
+      "loop_saddles": 245
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "neighbourhood": "grid with 14 neighbours (TTK's triangulation)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "fuel.anyeg.json",
+     "peaks": 65,
+     "saddles": 174,
+     "notes": {
+      "maxima": 65,
+      "saddles": 119,
+      "saddles_reaching_3plus": 38,
+      "pieces": 2,
+      "raw_maxima": 243266,
+      "preprocess_maxima": 156
+     }
+    },
+    {
+     "id": "ours14",
+     "label": "Ours, 14-neighbour grid",
+     "summary": "Our algorithm on AnyEG's (TTK's) 14-neighbour grid.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "grid with 14 neighbours (TTK's triangulation, as AnyEG)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "fuel.ours14.json",
+     "peaks": 27,
+     "saddles": 88,
+     "notes": {
+      "maxima": 65,
+      "saddles": 244,
+      "loop_saddles": 180
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 0.7386363636363636,
+     "maxima_only_a": 23,
+     "maxima_only_b": 0,
+     "region_agreement": 0.7695274353027344,
+     "saddle_jaccard": 0.2,
+     "pair_jaccard": 0.3518005540166205,
+     "pairs_only_a": 205,
+     "pairs_only_b": 29
+    },
+    {
+     "a": "ours",
+     "b": "ours14",
+     "maxima_jaccard": 0.7386363636363636,
+     "maxima_only_a": 23,
+     "maxima_only_b": 0,
+     "region_agreement": 0.7695274353027344,
+     "saddle_jaccard": 0.23385300668151449,
+     "pair_jaccard": 0.4083129584352078,
+     "pairs_only_a": 165,
+     "pairs_only_b": 77
+    },
+    {
+     "a": "anyeg",
+     "b": "ours14",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.3937007874015748,
+     "pair_jaccard": 0.5936254980079682,
+     "pairs_only_a": 7,
+     "pairs_only_b": 95
+    }
+   ],
    "id": "fuel"
   },
   {
@@ -77,8 +641,236 @@
    "peaks": 66,
    "saddles": 173,
    "spine_stress": 0.1159713888686737,
-   "crossings": 392,
+   "crossings": 393,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "grid with 6 axis neighbours (a diagonal ridge can split into several maxima)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "neghip.json",
+     "peaks": 66,
+     "saddles": 173,
+     "notes": {
+      "maxima": 900,
+      "saddles": 2627,
+      "loop_saddles": 1728
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "neighbourhood": "grid with 14 neighbours (TTK's triangulation)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "neghip.anyeg.json",
+     "peaks": 175,
+     "saddles": 1033,
+     "notes": {
+      "maxima": 175,
+      "saddles": 655,
+      "saddles_reaching_3plus": 286,
+      "pieces": 33,
+      "raw_maxima": 124320,
+      "preprocess_maxima": 3904
+     }
+    },
+    {
+     "id": "ours14",
+     "label": "Ours, 14-neighbour grid",
+     "summary": "Our algorithm on AnyEG's (TTK's) 14-neighbour grid.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "grid with 14 neighbours (TTK's triangulation, as AnyEG)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "neghip.ours14.json",
+     "peaks": 22,
+     "saddles": 29,
+     "notes": {
+      "maxima": 175,
+      "saddles": 689,
+      "loop_saddles": 515
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 0.19444444444444445,
+     "maxima_only_a": 725,
+     "maxima_only_b": 0,
+     "region_agreement": 0.4480476379394531,
+     "saddle_jaccard": 0.07450664518727346,
+     "pair_jaccard": 0.09294436906377204,
+     "pairs_only_a": 2353,
+     "pairs_only_b": 321
+    },
+    {
+     "a": "ours",
+     "b": "ours14",
+     "maxima_jaccard": 0.19444444444444445,
+     "maxima_only_a": 725,
+     "maxima_only_b": 0,
+     "region_agreement": 0.4480476379394531,
+     "saddle_jaccard": 0.06494040279490342,
+     "pair_jaccard": 0.11612251767081791,
+     "pairs_only_a": 2282,
+     "pairs_only_b": 344
+    },
+    {
+     "a": "anyeg",
+     "b": "ours14",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.37,
+     "pair_jaccard": 0.4947613504074505,
+     "pairs_only_a": 170,
+     "pairs_only_b": 264
+    }
+   ],
    "id": "neghip"
+  },
+  {
+   "file": "bucky.json",
+   "label": "bucky (C60 electron density, 32\u00b3, paper)",
+   "text": "Buckminster-fullerene: one peak per carbon atom (60) in a hollow cage; the paper's Bucky Ball.",
+   "peaks": 226,
+   "saddles": 1374,
+   "spine_stress": 0.25609853569475655,
+   "crossings": 32220,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "grid with 6 axis neighbours (a diagonal ridge can split into several maxima)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "bucky.json",
+     "peaks": 226,
+     "saddles": 1374,
+     "notes": {
+      "maxima": 322,
+      "saddles": 1623,
+      "loop_saddles": 1302
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "neighbourhood": "grid with 14 neighbours (TTK's triangulation)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "bucky.anyeg.json",
+     "peaks": 220,
+     "saddles": 570,
+     "notes": {
+      "maxima": 220,
+      "saddles": 454,
+      "saddles_reaching_3plus": 167,
+      "pieces": 9,
+      "raw_maxima": 1282,
+      "preprocess_maxima": 251
+     }
+    },
+    {
+     "id": "ours14",
+     "label": "Ours, 14-neighbour grid",
+     "summary": "Our algorithm on AnyEG's (TTK's) 14-neighbour grid.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "grid with 14 neighbours (TTK's triangulation, as AnyEG)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "bucky.ours14.json",
+     "peaks": 198,
+     "saddles": 1491,
+     "notes": {
+      "maxima": 220,
+      "saddles": 1648,
+      "loop_saddles": 1429
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 0.6832298136645962,
+     "maxima_only_a": 102,
+     "maxima_only_b": 0,
+     "region_agreement": 0.484466552734375,
+     "saddle_jaccard": 0.10520425293788473,
+     "pair_jaccard": 0.2185230024213075,
+     "pairs_only_a": 1262,
+     "pairs_only_b": 29
+    },
+    {
+     "a": "ours",
+     "b": "ours14",
+     "maxima_jaccard": 0.6832298136645962,
+     "maxima_only_a": 102,
+     "maxima_only_b": 0,
+     "region_agreement": 0.484466552734375,
+     "saddle_jaccard": 0.1444015444015444,
+     "pair_jaccard": 0.31102204408817635,
+     "pairs_only_a": 847,
+     "pairs_only_b": 872
+    },
+    {
+     "a": "anyeg",
+     "b": "ours14",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.22308188265635073,
+     "pair_jaccard": 0.23216444981862153,
+     "pairs_only_a": 6,
+     "pairs_only_b": 1264
+    }
+   ],
+   "id": "bucky"
   },
   {
    "file": "silicium.json",
@@ -87,7 +879,116 @@
    "peaks": 114,
    "saddles": 590,
    "spine_stress": 0.2239915972658978,
-   "crossings": 4875,
+   "crossings": 4881,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "grid with 6 axis neighbours (a diagonal ridge can split into several maxima)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "silicium.json",
+     "peaks": 114,
+     "saddles": 590,
+     "notes": {
+      "maxima": 140,
+      "saddles": 648,
+      "loop_saddles": 509
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "neighbourhood": "grid with 14 neighbours (TTK's triangulation)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "silicium.anyeg.json",
+     "peaks": 118,
+     "saddles": 406,
+     "notes": {
+      "maxima": 118,
+      "saddles": 369,
+      "saddles_reaching_3plus": 40,
+      "pieces": 2,
+      "raw_maxima": 36320,
+      "preprocess_maxima": 131
+     }
+    },
+    {
+     "id": "ours14",
+     "label": "Ours, 14-neighbour grid",
+     "summary": "Our algorithm on AnyEG's (TTK's) 14-neighbour grid.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "grid with 14 neighbours (TTK's triangulation, as AnyEG)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "silicium.ours14.json",
+     "peaks": 114,
+     "saddles": 634,
+     "notes": {
+      "maxima": 118,
+      "saddles": 656,
+      "loop_saddles": 539
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 0.8428571428571429,
+     "maxima_only_a": 22,
+     "maxima_only_b": 0,
+     "region_agreement": 0.6647129440011299,
+     "saddle_jaccard": 0.18487394957983194,
+     "pair_jaccard": 0.4058641975308642,
+     "pairs_only_a": 385,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours14",
+     "maxima_jaccard": 0.8428571428571429,
+     "maxima_only_a": 22,
+     "maxima_only_b": 0,
+     "region_agreement": 0.6647129440011299,
+     "saddle_jaccard": 0.1691449814126394,
+     "pair_jaccard": 0.5806060606060606,
+     "pairs_only_a": 169,
+     "pairs_only_b": 177
+    },
+    {
+     "a": "anyeg",
+     "b": "ours14",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.35436241610738256,
+     "pair_jaccard": 0.4009146341463415,
+     "pairs_only_a": 0,
+     "pairs_only_b": 393
+    }
+   ],
    "id": "silicium"
   }
  ]

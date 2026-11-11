@@ -46,7 +46,12 @@ Future work: time-varying data, showing how the spine changes over time.
 | Folder       | Contents |
 |--------------|----------|
 | `generator/` | Synthetic scalar fields (point clouds, 2D to 100D) with known critical points, written to `generator/datasets/<name>/` as `points.npy`, `values.npy`, `truth.json`. Samples only, no neighbour graph. |
-| `pipeline/`  | Python side: dataset loading (`data_loader.py`), neighbour graph (`neighbor_graph.py`), dimensionality reduction (`dim_reduction.py`), extremum graph (`extremum_graph.py`), 2D spine layout (`spine_layout.py`), JSON export for the web viewer (`export_json.py`) |
+| `pipeline/`  | Python side: dataset loading (`data_loader.py`), neighbour graph (`neighbor_graph.py`), dimensionality reduction (`dim_reduction.py`), extremum graph (`extremum_graph.py`), CPU/GPU compute backends (`backends.py`), 2D spine layout (`spine_layout.py`), JSON export for the web viewer (`export_json.py`) |
+| `anyeg/`     | A separate pipeline that computes extremum graphs the way AnyEG does: its original CUDA kernels (built by `anyeg/native/build.sh`) or a PyTorch port, plus `.vti`/`.vtp` I/O. Does not use `pipeline/`. See "AnyEG pipeline" below |
+| `comparison/` | Runs AnyEG and our pipeline on the same fields and compares them (`python3 -m comparison`); report in `comparison/results/`. Also the registry of extraction variants the viewer can compare (`variants.py`) and their export (`viewer_export.py`) |
+| `docs/`      | `extremum_graph_variants.md`: design of the compare mode and of running every method on distinct values |
+| `benchmarks/` | `backend_benchmark.py`: our pipeline, NumPy vs torch |
+| `third_party/` | AnyEG checkout (not committed; `anyeg/native/build.sh` clones it) |
 | `notebooks/` | `extremum_graph_demo.ipynb`: worked example and plots of the extremum graph on the generator datasets. `klacansky_extremum_graphs.ipynb`: extremum graphs of six real volumes from the Open SciVis Datasets |
 | `data/klacansky/` | Downloaded `.raw` volumes and the collection's `datasets.json`; fetched and read by `pipeline/volume_loader.py` |
 | `tests/`     | `python3 -m pytest tests`. Also `check_ackley.py` (grid) and `check_ackley_knn.py` (kNN graphs, any k): the extremum graph of Ackley's function compared with its known 3^d lattice (paper, Fig. 13a); `check_volcano.py`: the paper's breached-volcano example (Fig. 5, datasets from `generator/make_volcano_dataset.py`); results in `observations.md` |
@@ -69,6 +74,8 @@ grid_graph((64, 64, 64))        # axis-aligned adjacency for regular grids
 ```
 
 kNN uses a KD-tree up to 10 dimensions and GPU brute force above that.
+`knn_graph`, `grid_graph` and `NeighborGraph.from_edges` take `backend=`
+(see "GPU backend" below) for building the adjacency.
 
 ## Dimensionality reduction
 
@@ -120,6 +127,80 @@ Choose the `simplify` threshold from the persistence of the peaks: real peaks
 stand well above the noise (see `notebooks/extremum_graph_demo.ipynb`). The
 right value depends on the data (0.04 for the 2D and 3D rings, about 0.01 for
 the 10D ring).
+
+## GPU backend
+
+The bulk array work of `grid_graph`, `knn_graph` and `extremum_graph` runs on a
+`ComputeBackend` (`pipeline/backends.py`). This covers sorting the values,
+steepest ascent with pointer jumping, the highest pass between regions, and
+building the CSR adjacency. The union-find sweeps over the saddles are short
+and sequential, so they stay on the CPU.
+
+```python
+from pipeline.backends import get_backend
+
+eg = extremum_graph(values, g)                    # default "auto": GPU from 100,000 vertices
+eg = extremum_graph(values, g, backend="numpy")   # or "torch", "cuda:1", "torch:cpu"
+g = grid_graph(vol.shape, backend=get_backend("torch"))
+```
+
+Every backend gives bit-identical results (`tests/test_backends.py`).
+`"torch"` picks the GPU with the most free memory, because the lab GPUs are
+shared. `"auto"` falls back to NumPy if the GPU runs out of memory. On an
+RTX 3090, graph build plus extremum graph takes 0.70 s instead of 2.9 s for
+`hydrogen_atom` (128³), and 5.7 s instead of 43 s for a 256³ field. Below
+about 30,000 vertices the GPU is slower (`python3 benchmarks/backend_benchmark.py`).
+
+## AnyEG pipeline and comparison
+
+`anyeg/` computes extremum graphs as [AnyEG](https://github.com/BuptCIAGroup/AnyEG)
+does (a CUDA + TTK filter), as a separate pipeline:
+
+```bash
+anyeg/native/build.sh                                  # once: clones AnyEG, builds its CUDA code
+python3 -m anyeg third_party/AnyEG/data/scalar_field_v1.vti -o results/v1.vtp
+python3 -m anyeg --volume fuel --kernels original -o results/fuel.vtp
+python3 -m comparison                                  # -> comparison/results/anyeg_vs_ours.md
+```
+
+```python
+from anyeg import AnyEGPipeline, read_vti, write_vtp, OriginalCudaKernels
+
+field = read_vti("third_party/AnyEG/data/scalar_field_v1.vti")
+graph = AnyEGPipeline().run(field)                 # PyTorch port on the GPU
+graph = AnyEGPipeline(kernels=OriginalCudaKernels()).run(field)   # AnyEG's own CUDA code
+graph.maxima, graph.saddles, graph.links(), graph.maximum_pairs()
+write_vtp("v1.vtp", graph.to_polylines(field))     # same content as AnyEG's EG_*.vtp
+```
+
+The parts, each behind an interface so it can be swapped:
+
+| part | file | what it does |
+|---|---|---|
+| `ScalarField` | `anyeg/field.py` | float32 values on a grid (VTK numbering) or at points |
+| `read_vti`, `write_vtp`, ... | `anyeg/vtk_io.py` | VTK XML files without the VTK library |
+| `NeighborhoodBuilder` | `anyeg/neighborhood.py` | TTK's 14-neighbour grid (AnyEG's), 6-neighbour grid, kNN |
+| `ExtremumGraphKernels` | `anyeg/kernels/` | AnyEG's four GPU modules: `OriginalCudaKernels` (its CUDA code) or `TorchKernels` (port) |
+| `ArcAssembler` | `anyeg/assembly.py` | port of AnyEG's CPU post-processing: arcs, persistence range, edge bundling |
+| `AnyEGPipeline` | `anyeg/pipeline.py` | wires the three together |
+
+AnyEG's `CMakeLists.txt` is a TTK module fragment and does not build on its
+own. `build.sh` compiles `cudaHelper.cu` unchanged, except one include path
+that points into the authors' home directory, together with a small driver
+(`anyeg/native/anyeg_driver.cu`) in place of the TTK filter. The PyTorch port
+gives exactly the original's output on all 27 test cases.
+
+Main differences from our pipeline (details and numbers in `observations.md`,
+2026-11-11):
+
+- AnyEG does not break ties, so on 8-bit volumes every voxel of a flat region
+  is a maximum (243,266 on `fuel`), even after its own preprocessing.
+- With distinct values and the same 14-neighbour grid, maxima and basins are
+  identical. AnyEG keeps only true saddles (upper link in two or more pieces)
+  and has no persistence simplification. We link all touching basins and
+  simplify afterwards.
+- Our 6-neighbour `grid_graph` cuts diagonal ridges into extra maxima (6,184
+  vs 938 on `hydrogen_atom`). AnyEG, TTK and TACHYON use 14 neighbours.
 
 ## 2D spine layout
 
@@ -173,8 +254,21 @@ python3 -m http.server -d web 8000     # then open http://localhost:8000/#fuel
 it needs no build step and no network. It must be served over HTTP (not opened
 as a `file://` page).
 
-- **Spine** (`src/spineView.js`, `src/contours.js`): two drawing styles, chosen
-  in the side panel. *Contours* (default) follows the paper's section 4. Each
+- **Spine** (`src/spineView.js`, `src/contours.js`): three drawing styles, chosen
+  in the side panel. *Contours (NDDAV)* (default) draws the spine the way LLNL's
+  [NDDAV](https://github.com/LLNL/NDDAV) does (`hdanalysis/core/TopoSpines.py`):
+  above its saddles a peak's contours are circles centred on it; below a saddle
+  the circle stretches along the link to a circle at the saddle whose radius is
+  how much the region has grown since the saddle value (0 at the saddle's own
+  value, the figure-eight). Isovalues are evenly spaced ("Even isovalues", 10 by
+  default) plus every shown saddle value, an even level being skipped when it
+  lies within about one spacing of a kept value. Every level is opaque with a
+  dark outline, contour radius ~ (points)^(2/d) and the outer halo sets the size.
+  The halo is as wide as the links are long. The "BrBG" colour map gives NDDAV's
+  brown-to-teal colours. Choosing a style resets "Radius" and "Scale by" to that
+  style's defaults. On volumes where most voxels are background (`neghip`, `fuel`)
+  the halo dominates; the paper style below handles those better.
+  *Contours (as in the paper)* follows the paper's section 4. Each
   link is the Minkowski sum of circles along the peak-saddle arc (drawn as the
   exact envelope); the circle at a point p has radius proportional to the number
   of points of the peak's whole region with value between the isovalue c and
@@ -254,6 +348,24 @@ as a `file://` page).
   nodes do not move when the slider does. Thresholds below a file's base
   threshold (`meta.simplify_threshold`) cannot be restored; the plot greys
   that part out.
+- **Compare mode** (button "Compare", key `m`): two spines side by side, each
+  with its own "Method" menu: Ours, AnyEG, and Ours on the 14-neighbour grid
+  (volumes only). Every registered variant in `comparison/variants.py` is
+  exported by `web/build_data.py` as `<name>.<variant>.json`. All variants of a
+  field share one 2D frame, pan and zoom, and region colours, so a maximum found
+  by both methods is drawn at the same spot and in the same colour.
+  - Selecting a node selects the node at the same vertex in the other spine.
+  - Peaks that the other method does not find at all get a magenta ring.
+  - AnyEG has no simplification, so its full graph is always shown and the
+    sliders act only on the other panel.
+  - The comparison box (side panel) gives the counts shown now, the agreement
+    of the full graphs, and "Why they differ": the design choices on which the
+    two methods differ. Each variant declares these as `traits`.
+  - The data view follows the left panel; "⇄ swap" exchanges the methods.
+  - AnyEG runs on values made distinct (rank in (value, index) order). Its
+    counts on the raw 8-bit values are listed in the box.
+  - Links: `#fuel:ours:anyeg` (compare), `#fuel:anyeg` (one method).
+  - Design and reasons: `docs/extremum_graph_variants.md`.
 - **Not yet:** crossing reduction (5) and the spine-anchored scatterplot (6).
 
 Tests:
@@ -292,3 +404,5 @@ actual WebGL drawing; look at it in a browser.
    Parallel Computation of Extremum Graphs.* Computer Graphics Forum, 2023.
    <https://vgl.csa.iisc.ac.in/softwares.php?pid=013>
 3. Topology ToolKit (TTK). <https://topology-tool-kit.github.io/>
+4. AnyEG: fast extremum graph computation for large-scale arbitrary grids
+   (BuptCIAGroup). <https://github.com/BuptCIAGroup/AnyEG>, commit 08068c2

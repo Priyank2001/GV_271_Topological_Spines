@@ -9,6 +9,9 @@
 // the discs and plain links are replaced by the drawing of Correa et al.: nested
 // contours around each peak and figure-eight lobes along the links (contours.js).
 // The discs shrink to small dots; picking and rings use the outer contour.
+// ``setStyle('nddav')`` (the default in the page) draws the same contours the way
+// LLNL's NDDAV does: concentric rings above the saddles, evenly spaced isovalues,
+// opaque fills with dark outlines, radius ~ count^(2/d) (contours.js).
 //
 // With ``setShowArcs(true)`` the links follow the paper's equation (3) instead:
 // every saddle in ``vis.arcs`` (saturated persistence p* >= threshold) gets its
@@ -27,6 +30,7 @@ import { arcPath, ridgeRoute } from './simplify.js';
 
 const Z_LINK = 0.0, Z_SADDLE = 0.1, Z_PEAK = 0.2, Z_RING = 0.3;
 const Z_CONTOUR = -0.6, Z_CONTOUR_RANGE = 0.5;   // paper-style shapes sit below everything else
+const NDDAV_HALO = 0.8;   // 'nddav' style: outer halo radius / median link length (at contour size 1)
 // Colour maps for field values, sampled at 11 even stops from matplotlib (sRGB).
 export const COLORMAPS = {
   viridis: [[0.267,0.005,0.329], [0.283,0.141,0.458], [0.254,0.265,0.530], [0.207,0.372,0.553], [0.164,0.471,0.558], [0.128,0.567,0.551], [0.135,0.659,0.518], [0.267,0.749,0.441], [0.478,0.821,0.318], [0.741,0.873,0.150], [0.993,0.906,0.144]],
@@ -38,6 +42,7 @@ export const COLORMAPS = {
   coolwarm: [[0.230,0.299,0.754], [0.348,0.466,0.888], [0.484,0.622,0.975], [0.619,0.744,0.999], [0.754,0.830,0.961], [0.867,0.864,0.863], [0.947,0.795,0.717], [0.968,0.674,0.557], [0.932,0.519,0.406], [0.839,0.322,0.265], [0.706,0.016,0.150]],
   RdYlBu: [[0.192,0.212,0.584], [0.269,0.454,0.703], [0.455,0.678,0.820], [0.666,0.848,0.912], [0.878,0.953,0.973], [1.000,0.998,0.745], [0.996,0.878,0.565], [0.991,0.677,0.378], [0.957,0.427,0.263], [0.839,0.185,0.153], [0.647,0.000,0.149]],
   Spectral: [[0.369,0.310,0.635], [0.199,0.529,0.739], [0.400,0.761,0.647], [0.665,0.865,0.643], [0.902,0.961,0.596], [1.000,0.998,0.745], [0.996,0.878,0.545], [0.991,0.677,0.378], [0.957,0.427,0.263], [0.831,0.238,0.309], [0.620,0.004,0.259]],
+  BrBG: [[0.329,0.188,0.020], [0.545,0.315,0.039], [0.749,0.506,0.176], [0.872,0.756,0.484], [0.965,0.910,0.765], [0.957,0.960,0.960], [0.780,0.918,0.898], [0.496,0.800,0.753], [0.208,0.592,0.561], [0.004,0.397,0.365], [0.000,0.235,0.188]],
   grey: [[0.000,0.000,0.000], [0.098,0.098,0.098], [0.200,0.200,0.200], [0.298,0.298,0.298], [0.400,0.400,0.400], [0.502,0.502,0.502], [0.600,0.600,0.600], [0.702,0.702,0.702], [0.800,0.800,0.800], [0.902,0.902,0.902], [1.000,1.000,1.000]],
 };
 
@@ -88,8 +93,9 @@ export function peakGradientCss() {
 export class SpineView {
   /**
    * @param {HTMLElement} container element the canvas is added to
-   * @param {{onHover?: Function, onSelect?: Function}} handlers called with a node
-   *        ``{kind: 'peak'|'saddle', index, docId}`` (index into the visible lists) or null
+   * @param {{onHover?: Function, onSelect?: Function, onCamera?: Function}} handlers: onHover and
+   *        onSelect get a node ``{kind: 'peak'|'saddle', index, docId}`` (index into the visible
+   *        lists) or null; onCamera gets ``getCamera()`` after the user pans, zooms or resets
    * @param {{renderer?: object}} options ``renderer`` replaces the WebGL renderer
    *        (used by the tests, which have no GPU)
    */
@@ -97,7 +103,9 @@ export class SpineView {
     this.container = container;
     this.handlers = handlers;
     this.colors = { bg: '#ffffff', link: '#8a8f98', saddle: '#6b7280', loop: '#d97706',
-                    ring: '#111827', select: '#2563eb' };
+                    ring: '#111827', select: '#2563eb', mark: '#c026d3' };
+    this.marked = new Set();   // document peak ids drawn with a mark ring (compare mode)
+    this.colorIds = null;      // document peak id -> id whose regionColor it uses (compare mode); null: itself
 
     this.renderer = options.renderer ?? new THREE.WebGLRenderer({ antialias: true });
     if (!options.renderer) this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -112,10 +120,11 @@ export class SpineView {
     this.halfHeight = 1.25;
     this.homeHalfHeight = 1.25;
 
-    this.style = 'simple';     // 'simple' (discs and lines) or 'paper' (nested contours)
+    this.style = 'simple';     // 'simple' (discs and lines), 'paper' or 'nddav' (nested contours)
     this.contourScale = 1;     // multiplies the radius of every contour
-    this.radiusExponent = 1;   // contour radius ~ volume^k: 1 as in the paper, 0.5 = area ~ volume
+    this.radiusExponent = 1;   // contour radius ~ volume^k: 1 as in the paper, 0.5 = area ~ volume, 'nddav' = 2/d
     this.levelGap = 0.02;      // minimum isovalue gap, fraction of the value range (paper, section 4.4)
+    this.levelCount = 10;      // evenly spaced isovalues of the 'nddav' style (plus the saddle values)
     this.scaleMode = 'saddle'; // which contour gets radius rMax: 'saddle' (lowest saddle; halo capped) or 'halo'
     this.showArcs = false;     // draw the arcs of equation (3), through merged-away peaks
     this.contourMesh = null;
@@ -136,6 +145,8 @@ export class SpineView {
   setGraph(doc) {
     this.doc = doc;
     this.hover = this.selected = null;
+    this.marked = new Set();                   // ids of the previous document mean nothing here
+    this.colorIds = null;
     const sp = doc.spine;
     if (!sp) throw new Error('this file has no spine layout');
 
@@ -177,7 +188,7 @@ export class SpineView {
       m.makeScale(dot, dot, 1).setPosition(x, y, Z_PEAK);
       this.peakMesh.setMatrixAt(i, m);
       const [R, G, B] = peakColor(hi > lo ? (doc.peaks[id].value - lo) / (hi - lo) : 0.5);
-      const [rr, rg, rb] = regionColor(id);              // paper style: the dot shows the region's colour
+      const [rr, rg, rb] = regionColor(this.colorIds?.[id] ?? id);   // paper style: the dot shows the region's colour
       this.peakMesh.setColorAt(i, paper ? col.setRGB(rr, rg, rb, THREE.SRGBColorSpace)
                                         : col.setRGB(R, G, B, THREE.SRGBColorSpace));
     }
@@ -226,6 +237,7 @@ export class SpineView {
     });
     this.ghostMesh.count = ghosts.length;
     this.ghostMesh.instanceMatrix.needsUpdate = true;
+    this.#updateMarks();
 
     // Selections refer to visible indices, which just changed: keep the same
     // peak/saddle if it is still drawn, otherwise drop the selection.
@@ -247,9 +259,46 @@ export class SpineView {
     this.dirty = true;
   }
 
-  /** 'simple' (discs and lines) or 'paper' (nested contours, as in the paper). */
+  /**
+   * Draw a ring around these peaks (document ids), e.g. the maxima that the other
+   * method of a comparison does not have. Hidden peaks are skipped.
+   */
+  setMarked(docIds) {
+    this.marked = new Set(docIds ?? []);
+    this.#updateMarks();
+    this.dirty = true;
+  }
+
+  /**
+   * Colour peak ``i`` like peak ``ids[i]`` (compare mode: the same maximum gets the
+   * same colour in both spines although the two files number their peaks differently).
+   */
+  setColorIds(ids) {
+    this.colorIds = ids ?? null;
+    if (this.vis) this.setVisible(this.vis);
+  }
+
+  #updateMarks() {
+    if (!this.markMesh || !this.vis) return;
+    const m = new THREE.Matrix4();
+    let n = 0;
+    this.vis.peaks.forEach((id, i) => {
+      if (!this.marked.has(id)) return;
+      const [x, y] = this.peakXY[id];
+      const r = Math.max(this.radius[i] * 1.3, SADDLE_R * 2.5);
+      m.makeScale(r, r, 1).setPosition(x, y, Z_RING - 0.01);
+      this.markMesh.setMatrixAt(n++, m);
+    });
+    this.markMesh.count = n;
+    this.markMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  /**
+   * 'simple' (discs and lines), 'paper' (nested contours, as in the paper) or
+   * 'nddav' (nested contours drawn the way NDDAV draws them).
+   */
   setStyle(style) {
-    if (style !== 'simple' && style !== 'paper') throw new Error(`unknown spine style ${style}`);
+    if (!['simple', 'paper', 'nddav'].includes(style)) throw new Error(`unknown spine style ${style}`);
     this.style = style;
     if (this.vis) this.setVisible(this.vis);
   }
@@ -257,13 +306,30 @@ export class SpineView {
   /** Scale every contour radius (1 = the largest outer contour has radius rMax). */
   setContourScale(k) {
     this.contourScale = k;
-    if (this.vis && this.style === 'paper') this.setVisible(this.vis);
+    if (this.vis && this.style !== 'simple') this.setVisible(this.vis);
   }
 
-  /** Contour radius ~ volume^k: 1 is the paper's rule, 0.5 makes the area proportional instead. */
+  /**
+   * Contour radius ~ volume^k: 1 is the paper's rule, 0.5 makes the area
+   * proportional instead, 'nddav' uses k = 2/d (d = dimension of the data), as NDDAV.
+   */
   setRadiusExponent(k) {
-    this.radiusExponent = k;
-    if (this.vis && this.style === 'paper') this.setVisible(this.vis);
+    if (k !== 'nddav' && !(Number(k) > 0)) throw new Error(`bad radius exponent ${k}`);
+    this.radiusExponent = k === 'nddav' ? k : Number(k);
+    if (this.vis && this.style !== 'simple') this.setVisible(this.vis);
+  }
+
+  /** The exponent actually used: 2/d for 'nddav' (d from the file, 2 when unknown). */
+  get effectiveExponent() {
+    if (this.radiusExponent !== 'nddav') return this.radiusExponent;
+    const d = Number(this.doc?.meta?.dimensions);
+    return 2 / (d >= 1 ? d : 2);
+  }
+
+  /** Number of evenly spaced isovalues of the 'nddav' style (the saddle values are always added). */
+  setLevelCount(n) {
+    this.levelCount = Math.max(2, Math.round(n));
+    if (this.vis && this.style === 'nddav') this.setVisible(this.vis);
   }
 
   /**
@@ -274,13 +340,13 @@ export class SpineView {
   setScaleMode(mode) {
     if (mode !== 'saddle' && mode !== 'halo') throw new Error(`unknown scale mode ${mode}`);
     this.scaleMode = mode;
-    if (this.vis && this.style === 'paper') this.setVisible(this.vis);
+    if (this.vis && this.style !== 'simple') this.setVisible(this.vis);
   }
 
   /** Minimum gap between drawn isovalues, as a fraction of the value range. */
   setLevelGap(g) {
     this.levelGap = g;
-    if (this.vis && this.style === 'paper') this.setVisible(this.vis);
+    if (this.vis && this.style !== 'simple') this.setVisible(this.vis);
   }
 
   /** True while the paper-style drawing is on screen (it falls back to discs without per-point data). */
@@ -308,6 +374,7 @@ export class SpineView {
     this.ringMat.color.set(this.colors.ring);
     this.selectMat.color.set(this.colors.select);
     this.highlightMat.color.set(this.colors.select);
+    this.markMat.color.set(this.colors.mark);
     if (this.vis) this.setVisible(this.vis);     // saddle colours are per instance
     this.dirty = true;
   }
@@ -318,7 +385,23 @@ export class SpineView {
     this.center.set(0, 0);
     this.halfHeight = this.homeHalfHeight = Math.max(reach, reach / aspect);
     this.dirty = true;
+    this.#cameraChanged();
   }
+
+  /** The visible part of the layout: centre and half height (plus the reset zoom). */
+  getCamera() {
+    return { x: this.center.x, y: this.center.y, halfHeight: this.halfHeight, homeHalfHeight: this.homeHalfHeight };
+  }
+
+  /** Show the same part of the layout as another view (compare mode); does not call onCamera. */
+  setCamera(cam) {
+    this.center.set(cam.x, cam.y);
+    this.halfHeight = cam.halfHeight;
+    this.homeHalfHeight = cam.homeHalfHeight ?? this.homeHalfHeight;
+    this.dirty = true;
+  }
+
+  #cameraChanged() { this.handlers.onCamera?.(this.getCamera()); }
 
   resize() {
     const w = Math.max(this.container.clientWidth, 10);
@@ -358,16 +441,21 @@ export class SpineView {
       this.contourMesh.geometry.dispose();
       this.contourMesh = null;
     }
-    if (this.style !== 'paper') return false;
+    if (this.style === 'simple') return false;
     const h = regionHistograms(this.doc, vis);
     if (!h) return false;
     const sc = spineScale(this.doc, vis, h, this.scaleMode);
     this.scaleInfo = sc;
-    const rRef = this.contourScale * this.rMax;
+    const nddav = this.style === 'nddav';
+    const rRef = this.contourScale * (nddav ? this.#nddavRadius(vis) : this.rMax);
+    const exponent = this.effectiveExponent;
     const g = buildContours(this.doc, vis, h, this.peakXY, this.saddleXY, {
-      rs: rRef / sc.ref ** this.radiusExponent,
+      rs: rRef / sc.ref ** exponent,
       maxRadius: rRef * sc.capFactor,
-      exponent: this.radiusExponent, gap: this.levelGap,
+      knee: nddav ? rRef : undefined,          // NDDAV style: squeeze the halo softly, keep the taper
+      exponent, gap: this.levelGap,
+      shape: nddav ? 'nddav' : 'paper', levelCount: this.levelCount,
+      edgeWidth: nddav ? 0.004 : 0.003,
       colorOf: peakColor, bg: hexToRgb(this.colors.bg), edge: hexToRgb(this.colors.ring),
       z0: Z_CONTOUR, zRange: Z_CONTOUR_RANGE,
       route: this.#arcsActive()            // lobes follow the p* ridge through merged peaks
@@ -385,6 +473,26 @@ export class SpineView {
     return true;
   }
 
+  /**
+   * Reference radius of the 'nddav' style. NDDAV sizes its contours in layout
+   * units, so the outer halo is about as wide as the links are long; here it is
+   * NDDAV_HALO x the median peak-saddle link (never below the disc size rMax,
+   * at most 0.6 of the [-1, 1] layout box).
+   */
+  #nddavRadius(vis) {
+    const len = [];
+    vis.saddles.forEach((id, j) => {
+      const [sx, sy] = this.saddleXY[id];
+      for (const e of new Set(vis.saddleEnds[j])) {
+        const [px, py] = this.peakXY[vis.peaks[e]];
+        len.push(Math.hypot(px - sx, py - sy));
+      }
+    });
+    if (!len.length) return this.rMax * 2;
+    len.sort((a, b) => a - b);
+    return Math.min(0.6, Math.max(this.rMax, NDDAV_HALO * len[len.length >> 1]));
+  }
+
   // ---- scene objects ----------------------------------------------------
   #buildFixedObjects() {
     this.linkMat = new THREE.LineBasicMaterial({ color: this.colors.link, transparent: true, opacity: 0.55 });
@@ -392,6 +500,7 @@ export class SpineView {
     this.ghostMat = new THREE.MeshBasicMaterial({ color: this.colors.link });
     this.ringMat = new THREE.MeshBasicMaterial({ color: this.colors.ring });
     this.selectMat = new THREE.MeshBasicMaterial({ color: this.colors.select });
+    this.markMat = new THREE.MeshBasicMaterial({ color: this.colors.mark });
     this.peakGeom = new THREE.CircleGeometry(1, 48);
     this.saddleGeom = new THREE.CircleGeometry(1, 4);
     this.saddleGeom.rotateZ(Math.PI / 4);                // axis-aligned diamond
@@ -414,6 +523,11 @@ export class SpineView {
       if (o.isInstancedMesh) { o.material.dispose(); o.dispose(); } else o.geometry.dispose();
     }
     if (this.ghostMesh) { this.scene.remove(this.ghostMesh); this.ghostMesh.dispose(); }   // shared material
+    if (this.markMesh) { this.scene.remove(this.markMesh); this.markMesh.dispose(); }      // shared material
+    this.markMesh = new THREE.InstancedMesh(this.ringGeom, this.markMat, Math.max(nP, 1));
+    this.markMesh.count = 0;
+    this.markMesh.frustumCulled = false;
+    this.markMesh.renderOrder = 9;
     this.ghostMesh = new THREE.InstancedMesh(this.peakGeom, this.ghostMat, Math.max(nP, 1));
     this.ghostMesh.count = 0;
     this.ghostMesh.frustumCulled = false;
@@ -435,7 +549,8 @@ export class SpineView {
     this.highlightLines.frustumCulled = false;
     this.highlightLines.position.z = 0.05;
 
-    this.scene.add(this.linkLines, this.highlightLines, this.ghostMesh, this.saddleMesh, this.peakMesh);
+    this.scene.add(this.linkLines, this.highlightLines, this.ghostMesh, this.saddleMesh, this.peakMesh,
+                   this.markMesh);
   }
 
   /** Move a selection to the new visible indices after the slider changed. */
@@ -555,6 +670,7 @@ export class SpineView {
           const px = (2 * this.halfHeight) / el.clientHeight;
           this.center.set(drag.center.x - dx * px, drag.center.y + dy * px);
           this.dirty = true;
+          this.#cameraChanged();
         }
         return;
       }
@@ -587,6 +703,7 @@ export class SpineView {
       this.center.x += before.x - after.x;
       this.center.y += before.y - after.y;
       this.dirty = true;
+      this.#cameraChanged();
     }, { passive: false });
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
