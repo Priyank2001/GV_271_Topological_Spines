@@ -110,8 +110,9 @@ body.compare #spines { flex: 2 1 0; }                 /* two spines get twice th
   font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border);
   border-radius: 6px; padding: 2px 10px; cursor: pointer;
 }
-#spine, #spineB { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; }
-#spine canvas, #spineB canvas, #dataCanvas canvas { display: block; }
+#spine, #spineB, #spineH { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; }
+#spine canvas, #spineB canvas, #spineH canvas, #dataCanvas canvas { display: block; }
+body.mode-height #spines { flex: 2 1 0; }              /* flat + landscape get twice the room of the data view */
 .toggles button:disabled { opacity: 0.45; cursor: default; }
 
 #data {
@@ -213,12 +214,12 @@ body.compare #spines { flex: 2 1 0; }                 /* two spines get twice th
 .no-webgl p { max-width: 460px; margin: 0; }
 .no-webgl strong { color: var(--text); }
 
-#hint {
+#hint, .spine-hint {
   position: absolute; left: 12px; bottom: 10px; font-size: 12px;
   color: var(--muted); pointer-events: none;
 }
 
-#tooltip {
+#tooltip, .spine-tip {
   position: absolute; z-index: 5; pointer-events: none; transform: translate(12px, -50%);
   background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
   padding: 4px 8px; font-size: 12px; white-space: nowrap;
@@ -299,6 +300,22 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   #data { border-left: 0; border-top: 1px solid var(--border); min-height: 50vh; }
   aside { width: auto; border-left: 0; border-top: 1px solid var(--border); max-height: 50vh; }
   #spines { flex-direction: column; }
-  #spine, #spineB { min-height: 50vh; }
+  #spine, #spineB, #spineH { min-height: 50vh; }
   .spine-panel + .spine-panel { border-left: 0; border-top: 1px solid var(--border); }
 }
+
+/* long descriptions of the controls: shown on hover over the option (an i after its name) */
+.tip-src { display: none !important; }
+.has-tip { cursor: help; }
+.tip-badge {
+  display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px;
+  margin-left: 6px; border-radius: 50%; border: 1px solid var(--muted); color: var(--muted);
+  font-size: 10px; font-style: normal; font-weight: 600; line-height: 1; vertical-align: 1px;
+}
+#tipBox {
+  position: fixed; z-index: 50; max-width: 320px; padding: 8px 10px; pointer-events: none;
+  background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+  font-size: 12px; line-height: 1.45; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+#tipBox .blue { color: var(--accent); }
+#tipBox .red { color: var(--variation); }

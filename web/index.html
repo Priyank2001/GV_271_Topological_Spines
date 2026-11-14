@@ -35,6 +35,11 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4" width="8.5" height="16" rx="1.6"/><rect x="13" y="4" width="8.5" height="16" rx="1.6"/><circle cx="6.75" cy="10" r="1.4"/><circle cx="17.25" cy="10" r="1.4"/><path d="M5 15h3.5M15.5 15h3.5"/></svg>
         <span>Compare</span>
       </button>
+      <button type="button" class="mode" data-mode="height" aria-pressed="false"
+              title="Height: the flat spine next to the same spine as a landscape (value as height); hovering a node highlights it in both (key: h)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 19l6-9 4 5 3-4 7 8z"/><path d="M8 10l1.6 2.4M15 11l1.4 1.9" opacity=".7"/></svg>
+        <span>Height</span>
+      </button>
       <button type="button" class="mode" data-mode="parallel" aria-pressed="false"
               title="Parallel coordinates: every point as a line across all original dimensions (key: p)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18M12 3v18M20 3v18"/><path d="M4 6.5l8 10 8-11" opacity=".9"/><path d="M4 17l8-9 8 7"/></svg>
@@ -59,6 +64,15 @@
             <label>Method <select id="variantB" aria-label="Extraction method of the right spine"></select></label>
           </div>
           <section id="spineB" aria-label="Second spine view (compare mode)"></section>
+        </div>
+        <div class="spine-panel" id="panelH" hidden>
+          <div class="panel-bar" title="The same spine, every contour and node at the height of its value; hovering or clicking a node here highlights it in the flat spine too">
+            <span>Landscape: value as height</span>
+          </div>
+          <section id="spineH" aria-label="Spine as a landscape (height mode)">
+            <div id="tooltipH" class="spine-tip" hidden></div>
+            <div id="hintH" class="spine-hint">drag to orbit · shift-drag to pan · wheel to zoom · double-click to reset · click a node to select</div>
+          </section>
         </div>
       </div>
 
@@ -191,7 +205,7 @@
         <input id="variation" type="range" min="0" max="1" step="0.001" value="1">
       </label>
       <canvas id="plot" aria-label="Peaks left against the noise threshold (blue) and links left against the variation threshold (red)"></canvas>
-      <p class="caption"><b class="blue">Blue</b>: peaks left at each noise threshold. <b class="red">Red</b>: links
+      <p class="caption" id="plotNote"><b class="blue">Blue</b>: peaks left at each noise threshold. <b class="red">Red</b>: links
         left at each variation threshold; links (saddles) above p<sub>hi</sub> are cut, which can split the graph
         into separate pieces. A flat stretch means the structure is stable. Click the plot to set the noise
         threshold, shift+click to set p<sub>hi</sub>. Grey: below this file's base threshold.</p>
@@ -224,6 +238,26 @@
       </label>
       <label class="check"><input id="cmapReverse" type="checkbox"> Reverse colour map</label>
       <div class="cmap-preview" id="cmapPreview" aria-hidden="true"></div>
+      <label class="check"><input id="height" type="checkbox"> Height (value as height)</label>
+      <div id="heightRows" hidden>
+        <label class="slider">
+          <span>Height scale <output id="heightScaleOut">×1.00</output></span>
+          <input id="heightScale" type="range" min="0.2" max="3" step="0.05" value="1">
+        </label>
+        <label class="field">Slopes
+          <select id="heightShape" aria-label="How the contours rise">
+            <option value="smooth" selected>smooth (small steps)</option>
+            <option value="solid">solid mountain (colours as the spine's contours)</option>
+            <option value="terraces">terraces (one step per contour)</option>
+          </select>
+        </label>
+        <p class="caption" id="heightNote">Every contour, peak, saddle and link stands at the height of its value, so
+          peaks are summits and saddles are the passes between them: the climb from a saddle to its
+          peak is the peak's persistence. Slopes: smooth rises in small steps; solid mountain fills
+          the sides, so each colour covers the mountain up to the height of its contour, exactly the
+          bands of the flat spine; terraces is one flat step per contour. Drag to orbit, shift-drag to pan, wheel to zoom,
+          double-click to reset.</p>
+      </div>
       <div id="paperRows">
       <label class="slider" id="scaleRow">
         <span>Contour size <output id="scaleOut"></output></span>
@@ -253,15 +287,15 @@
       </div>
       <p class="caption" id="styleNote"></p>
       <label class="check"><input id="arcs" type="checkbox" checked> Keep the arcs of merged peaks (p*)</label>
-      <p class="caption">Saturated persistence, as in the paper: a link to a peak that absorbed smaller ones runs
+      <p class="caption" id="arcsNote">Saturated persistence, as in the paper: a link to a peak that absorbed smaller ones runs
         along the ridge through them (small grey dots), so a ring stays a ring after its peaks merge. Off: straight
         links between the peaks that are left.</p>
       <label class="check"><input id="floor" type="checkbox" checked> Cut contours below the lowest saddle</label>
-      <p class="caption">Paper style: the outermost contour sits one level below the lowest shown saddle,
+      <p class="caption" id="floorNote">Paper style: the outermost contour sits one level below the lowest shown saddle,
         so empty space (most of a volume, all owned by one peak) does not swell into a huge halo.
         Untick it to draw down to the field minimum, as the paper does.</p>
       <label class="check"><input id="relayout" type="checkbox" checked> Re-layout after simplifying</label>
-      <p class="caption">Lays out the peaks and saddles that are left again, so their positions fit their
+      <p class="caption" id="relayoutNote">Lays out the peaks and saddles that are left again, so their positions fit their
         own distances (the exported layout was made for the full graph). Used up to 150 nodes. In compare
         mode the two spines then no longer share positions; untick it to line them up again.</p>
 
@@ -284,6 +318,7 @@
     </aside>
   </main>
 
+  <div id="tipBox" role="tooltip" hidden></div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>
