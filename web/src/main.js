@@ -30,7 +30,9 @@ const el = {
   radiusLaw: $('radiusLaw'), gap: $('gap'), gapOut: $('gapOut'), scaleMode: $('scaleMode'),
   gapRow: $('gapRow'), levels: $('levels'), levelsOut: $('levelsOut'), levelsRow: $('levelsRow'),
   colormap: $('colormap'), cmapReverse: $('cmapReverse'), cmapPreview: $('cmapPreview'),
-  styleNote: $('styleNote'), discLegend: $('discLegend'), arcs: $('arcs'), relayout: $('relayout'), floor: $('floor'),
+  styleNote: $('styleNote'), discLegend: $('discLegend'), arcs: $('arcs'), relayout: $('relayout'), floor: $('floor'), height: $('height'), heightRows: $('heightRows'),
+  panelH: $('panelH'), spineH: $('spineH'), tooltipH: $('tooltipH'), tipBox: $('tipBox'),
+  heightScale: $('heightScale'), heightScaleOut: $('heightScaleOut'), heightShape: $('heightShape'),
   toggleData: $('toggleData'), toggleSide: $('toggleSide'),
   colorLegend: $('colorLegend'), clTitle: $('clTitle'), clBar: $('clBar'), clFade: $('clFade'),
   clTick: $('clTick'), clRange: $('clRange'), clLo: $('clLo'), clHi: $('clHi'),
@@ -141,7 +143,8 @@ class UnavailableData {
 
 function createView() {
   try {
-    return new SpineView(el.spine, { onHover, onSelect, onCamera: (c) => linkCamera('A', c) });
+    return new SpineView(el.spine, { onHover, onSelect, onCamera: (c) => linkCamera('A', c),
+      onBandHover: (b, pos) => { if (state.mode === 'height') heightView?.showLinkedBand?.(b); showBandTip(el.tooltip, b, pos); } });
   } catch (err) {
     console.error(err);
     setStatus('WebGL unavailable', true);
@@ -182,8 +185,86 @@ const panelB = new ComparePanel(el.spineB, {
 });
 const comparisonBox = new ComparisonBox(el.compareBox);
 
-/** Every spine view on screen (the second one exists once compare mode has been opened). */
-function spineViews() { return panelB.view ? [view, panelB.view] : [view]; }
+// ---- height mode: the same spine as a landscape, next to the flat one -------
+// Created the first time the mode is opened. It shows the main panel's graph (same visible
+// peaks and saddles, same indices), so hover and selection carry over one to one.
+let heightView = null;
+let heightLinking = false;             // true while one of the two selects on behalf of the other
+
+/** Every spine view on screen (the second exists once compare mode, the third once height mode was opened). */
+function spineViews() { return [view, panelB.view, heightView].filter(Boolean); }
+
+function ensureHeightView() {
+  if (heightView) return heightView;
+  try {
+    heightView = new SpineView(el.spineH, { onHover: onHoverH, onSelect: onSelectH,
+      onBandHover: (b, pos) => { view.showLinkedBand?.(b); showBandTip(el.tooltipH, b, pos); } });
+  } catch (err) {
+    console.error(err);
+    setStatus('WebGL unavailable for the landscape', true);
+    return null;
+  }
+  applyViewSettings(heightView);          // (it has no graph yet, so nothing is built twice)
+  return heightView;
+}
+
+/** Bring the landscape up to date with the main panel (graph, visible part, selection). */
+function syncHeightView() {
+  const hv = ensureHeightView();
+  if (!hv || !state.doc) return;
+  hv.setHeight?.(heightFor(hv));             // stand up first, so the landscape is built once
+  if (hv.doc !== state.doc) hv.setGraph(state.doc);
+  if (state.vis) hv.setVisible(state.vis);
+  heightLinking = true;
+  try { hv.select(view.selected ? { kind: view.selected.kind, index: view.selected.index } : null); }
+  finally { heightLinking = false; }
+  applyHeight();
+}
+
+/** Label of a hovered contour band: its value and the peaks it goes round. */
+function showBandTip(tip, band, pos) {
+  if (!band || !pos) { if (tip.dataset.kind === 'band') tip.hidden = true; return; }   // a node label stays
+  tip.dataset.kind = 'band';
+  const more = band.peaks && band.peaks.length > 1 ? `, joined with ${band.peaks.length - 1} more peak${band.peaks.length > 2 ? 's' : ''}` : '';
+  tip.hidden = false;
+  tip.style.left = `${pos.x}px`;
+  tip.style.top = `${pos.y}px`;
+  tip.textContent = `Contour ≥ ${fmt(band.c, 3)} around peak ${band.docId}${more}`;
+}
+
+/** Text of the small hover label of a node. */
+function nodeLabel(node) {
+  return node.kind === 'peak'
+    ? `Peak ${node.docId} · ${pct(state.vis.size[node.index], state.doc.meta.num_points)} of the points`
+    : `Saddle ${node.docId}`;
+}
+
+function onHoverH(node, pos) {
+  view.showLinkedHover?.(node);                 // the same node lights up in the flat spine
+  lastHover = node;
+  syncDataSelection();                          // and its region in the data view
+  if (node && pos) {
+    el.tooltipH.hidden = false;
+    el.tooltipH.dataset.kind = 'node';
+    el.tooltipH.style.left = `${pos.x}px`;
+    el.tooltipH.style.top = `${pos.y}px`;
+    el.tooltipH.textContent = nodeLabel(node);
+  } else {
+    el.tooltipH.hidden = true;
+  }
+  renderInfo(view.selected ?? node);
+}
+
+function onSelectH() {
+  if (heightLinking) return;
+  heightLinking = true;
+  try {
+    const n = heightView.selected;
+    view.select(n ? { kind: n.kind, index: n.index } : null);
+  } finally {
+    heightLinking = false;
+  }
+}
 
 /** Give a newly created spine view the current drawing settings. */
 function applyViewSettings(v) {
@@ -192,6 +273,7 @@ function applyViewSettings(v) {
   v.setShowArcs?.(el.arcs.checked);
   v.setRelayout?.(el.relayout?.checked ?? true);
   v.setFloor?.(el.floor?.checked ?? true);
+  v.setHeight?.(heightFor(v));
   v.setContourScale?.(Number(el.scale.value));
   v.setRadiusExponent?.(radiusLaw());
   v.setScaleMode?.(el.scaleMode.value);
@@ -248,6 +330,10 @@ function setThresholds(t, v) {
   state.variation = v;
   state.vis = visibleGraph(doc, t, v);                               // the full graph if doc cannot simplify
   view.setVisible(state.vis);
+  if (heightView && state.mode === 'height') {
+    if (heightView.doc !== doc) heightView.setGraph(doc);
+    heightView.setVisible(state.vis);
+  }
   dataView.setVisible(state.vis);
   volumeView.setVisible(state.vis);
   if (pcReady()) pcView.setVisible(state.vis);
@@ -318,10 +404,12 @@ el.slider.addEventListener('input', () => {
 let lastHover = null;
 
 function onHover(node, pos) {
+  if (state.mode === 'height') heightView?.showLinkedHover?.(node);   // light it up in the landscape too
   lastHover = node;
   syncDataSelection();                 // hovering previews the region in the data view
   if (node && pos) {
     el.tooltip.hidden = false;
+    el.tooltip.dataset.kind = 'node';
     el.tooltip.style.left = `${pos.x}px`;
     el.tooltip.style.top = `${pos.y}px`;
     el.tooltip.textContent = node.kind === 'peak'
@@ -333,7 +421,14 @@ function onHover(node, pos) {
   renderInfo(view.selected ?? node);
 }
 
-function onSelect() { renderInfo(view.selected ?? lastHover); syncDataSelection(); linkSelection('A'); }
+function onSelect() {
+  renderInfo(view.selected ?? lastHover); syncDataSelection(); linkSelection('A');
+  if (heightView && state.mode === 'height' && !heightLinking) {
+    heightLinking = true;
+    try { heightView.select(view.selected ? { kind: view.selected.kind, index: view.selected.index } : null); }
+    finally { heightLinking = false; }
+  }
+}
 
 // ---- compare mode: linked selection, linked camera, the comparison box ------
 let linking = false;                   // true while one panel selects on behalf of the other
@@ -458,7 +553,7 @@ function updateLegend(picked = []) {
 
   const cmapLabel = `${getColormap().name}${getColormap().reversed ? ', reversed' : ''}`;
   const levels = byIso ? volumeView.getIsoLevels?.() ?? [] : [];
-  const bandLabel = el.volIsoCmap.value === 'spine' ? cmapLabel
+  const bandLabel = bandMapName() === 'fig1' ? 'the paper\'s Fig. 1 colours' : el.volIsoCmap.value === 'spine' ? cmapLabel
     : `${el.volIsoCmap.value}${el.volIsoRev.checked ? ', reversed' : ''}`;
   el.clTitle.textContent = byIso ? `Colour: iso-value bands (${levels.length + 1} bands, ${bandLabel})`
     : byValue ? `Colour: field value (${cmapLabel})` : 'Colour: peak region';
@@ -467,7 +562,7 @@ function updateLegend(picked = []) {
   el.clHi.textContent = fmt(hi, 3);
   if (byIso) {                                                       // hard stops at the iso values
     const n = levels.length + 1, edges = [lo, ...levels, hi];
-    const rgb = (k) => `rgb(${bandColor(k, n, el.volIsoCmap.value, el.volIsoRev.checked).map((c) => Math.round(c * 255)).join(',')})`;
+    const rgb = (k) => `rgb(${bandColor(k, n, bandMapName(), el.volIsoRev.checked, levels, [lo, hi]).map((c) => Math.round(c * 255)).join(',')})`;
     const pct = (x) => `${(100 * (x - lo) / span).toFixed(2)}%`;
     el.clBar.style.background = `linear-gradient(to right, ${Array.from({ length: n },
       (_, k) => `${rgb(k)} ${pct(edges[k])}, ${rgb(k)} ${pct(edges[k + 1])}`).join(', ')})`;
@@ -542,8 +637,12 @@ el.volIsoLevels.addEventListener('change', () => {
   volumeView.setIsoLevels?.(el.volIsoLevels.value);
   syncedKey = ''; syncDataSelection();             // redraw the legend
 });
+/** Band colour map in effect: "as the spine" follows the spine, so the Fig. 1 style gives the paper's palette. */
+function bandMapName() {
+  return el.volIsoCmap.value === 'spine' && el.style.value === 'fig1' ? 'fig1' : el.volIsoCmap.value;
+}
 function applyBandColormap() {
-  volumeView.setBandColormap?.(el.volIsoCmap.value, el.volIsoRev.checked);
+  volumeView.setBandColormap?.(bandMapName(), el.volIsoRev.checked);
   syncedKey = ''; syncDataSelection();             // redraw the legend
 }
 el.volIsoCmap.addEventListener('change', applyBandColormap);
@@ -623,7 +722,33 @@ el.style.addEventListener('change', () => {
     for (const v of spineViews()) { v.setRadiusExponent?.(radiusLaw()); v.setScaleMode?.(el.scaleMode.value); }
   }
   applyStyle();
+  applyBandColormap();          // "as the spine colour map": the 3D bands follow the spine's style
 });
+/** Height mode settings from the page (see SpineView.setHeight). */
+function heightSettings() {
+  return { on: Boolean(el.height?.checked), scale: Number(el.heightScale?.value ?? 1),
+           smooth: el.heightShape?.value === 'smooth', solid: el.heightShape?.value === 'solid' };
+}
+/** Height mode: the landscape always stands up and the main spine stays flat; else the checkbox. */
+function heightFor(v) {
+  const base = heightSettings();
+  if (v && v === heightView) return { ...base, on: true };
+  if (state.mode === 'height') return { ...base, on: false };
+  return base;
+}
+function applyHeight() {
+  const mode = state.mode === 'height';
+  if (el.heightRows) el.heightRows.hidden = !(el.height?.checked || mode);
+  if (el.height) {
+    el.height.disabled = mode;
+    el.height.closest('label').title = mode ? 'In height mode the left spine stays flat and the right one is the landscape' : '';
+  }
+  if (el.heightScaleOut) el.heightScaleOut.textContent = `×${Number(el.heightScale.value).toFixed(2)}`;
+  for (const v of spineViews()) v.setHeight?.(heightFor(v));
+}
+el.height?.addEventListener('change', applyHeight);
+el.heightScale?.addEventListener('input', applyHeight);
+el.heightShape?.addEventListener('change', applyHeight);
 el.floor?.addEventListener('change', () => {
   for (const v of spineViews()) v.setFloor?.(el.floor.checked);
 });
@@ -759,7 +884,8 @@ function showDataPanel(doc, names, volume) {
     el.volDensity.value = '1'; el.volShade.checked = true;
     volumeView.setColorBy('region');
     volumeView.setIsoLevels?.(el.volIsoLevels.value);
-    volumeView.setBandColormap?.(el.volIsoCmap.value, el.volIsoRev.checked);   // the browser may restore the form
+    volumeView.setBandColormap?.(bandMapName(), el.volIsoRev.checked);   // the browser may restore the form
+    applyHeight();
     syncIsoControls();
     volumeView.resize?.();
     return;
@@ -982,6 +1108,7 @@ async function init() {
   await loadDataset(first, a, b);
   if (b) await setCompare(true);
   else if (storedMode() === 'parallel') await setMode('parallel');
+  else if (storedMode() === 'height') await setMode('height');
   window.addEventListener('hashchange', () => openHash(location.hash));   // a typed or followed link
 }
 
@@ -1005,6 +1132,8 @@ function storedMode() { try { return localStorage.getItem(MODE_STORE); } catch {
 function syncModeUi() {
   for (const b of el.modeButtons) b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode));
   document.body.classList.toggle('mode-parallel', state.mode === 'parallel');
+  document.body.classList.toggle('mode-height', state.mode === 'height');
+  el.panelH.hidden = state.mode !== 'height';
   el.parallel.hidden = state.mode !== 'parallel';
   el.data.hidden = state.mode === 'parallel';
   el.toggleData.title = state.mode === 'parallel'
@@ -1019,6 +1148,8 @@ async function setMode(mode) {
   try { localStorage.setItem(MODE_STORE, mode); } catch { /* storage blocked */ }
   syncModeUi();
   if (mode === 'parallel') await loadParallel();
+  if (mode === 'height') syncHeightView();
+  else applyHeight();                            // the main spine follows the checkbox again
   syncedKey = ''; syncDataSelection();
 }
 
@@ -1026,6 +1157,7 @@ for (const b of el.modeButtons) b.addEventListener('click', () => setMode(b.data
 window.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, select, textarea')) return;
   if (e.key.toLowerCase() === 'p') setMode(state.mode === 'parallel' ? 'explore' : 'parallel');
+  if (e.key.toLowerCase() === 'h') setMode(state.mode === 'height' ? 'explore' : 'height');
 });
 
 // ---- parallel coordinates --------------------------------------------------------
@@ -1179,3 +1311,46 @@ if (new URLSearchParams(location.search).has('debug')) {
   window.gv = { state, view, panelB, setCompare, setMode, get pcView() { return pcView; } };
 }
 init();
+
+// ---- descriptions of the controls as hover tips ----------------------------
+// The long captions under the options stay in the page (some are rewritten as settings change)
+// but are hidden; hovering the option (marked with a small i) shows the caption in a box.
+const TIPS = [['plotNote', 'plot'], ['heightNote', 'height'], ['styleNote', 'style'],
+              ['arcsNote', 'arcs'], ['floorNote', 'floor'], ['relayoutNote', 'relayout']];
+function initTips() {
+  const box = el.tipBox;
+  if (!box) return;
+  const hide = () => { box.hidden = true; };
+  for (const [noteId, ctrlId] of TIPS) {
+    const note = $(noteId), ctrl = $(ctrlId);
+    if (!note || !ctrl) continue;
+    const anchor = ctrl.tagName === 'CANVAS' ? ctrl : (ctrl.closest('label') ?? ctrl);
+    note.classList.add('tip-src');
+    anchor.classList.add('has-tip');
+    if (anchor !== ctrl || ctrl.tagName !== 'CANVAS') {
+      const badge = document.createElement('i');
+      badge.className = 'tip-badge';
+      badge.textContent = 'i';
+      badge.setAttribute('aria-hidden', 'true');
+      if (ctrl.tagName === 'SELECT') anchor.insertBefore(badge, ctrl); else anchor.appendChild(badge);
+    }
+    anchor.setAttribute('aria-describedby', noteId);
+    const show = () => {
+      if (!note.textContent.trim()) return;
+      box.innerHTML = note.innerHTML;
+      box.hidden = false;
+      const r = anchor.getBoundingClientRect();
+      const w = box.offsetWidth, h = box.offsetHeight;
+      let left = r.left - w - 12;                       // to the left of the side panel
+      if (left < 8) left = Math.min(window.innerWidth - w - 8, r.left);
+      const top = Math.max(8, Math.min(window.innerHeight - h - 8, r.top));
+      box.style.left = `${left}px`;
+      box.style.top = `${left === r.left ? r.bottom + 6 : top}px`;
+    };
+    anchor.addEventListener('mouseenter', show);
+    anchor.addEventListener('mouseleave', hide);
+    anchor.addEventListener('focusin', show);
+    anchor.addEventListener('focusout', hide);
+  }
+}
+initTips();

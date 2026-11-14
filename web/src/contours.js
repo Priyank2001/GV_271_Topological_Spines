@@ -184,7 +184,7 @@ export function thinValues(values, lo, hi, max) {
  * ``disc`` for the circles at the ends, bends, and wherever one circle swallows
  * the next (|dr/ds| >= 1, where the envelope does not exist).
  */
-function sweep(pts, at, total, tEnd, samples, rad, grow, tri, disc) {
+function sweep(pts, at, total, tEnd, samples, rad, grow, tri, disc, edge = null) {
   const ts = [];
   for (let q = 0; q < pts.length - 1 && at[q] < tEnd; q++) {
     const t0 = at[q], t1 = Math.min(at[q + 1], tEnd);
@@ -215,7 +215,10 @@ function sweep(pts, at, total, tEnd, samples, rad, grow, tri, disc) {
     // (or forward) along the arc by asin(dr/ds).
     const cur = [[p.x + R * (-dr * p.tx + c * nx), p.y + R * (-dr * p.ty + c * ny)],
                  [p.x + R * (-dr * p.tx - c * nx), p.y + R * (-dr * p.ty - c * ny)]];
-    if (prev) { tri(prev[0], prev[1], cur[0]); tri(prev[1], cur[1], cur[0]); }
+    if (prev) {
+      tri(prev[0], prev[1], cur[0]); tri(prev[1], cur[1], cur[0]);
+      if (edge) { edge(prev[0], cur[0], 1); edge(prev[1], cur[1], -1); }   // the two sides of the envelope
+    }
     prev = cur;
   }
   return Math.max(...P.map((p) => p.r));
@@ -251,6 +254,8 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
   const edgeW = o.edgeWidth ?? 0.003;
   const nddav = o.shape === 'nddav' || o.shape === 'fig1';   // geometry: circles above a saddle, linear lobes below
   const evenLevels = o.shape === 'nddav';                     // levels: NDDAV's even ones, else the critical values
+  const fig1Shape = o.shape === 'fig1';
+  const levelTol = (o.gap ?? 0.02) * span * 1.0001;
   const fade = o.fade ?? !nddav;
   // ``o.floor``: no contour below this value (the outermost one is drawn at it), so the
   // background (empty space below the lowest saddle) does not swell into a giant halo.
@@ -274,6 +279,24 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
     ? nddavLevels(thinValues(saddleValues, lo, hi, maxSaddleLevels), lo, hi, o.levelCount ?? 10)
     : sharedLevels([...saddleValues, ...vis.peaks.map((id) => doc.peaks[id].value)],
       floor, hi, { gap: o.gap ?? 0.02, maxLevels: o.maxLevels ?? (many ? 12 : 40) });
+  // ``o.subdivide``: n extra levels between neighbouring levels (and up to the highest peak), so a
+  // spine drawn with height rises in small steps (smooth slopes) instead of a few terraces
+  const baseLevels = levels.slice();         // the contour values themselves (before any sub-steps)
+  // Sub-steps multiply the sweeps (lobes x levels); on busy graphs (bucky: hundreds of links and
+  // p* arcs) that would run out of memory, so they are cut to fit the same budget as the levels.
+  const sweepsPerLevel = Math.max(1, inc.reduce((n, l) => n + l.length, 0) + vis.peaks.length);
+  const subBudget = Math.floor((o.sweepBudget ?? 8000) / (sweepsPerLevel * Math.max(1, levels.length))) - 1;
+  const sub = Math.max(0, Math.min(Math.round(o.subdivide ?? 0), subBudget));
+  if (sub > 0 && levels.length) {
+    const tops = vis.peaks.map((id) => doc.peaks[id].value);
+    const ends = [...levels, Math.max(...tops)];
+    const fine = [];
+    for (let k = 0; k < ends.length - 1; k++) {
+      fine.push(ends[k]);
+      for (let q = 1; q <= sub; q++) fine.push(ends[k] + (ends[k + 1] - ends[k]) * q / (sub + 1));
+    }
+    levels.splice(0, levels.length, ...fine);
+  }
 
   // The path of each lobe, from the peak to the saddle, with its arc length
   // (0 at the peak, 1 at the saddle) at every vertex. Computed once per lobe.
@@ -290,6 +313,7 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
   }));
 
   const pos = [], col = [];
+  const shapes = [];        // the fill of every band: { c, i, start, end } (triangle range), box and z added below
   const extent = new Float32Array(P);
   const cap = o.maxRadius ?? Infinity;                  // monotone, so nesting is kept
   // ``o.knee`` (with a finite ``maxRadius``): instead of a hard clamp, radii above ``knee`` are
@@ -320,10 +344,24 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
     return r;
   };
 
+  // ``o.solid`` (height mode, "solid mountain"): every level is coloured as the contour value below it
+  // (so colours change only at the spine's contour values, not at every sub-step), only contour
+  // values get an outline, and each level gets walls down to the level below it, so the
+  // landscape is one solid, shaded mountain instead of floating sheets.
+  const solid = Boolean(o.solid);
+  const baseOf = (c) => { let b = -Infinity; for (const v of baseLevels) if (v <= c + 1e-9 && v > b) b = v; return Number.isFinite(b) ? b : c; };
+  const LIGHT = [-0.6, -0.8];                                       // wall shading: lit from the viewer's left
+  let prevFillZ = o.z0;
+  const MAX_FLOATS = o.maxFloats ?? 3e7;     // ~3.3M triangles: a safety stop well above any normal drawing
+  let truncated = false;
   for (const c of levels) {
+    if (pos.length > MAX_FLOATS) { truncated = true; break; }   // keep what fits (lower levels first)
     const t = (c - lo) / span;
     const tc = Math.min(1, Math.max(0, t));
-    const base = o.colorOf(tc);
+    const tcol = solid ? Math.min(1, Math.max(0, (baseOf(c) - lo) / span)) : tc;
+    const base = o.colorOf(tcol);
+    const isBase = baseLevels.some((v) => Math.abs(v - c) <= 1e-9);
+    const walls = [];                                               // [ax, ay, bx, by, nx, ny] (solid only)
     // Low isovalues fade towards the background, like the paper's transfer
     // function (section 4.4): the large outer contours read as pale halos and
     // do not hide the structure drawn on top of them. NDDAV draws every
@@ -337,7 +375,8 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
     // peaks at one value merge into a single outline. ``o.halo`` (lowest level only): a soft
     // pale band that much wider, drawn first, like the haze around the paper's Fig. 1.
     const haloPass = o.halo > 0 && c === levels[0];
-    for (const pass of haloPass ? [-1, 0, 1] : [0, 1]) {
+    const passes = haloPass ? [-1, 0, 1] : [0, 1];
+    for (const pass of solid && !isBase ? passes.filter((q) => q !== 0) : passes) {
       const grow = pass === -1 ? o.halo : pass === 0 ? edgeW : 0;
       const rgb = pass === -1 ? lin(o.haloColor ?? [0.925, 0.935, 0.965]) : pass === 0 ? rim : mixed;
       const zz = pass === -1 ? z - o.zRange * 0.0004 - 1e-5 : pass === 0 ? z : z + o.zRange * 0.0004 + 1e-5;
@@ -345,6 +384,11 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
         pos.push(a[0], a[1], zz, b[0], b[1], zz, d[0], d[1], zz);
         for (let k = 0; k < 3; k++) col.push(rgb[0], rgb[1], rgb[2]);
       };
+      // solid: the outer edges of the fill, for the walls (``sign`` picks the outward side)
+      const edge = solid && pass === 1 ? (a, b, sign) => {
+        const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+        if (len > 1e-9) walls.push([a[0], a[1], b[0], b[1], (-dy / len) * sign, (dx / len) * sign]);
+      } : null;
       const disc = (x, y, r) => {
         if (!(r > 0)) return;
         let prev = [x + r, y];
@@ -352,12 +396,14 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
           const a = (2 * Math.PI * s) / segs;
           const next = [x + r * Math.cos(a), y + r * Math.sin(a)];
           tri([x, y], prev, next);
+          if (edge) edge(prev, next, -1);                         // counter-clockwise: outward is to the right
           prev = next;
         }
       };
 
       for (let i = 0; i < P; i++) {
         const top = doc.peaks[vis.peaks[i]].value;
+        const startTri = pos.length / 9;           // fill pass: remember this band's triangles (shapes)
         if (c >= top) continue;
         const [ux, uy] = peakXY[vis.peaks[i]];
         const r0 = size(volumeBetween(h, i, c, top));
@@ -366,8 +412,11 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
         for (const { sid, pts, at, total } of lobes[i]) {
           const s = doc.saddles[sid];
           if (s.value >= top || total < 1e-9) continue;
-          if (nddav && c > s.value) continue;           // above the saddle: only the peak's circle
-          const tEnd = c > s.value ? Math.min(1, (top - c) / (top - s.value)) : 1;
+          // 'fig1': levels closer than the gap were merged into one (the highest), so a saddle that
+          // far below a level still counts as on it (10 near-equal saddles all get their pinch, not one)
+          const onLevel = fig1Shape && c > s.value && c - s.value <= levelTol;
+          if (nddav && c > s.value && !onLevel) continue;   // above the saddle: only the peak's circle
+          const tEnd = c > s.value && !onLevel ? Math.min(1, (top - c) / (top - s.value)) : 1;
           let rad;
           if (nddav) {                                  // linear from the peak's circle to the saddle's
             const rS = saddleRadius(sid, c);
@@ -378,15 +427,36 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
               return size(volumeBetween(h, i, Math.min(c, f), Math.max(c, f)));
             };
           }
-          const r = sweep(pts, at, total, tEnd, m, rad, grow, tri, disc);
+          const r = sweep(pts, at, total, tEnd, m, rad, grow, tri, disc, edge);
           if (pass === 1) extent[i] = Math.max(extent[i], r);
           drawn = true;
         }
         if (!drawn) disc(ux, uy, r0 + grow);
         if (pass === 1) extent[i] = Math.max(extent[i], r0);
+        if (pass === 1 && pos.length / 9 > startTri) shapes.push({ c, i, start: startTri, end: pos.length / 9 });
       }
     }
+    if (solid) {                                                    // walls down to the level below
+      const zt = z + o.zRange * 0.0004 + 1e-5, zb = prevFillZ;
+      for (const [ax, ay, bx, by, nx, ny] of walls) {
+        const shade = 0.68 + 0.32 * Math.max(0, nx * LIGHT[0] + ny * LIGHT[1]);
+        const rgb = mixed.map((v) => v * shade);
+        pos.push(ax, ay, zt, bx, by, zt, bx, by, zb, ax, ay, zt, bx, by, zb, ax, ay, zb);
+        for (let k = 0; k < 6; k++) col.push(rgb[0], rgb[1], rgb[2]);
+      }
+      prevFillZ = zt;
+    }
+  }
+  // bounding box of every band (for hit tests: SpineView finds the band under the pointer)
+  for (const sh of shapes) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let k = sh.start * 9; k < sh.end * 9; k += 3) {
+      const x = pos[k], y = pos[k + 1];
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    sh.box = [x0, y0, x1, y1];
+    sh.z = pos[sh.start * 9 + 2];
   }
   return { positions: new Float32Array(pos), colors: new Float32Array(col),
-           triangles: pos.length / 9, extent, levels };
+           triangles: pos.length / 9, extent, levels, baseLevels, shapes, truncated, substeps: sub };
 }
