@@ -25,13 +25,28 @@
 // Pan with the mouse, zoom with the wheel, double-click to reset.
 
 import * as THREE from 'three';
-import { regionHistograms, buildContours, spineScale } from './contours.js';
+import { regionHistograms, buildContours, spineScale, volumeBetween } from './contours.js';
 import { arcPath, ridgeRoute } from './simplify.js';
+import { relayout } from './relayout.js';
 
 const Z_LINK = 0.0, Z_SADDLE = 0.1, Z_PEAK = 0.2, Z_RING = 0.3;
 const Z_CONTOUR = -0.6, Z_CONTOUR_RANGE = 0.5;   // paper-style shapes sit below everything else
-const NDDAV_HALO = 0.8;   // 'nddav' style: outer halo radius / median link length (at contour size 1)
+const NDDAV_HALO = 0.8;
+const SPACING_FIT = 0.35; // reference contour radius <= this x median nearest-peak distance
+                          // (so neighbouring blobs do not swallow each other, e.g. in high dimensions)   // 'nddav' style: outer halo radius / median link length (at contour size 1)
 // Colour maps for field values, sampled at 11 even stops from matplotlib (sRGB).
+// 'fig1' style: the banded colours of Correa et al. Fig. 1 (pale blue halo, blue, green,
+// yellow, orange, magenta, white at the top), read off the figure.
+export const FIG1_STOPS = [[0.80,0.84,0.93], [0.55,0.65,0.86], [0.45,0.66,0.38], [0.72,0.84,0.42],
+  [0.97,0.93,0.55], [0.97,0.74,0.38], [0.90,0.50,0.40], [0.74,0.42,0.66], [0.93,0.80,0.92], [1, 1, 1]];
+const FIG1_FIT = 1.4;      // 'fig1': saddle-level contour radius / median peak-saddle link
+const FIG1_BG = '#ffffff';
+export function fig1Color(t) {
+  const S = FIG1_STOPS, x = Math.min(1, Math.max(0, t)) * (S.length - 1);
+  const i = Math.min(S.length - 2, Math.floor(x)), f = x - i;
+  return S[i].map((c, k) => c + (S[i + 1][k] - c) * f);
+}
+
 export const COLORMAPS = {
   viridis: [[0.267,0.005,0.329], [0.283,0.141,0.458], [0.254,0.265,0.530], [0.207,0.372,0.553], [0.164,0.471,0.558], [0.128,0.567,0.551], [0.135,0.659,0.518], [0.267,0.749,0.441], [0.478,0.821,0.318], [0.741,0.873,0.150], [0.993,0.906,0.144]],
   plasma: [[0.050,0.030,0.528], [0.255,0.014,0.615], [0.418,0.001,0.658], [0.563,0.052,0.642], [0.693,0.165,0.565], [0.798,0.280,0.470], [0.881,0.393,0.383], [0.949,0.518,0.296], [0.988,0.652,0.211], [0.989,0.810,0.145], [0.940,0.975,0.131]],
@@ -127,6 +142,9 @@ export class SpineView {
     this.levelCount = 10;      // evenly spaced isovalues of the 'nddav' style (plus the saddle values)
     this.scaleMode = 'saddle'; // which contour gets radius rMax: 'saddle' (lowest saddle; halo capped) or 'halo'
     this.showArcs = false;     // draw the arcs of equation (3), through merged-away peaks
+    this.relayoutOn = true;
+    this.floorOn = true;       // paper style: drop contours far below the lowest shown saddle    // lay the visible nodes out again after simplification (relayout.js)
+    this.relayoutCache = new Map();
     this.contourMesh = null;
     this.doc = null;
     this.vis = null;           // result of simplify(), or null
@@ -150,8 +168,9 @@ export class SpineView {
     const sp = doc.spine;
     if (!sp) throw new Error('this file has no spine layout');
 
-    this.peakXY = sp.peaks;
-    this.saddleXY = sp.saddles;
+    this.peakXY = this.basePeakXY = sp.peaks;          // exported layout of the full graph
+    this.saddleXY = this.baseSaddleXY = sp.saddles;
+    this.relayoutCache = new Map();
     const values = doc.peaks.map((p) => p.value);
     this.valueRange = [Math.min(...values), Math.max(...values)];
 
@@ -164,6 +183,7 @@ export class SpineView {
   setVisible(vis) {
     this.vis = vis;
     const doc = this.doc;
+    this.#applyRelayout(vis);
     const nP = vis.peaks.length, nS = vis.saddles.length;
 
     const maxSize = Math.max(...vis.size, 1);
@@ -175,7 +195,8 @@ export class SpineView {
     const paper = this.#buildPaperStyle(vis);
     if (atHome) this.fit();               // reframe for the new shapes unless the user has panned or zoomed
     const arcs = this.#arcsActive();
-    this.linkLines.visible = !paper || arcs;         // over the contours, the arcs mark the ridges
+    const fig1 = paper && this.style === 'fig1';
+    this.linkLines.visible = !paper || arcs || fig1;  // over the contours, the arcs mark the ridges; Fig. 1 draws every link
     this.paperActive = paper;
 
     const [lo, hi] = this.valueRange;
@@ -184,12 +205,13 @@ export class SpineView {
       const id = vis.peaks[i];
       const [x, y] = this.peakXY[id];
       const r = this.radius[i];
-      const dot = paper ? Math.max(SADDLE_R * 0.9, Math.min(r * 0.14, 0.024)) : r;   // peak marker
+      const dot = fig1 ? SADDLE_R * 0.9 : paper ? Math.max(SADDLE_R * 0.9, Math.min(r * 0.14, 0.024)) : r;   // peak marker
       m.makeScale(dot, dot, 1).setPosition(x, y, Z_PEAK);
       this.peakMesh.setMatrixAt(i, m);
       const [R, G, B] = peakColor(hi > lo ? (doc.peaks[id].value - lo) / (hi - lo) : 0.5);
       const [rr, rg, rb] = regionColor(this.colorIds?.[id] ?? id);   // paper style: the dot shows the region's colour
-      this.peakMesh.setColorAt(i, paper ? col.setRGB(rr, rg, rb, THREE.SRGBColorSpace)
+      this.peakMesh.setColorAt(i, fig1 ? col.setRGB(0.22, 0.24, 0.3, THREE.SRGBColorSpace)
+                                : paper ? col.setRGB(rr, rg, rb, THREE.SRGBColorSpace)
                                         : col.setRGB(R, G, B, THREE.SRGBColorSpace));
     }
     this.peakMesh.count = nP;
@@ -200,7 +222,8 @@ export class SpineView {
     for (let j = 0; j < nS; j++) {
       const id = vis.saddles[j];
       const [x, y] = this.saddleXY[id];
-      m.makeScale(SADDLE_R, SADDLE_R, 1).setPosition(x, y, Z_SADDLE);
+      const sr = fig1 ? SADDLE_R * 0.45 : SADDLE_R;      // Fig. 1 marks no saddles: just a speck where the lobes meet
+      m.makeScale(sr, sr, 1).setPosition(x, y, Z_SADDLE);
       this.saddleMesh.setMatrixAt(j, m);
       this.saddleMesh.setColorAt(j, doc.saddles[id].is_merge ? mergeCol : loopCol);
     }
@@ -298,8 +321,9 @@ export class SpineView {
    * 'nddav' (nested contours drawn the way NDDAV draws them).
    */
   setStyle(style) {
-    if (!['simple', 'paper', 'nddav'].includes(style)) throw new Error(`unknown spine style ${style}`);
+    if (!['simple', 'paper', 'nddav', 'fig1'].includes(style)) throw new Error(`unknown spine style ${style}`);
     this.style = style;
+    this.renderer.setClearColor(new THREE.Color(style === 'fig1' ? FIG1_BG : this.colors.bg), 1);
     if (this.vis) this.setVisible(this.vis);
   }
 
@@ -360,6 +384,43 @@ export class SpineView {
 
   #arcsActive() { return this.showArcs && Array.isArray(this.vis?.arcs); }
 
+  /** Lay the visible nodes out again after simplification (on by default). */
+  /** Paper style: on, no contour far below the lowest shown saddle (see ``#contourFloor``). */
+  setFloor(on) {
+    this.floorOn = Boolean(on);
+    if (this.vis) this.setVisible(this.vis);
+  }
+
+  setRelayout(on) {
+    this.relayoutOn = Boolean(on);
+    if (this.vis) this.setVisible(this.vis);
+  }
+
+  /**
+   * Positions for ``vis``: the exported layout, with the drawn nodes (and, when the p*
+   * arcs are on, the merged peaks and saddles they pass through) laid out again by
+   * ``relayout``. Falls back to the exported layout when that is not possible.
+   */
+  #applyRelayout(vis) {
+    this.peakXY = this.basePeakXY;
+    this.saddleXY = this.baseSaddleXY;
+    this.relayoutInfo = null;
+    if (!this.relayoutOn || !this.basePeakXY) return;
+    const arcs = this.showArcs && Array.isArray(vis.arcs);
+    const peaks = arcs ? [...new Set([...vis.peaks, ...(vis.ghosts ?? [])])].sort((a, b) => a - b) : vis.peaks;
+    const saddles = arcs ? [...new Set([...vis.saddles, ...vis.arcs])].sort((a, b) => a - b) : vis.saddles;
+    const key = peaks.join(',') + '|' + saddles.join(',');
+    if (!this.relayoutCache.has(key)) this.relayoutCache.set(key, relayout(this.doc, peaks, saddles));
+    const r = this.relayoutCache.get(key);
+    if (!r) return;
+    const P = this.basePeakXY.slice(), S = this.baseSaddleXY.slice();
+    r.peaks.forEach((xy, id) => { P[id] = xy; });
+    r.saddles.forEach((xy, id) => { S[id] = xy; });
+    this.peakXY = P;
+    this.saddleXY = S;
+    this.relayoutInfo = r;
+  }
+
   /** Recolour with the active value colour map (after ``setColormap``). */
   refreshColors() {
     if (this.vis) this.setVisible(this.vis);     // rebuilds the contour colours and the disc colours
@@ -368,7 +429,7 @@ export class SpineView {
 
   setTheme(colors) {
     Object.assign(this.colors, colors);
-    this.renderer.setClearColor(new THREE.Color(this.colors.bg), 1);
+    this.renderer.setClearColor(new THREE.Color(this.style === 'fig1' ? FIG1_BG : this.colors.bg), 1);
     this.linkMat.color.set(this.colors.link);
     this.ghostMat.color.set(this.colors.link);
     this.ringMat.color.set(this.colors.ring);
@@ -446,17 +507,27 @@ export class SpineView {
     if (!h) return false;
     const sc = spineScale(this.doc, vis, h, this.scaleMode);
     this.scaleInfo = sc;
-    const nddav = this.style === 'nddav';
-    const rRef = this.contourScale * (nddav ? this.#nddavRadius(vis) : this.rMax);
-    const exponent = this.effectiveExponent;
+    const nddav = this.style === 'nddav', fig1 = this.style === 'fig1';
+    const rBase = nddav ? this.#nddavRadius(vis) : this.rMax;
+    // 'fig1': radius ~ volume^(1/d), the radius of a ball holding that many points, sized so the
+    // contours fill about half of each link, as in the paper's Fig. 1.
+    const d = Number(this.doc?.meta?.dimensions) >= 1 ? Number(this.doc.meta.dimensions) : 2;
+    const rRef = this.contourScale * (fig1 ? FIG1_FIT * this.#medianLink(vis)
+      : Math.min(rBase, SPACING_FIT * this.#peakSpacing(vis)));
+    const exponent = fig1 ? 1 / d : this.effectiveExponent;
+    if (fig1) this.#fig1Positions(vis, h, this.contourScale * FIG1_FIT * this.#medianLink(vis) / sc.ref ** exponent, exponent);
     const g = buildContours(this.doc, vis, h, this.peakXY, this.saddleXY, {
       rs: rRef / sc.ref ** exponent,
       maxRadius: rRef * sc.capFactor,
       knee: nddav ? rRef : undefined,          // NDDAV style: squeeze the halo softly, keep the taper
       exponent, gap: this.levelGap,
-      shape: nddav ? 'nddav' : 'paper', levelCount: this.levelCount,
-      edgeWidth: nddav ? 0.004 : 0.003,
-      colorOf: peakColor, bg: hexToRgb(this.colors.bg), edge: hexToRgb(this.colors.ring),
+      floor: nddav ? undefined : this.#contourFloor(vis),
+      shape: nddav ? 'nddav' : fig1 ? 'fig1' : 'paper', levelCount: this.levelCount,
+      edgeWidth: nddav ? 0.004 : fig1 ? 0.0018 : 0.003,
+      halo: fig1 ? 0.32 * this.contourScale * FIG1_FIT * this.#medianLink(vis) : 0,
+      colorOf: fig1 ? fig1Color : peakColor, bg: hexToRgb(fig1 ? FIG1_BG : this.colors.bg),
+      edge: fig1 ? [0.42, 0.44, 0.5] : hexToRgb(this.colors.ring),
+      fade: fig1 ? false : undefined,
       z0: Z_CONTOUR, zRange: Z_CONTOUR_RANGE,
       route: this.#arcsActive()            // lobes follow the p* ridge through merged peaks
         ? (i, sid) => ridgeRoute(this.doc, vis, i, sid, this.peakXY, this.saddleXY) : null,
@@ -474,11 +545,114 @@ export class SpineView {
   }
 
   /**
+   * Lowest isovalue of the paper style: one level gap below the lowest shown
+   * saddle, so every link still closes into one outline, but the empty space
+   * far below it (most of a volume) does not count. Undefined when it is off.
+   */
+  #contourFloor(vis) {
+    if (!this.floorOn || !vis.saddles.length) return undefined;
+    const [lo, hi] = this.doc.meta.value_range ?? [0, 1];
+    const low = Math.min(...vis.saddles.map((id) => this.doc.saddles[id].value));
+    return Math.max(lo, low - Math.max(this.levelGap, 0.02) * (hi - lo));
+  }
+
+  /**
    * Reference radius of the 'nddav' style. NDDAV sizes its contours in layout
    * units, so the outer halo is about as wide as the links are long; here it is
    * NDDAV_HALO x the median peak-saddle link (never below the disc size rMax,
    * at most 0.6 of the [-1, 1] layout box).
    */
+  /**
+   * Median, over the visible peaks, of the layout distance from each peak to its
+   * nearest other visible peak. Infinity with fewer than two peaks (no cap).
+   */
+  #peakSpacing(vis) {
+    const pts = vis.peaks.map((id) => this.peakXY[id]);
+    if (pts.length < 2) return Infinity;
+    const nn = pts.map(([x, y], i) => {
+      let best = Infinity;
+      pts.forEach(([u, v], j) => { if (j !== i) best = Math.min(best, Math.hypot(x - u, y - v)); });
+      return best;
+    }).filter((d) => d > 0).sort((a, b) => a - b);
+    return nn.length ? nn[nn.length >> 1] : Infinity;
+  }
+
+  /**
+   * 'fig1' style: where the drawing puts the saddles and some leaf peaks, to look like the paper's
+   * Fig. 1. A saddle sits on the straight line between its two peaks, where their circles at the
+   * saddle's value meet. An arm (a single-link peak much lower than the peak it hangs from) gets its
+   * saddle beyond the big peak's circle, so the big contour spikes out to it and the arm's teardrop
+   * meets the spike (a figure-eight); the arm is moved out to make room. Only drawing copies change.
+   */
+  #fig1Positions(vis, h, rs, k) {
+    const doc = this.doc;
+    const P = this.peakXY.slice(), S = this.saddleXY.slice();
+    const deg = new Array(vis.peaks.length).fill(0);
+    vis.saddleEnds.forEach(([a, b]) => { if (a !== b) { deg[a]++; deg[b]++; } });
+    const top = (i) => doc.peaks[vis.peaks[i]].value;
+    const rad = (i, c) => rs * volumeBetween(h, i, c, top(i)) ** k;   // circle of peak i at value c
+    const floorC = this.#contourFloor(vis) ?? (doc.meta.value_range?.[0] ?? 0);
+    // big peaks first, so an arm is placed after the circle it hangs from
+    const order = vis.saddles.map((_, j) => j).sort((x, y) => {
+      const [a, b] = vis.saddleEnds[y], [c, d] = vis.saddleEnds[x];
+      return Math.max(vis.size[a], vis.size[b]) - Math.max(vis.size[c], vis.size[d]);
+    });
+    for (const j of order) {
+      const [a0, b0] = vis.saddleEnds[j];
+      if (a0 === b0) continue;
+      const sv = doc.saddles[vis.saddles[j]].value;
+      const ra0 = rad(a0, sv), rb0 = rad(b0, sv);
+      const [A, B] = ra0 >= rb0 ? [a0, b0] : [b0, a0];          // A: the larger at the saddle's value
+      const rA = Math.max(ra0, rb0), rB = Math.min(ra0, rb0);
+      const pa = P[vis.peaks[A]], pb = P[vis.peaks[B]];
+      let dx = pb[0] - pa[0], dy = pb[1] - pa[1];
+      let dist = Math.hypot(dx, dy);
+      if (dist < 1e-9) { dx = 1; dy = 0; dist = 1e-9; }
+      const ux = dx / dist, uy = dy / dist;
+      let t;                                                    // distance of the saddle from A
+      // An arm: a single-link peak that rises only a little above its saddle compared with the peak
+      // it hangs from (fuel's four side peaks; not the jet's tip, which is as high as its neighbour).
+      const arm = deg[B] === 1 && top(B) - sv < 0.5 * (top(A) - sv);
+      if (arm) {
+        // A's contour at the saddle's value runs out as a spike to the saddle (0.7 x its circle beyond
+        // the circle), and the arm's teardrop comes back from the other side: the figure-eight.
+        t = rA * 1.7;
+        const tear = 3.2 * Math.max(rad(B, floorC), 0.25 * rA); // length of the arm's teardrop
+        if (dist < t + tear) {
+          dist = t + tear;
+          P[vis.peaks[B]] = [pa[0] + ux * dist, pa[1] + uy * dist];
+        }
+      } else {
+        // two peaks of a chain: where their circles at the saddle's value would meet, pushed apart
+        // if they overlap so the lens pinches visibly
+        const need = 1.15 * (rA + rB);
+        if (deg[B] === 1 && dist < need) {
+          dist = need;
+          P[vis.peaks[B]] = [pa[0] + ux * dist, pa[1] + uy * dist];
+        }
+        t = dist * (rA / Math.max(1e-12, rA + rB));
+      }
+      S[vis.saddles[j]] = [pa[0] + ux * t, pa[1] + uy * t];
+    }
+    this.peakXY = P;
+    this.saddleXY = S;
+  }
+
+  /** Median layout length of the shown peak-saddle links (rMax * 2 without links). */
+  #medianLink(vis) {
+    const len = [];
+    vis.saddles.forEach((id, j) => {
+      const [sx, sy] = this.saddleXY[id];
+      for (const e of new Set(vis.saddleEnds[j])) {
+        const [px, py] = this.peakXY[vis.peaks[e]];
+        len.push(Math.hypot(px - sx, py - sy));
+      }
+    });
+    if (!len.length) return this.rMax * 2;
+    len.sort((a, b) => a - b);
+    return len[len.length >> 1];
+  }
+
   #nddavRadius(vis) {
     const len = [];
     vis.saddles.forEach((id, j) => {

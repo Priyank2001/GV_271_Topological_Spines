@@ -30,7 +30,7 @@ const el = {
   radiusLaw: $('radiusLaw'), gap: $('gap'), gapOut: $('gapOut'), scaleMode: $('scaleMode'),
   gapRow: $('gapRow'), levels: $('levels'), levelsOut: $('levelsOut'), levelsRow: $('levelsRow'),
   colormap: $('colormap'), cmapReverse: $('cmapReverse'), cmapPreview: $('cmapPreview'),
-  styleNote: $('styleNote'), discLegend: $('discLegend'), arcs: $('arcs'),
+  styleNote: $('styleNote'), discLegend: $('discLegend'), arcs: $('arcs'), relayout: $('relayout'), floor: $('floor'),
   toggleData: $('toggleData'), toggleSide: $('toggleSide'),
   colorLegend: $('colorLegend'), clTitle: $('clTitle'), clBar: $('clBar'), clFade: $('clFade'),
   clTick: $('clTick'), clRange: $('clRange'), clLo: $('clLo'), clHi: $('clHi'),
@@ -190,6 +190,8 @@ function applyViewSettings(v) {
   v.setTheme(themeColors());
   v.setStyle?.(el.style.value);
   v.setShowArcs?.(el.arcs.checked);
+  v.setRelayout?.(el.relayout?.checked ?? true);
+  v.setFloor?.(el.floor?.checked ?? true);
   v.setContourScale?.(Number(el.scale.value));
   v.setRadiusExponent?.(radiusLaw());
   v.setScaleMode?.(el.scaleMode.value);
@@ -564,7 +566,7 @@ function applyStyle() {
   for (const v of spineViews()) v.setStyle?.(el.style.value);
   const style = el.style.value, contours = style !== 'simple';
   el.scaleRow.hidden = !contours;
-  el.gapRow.hidden = style !== 'paper';
+  el.gapRow.hidden = style !== 'paper' && style !== 'fig1';
   el.levelsRow.hidden = style !== 'nddav';
   const active = Boolean(state.doc?.data?.values && state.doc?.region);   // what the contour styles need
   el.styleNote.textContent = !contours
@@ -572,6 +574,13 @@ function applyStyle() {
       'Press Spine (key s) to draw the topological spine, the nested contours, around it.'
     : !active
     ? 'This file has no per-point values, so discs are drawn instead.'
+    : style === 'fig1'
+      ? 'Drawn to look like Correa et al., Fig. 1: the critical values as banded contours (blue, green, yellow, ' +
+        'orange, magenta, white), circles around each peak above its saddles, pinching to a point at each saddle ' +
+        '(the figure-eight), radius ~ (points of the region)^(1/d). Saddles are placed where the circles meet; ' +
+        'a low side peak (arm) gets its saddle beyond the big circle, which spikes out to meet the arm\'s ' +
+        'teardrop. Node positions here are drawn, not measured. Radius and colour map do not apply; ' +
+        'contour size does (×1 is the intended size).'
     : style === 'nddav'
       ? 'Drawn as LLNL\'s NDDAV draws topological spines. Rings are isovalues: evenly spaced values plus the ' +
         'value of every shown saddle. Above its saddles a peak\'s contours are circles around it; below a saddle ' +
@@ -614,6 +623,12 @@ el.style.addEventListener('change', () => {
     for (const v of spineViews()) { v.setRadiusExponent?.(radiusLaw()); v.setScaleMode?.(el.scaleMode.value); }
   }
   applyStyle();
+});
+el.floor?.addEventListener('change', () => {
+  for (const v of spineViews()) v.setFloor?.(el.floor.checked);
+});
+el.relayout?.addEventListener('change', () => {
+  for (const v of spineViews()) v.setRelayout?.(el.relayout.checked);
 });
 el.arcs.addEventListener('change', () => {
   for (const v of spineViews()) v.setShowArcs?.(el.arcs.checked);

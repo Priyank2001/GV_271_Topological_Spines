@@ -249,8 +249,12 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
   const m = o.samples ?? (many ? 10 : 32);
   const segs = many ? 24 : 48;
   const edgeW = o.edgeWidth ?? 0.003;
-  const nddav = o.shape === 'nddav';
+  const nddav = o.shape === 'nddav' || o.shape === 'fig1';   // geometry: circles above a saddle, linear lobes below
+  const evenLevels = o.shape === 'nddav';                     // levels: NDDAV's even ones, else the critical values
   const fade = o.fade ?? !nddav;
+  // ``o.floor``: no contour below this value (the outermost one is drawn at it), so the
+  // background (empty space below the lowest saddle) does not swell into a giant halo.
+  const floor = Math.max(lo, o.floor ?? lo);
 
   const inc = Array.from({ length: P }, () => []);      // saddles (document ids) per visible peak
   const ends = new Map();                               // saddle id -> its visible peaks
@@ -266,10 +270,10 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
   // until the number of sweeps (lobes x levels) fits ``o.sweepBudget``; small graphs keep them all.
   const lobeCount = inc.reduce((n, l) => n + l.length, 0);
   const maxSaddleLevels = Math.max(4, Math.floor((o.sweepBudget ?? 8000) / Math.max(1, lobeCount)) - (o.levelCount ?? 10));
-  const levels = nddav
+  const levels = evenLevels
     ? nddavLevels(thinValues(saddleValues, lo, hi, maxSaddleLevels), lo, hi, o.levelCount ?? 10)
     : sharedLevels([...saddleValues, ...vis.peaks.map((id) => doc.peaks[id].value)],
-      lo, hi, { gap: o.gap ?? 0.02, maxLevels: o.maxLevels ?? (many ? 12 : 40) });
+      floor, hi, { gap: o.gap ?? 0.02, maxLevels: o.maxLevels ?? (many ? 12 : 40) });
 
   // The path of each lobe, from the peak to the saddle, with its arc length
   // (0 at the peak, 1 at the saddle) at every vertex. Computed once per lobe.
@@ -330,11 +334,13 @@ export function buildContours(doc, vis, h, peakXY, saddleXY, o) {
     const z = o.z0 + o.zRange * Math.min(1, Math.max(0, t));
 
     // All rims of this isovalue first, then all fills: shapes of different
-    // peaks at one value merge into a single outline.
-    for (const pass of [0, 1]) {
-      const grow = pass === 0 ? edgeW : 0;
-      const rgb = pass === 0 ? rim : mixed;
-      const zz = pass === 0 ? z : z + o.zRange * 0.0004 + 1e-5;
+    // peaks at one value merge into a single outline. ``o.halo`` (lowest level only): a soft
+    // pale band that much wider, drawn first, like the haze around the paper's Fig. 1.
+    const haloPass = o.halo > 0 && c === levels[0];
+    for (const pass of haloPass ? [-1, 0, 1] : [0, 1]) {
+      const grow = pass === -1 ? o.halo : pass === 0 ? edgeW : 0;
+      const rgb = pass === -1 ? lin(o.haloColor ?? [0.925, 0.935, 0.965]) : pass === 0 ? rim : mixed;
+      const zz = pass === -1 ? z - o.zRange * 0.0004 - 1e-5 : pass === 0 ? z : z + o.zRange * 0.0004 + 1e-5;
       const tri = (a, b, d) => {
         pos.push(a[0], a[1], zz, b[0], b[1], zz, d[0], d[1], zz);
         for (let k = 0; k < 3; k++) col.push(rgb[0], rgb[1], rgb[2]);
