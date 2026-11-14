@@ -204,6 +204,7 @@
           <option value="simple" selected>Extremum graph</option>
           <option value="nddav">Spine: NDDAV contours</option>
           <option value="paper">Spine: paper contours</option>
+          <option value="fig1">Spine: as in the paper's Fig. 1</option>
         </select>
       </label>
       <label class="field">Colour map
@@ -255,6 +256,14 @@
       <p class="caption">Saturated persistence, as in the paper: a link to a peak that absorbed smaller ones runs
         along the ridge through them (small grey dots), so a ring stays a ring after its peaks merge. Off: straight
         links between the peaks that are left.</p>
+      <label class="check"><input id="floor" type="checkbox" checked> Cut contours below the lowest saddle</label>
+      <p class="caption">Paper style: the outermost contour sits one level below the lowest shown saddle,
+        so empty space (most of a volume, all owned by one peak) does not swell into a huge halo.
+        Untick it to draw down to the field minimum, as the paper does.</p>
+      <label class="check"><input id="relayout" type="checkbox" checked> Re-layout after simplifying</label>
+      <p class="caption">Lays out the peaks and saddles that are left again, so their positions fit their
+        own distances (the exported layout was made for the full graph). Used up to 150 nodes. In compare
+        mode the two spines then no longer share positions; untick it to line them up again.</p>
 
       <h2>Selection</h2>
       <div id="info"><p class="muted">Hover or click a node.</p></div>
