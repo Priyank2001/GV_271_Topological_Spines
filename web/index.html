@@ -45,11 +45,6 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18M12 3v18M20 3v18"/><path d="M4 6.5l8 10 8-11" opacity=".9"/><path d="M4 17l8-9 8 7"/></svg>
         <span>Parallel</span>
       </button>
-      <button type="button" class="mode" data-mode="scatter" aria-pressed="false"
-              title="Scatter: any two dimensions of the data against each other, coloured by peak region, value or a third dimension">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v17h17"/><circle cx="9" cy="14" r="1.6"/><circle cx="13" cy="10" r="1.6"/><circle cx="17" cy="7" r="1.6"/><circle cx="15" cy="14" r="1.6"/></svg>
-        <span>Scatter</span>
-      </button>
     </nav>
 
     <div id="views">
@@ -86,17 +81,10 @@
           <label id="embeddingRow">Dimensionality reduction
             <select id="embedding" aria-label="Dimensionality reduction"></select>
           </label>
-          <label id="drawRow" title="Points: one dot per point. Density: a grid of small cells, brighter where more points pile up (log scale), coloured as the average of its points. Use density for large point clouds, where dots cover each other.">Draw
-            <select id="drawMode" aria-label="Draw the points as dots or as a density">
-              <option value="points" selected>points</option>
-              <option value="density">density</option>
-            </select>
-          </label>
           <label>Colour
             <select id="colorBy" aria-label="Colour points by">
               <option value="region">peak region (distinct colours)</option>
               <option value="value">field value</option>
-              <option value="cluster" id="colorByCluster" disabled>cluster (run Clustering first)</option>
               <option value="iso" id="colorByIso" hidden>iso-value bands</option>
             </select>
           </label>
@@ -170,35 +158,6 @@
         <div class="hint" id="dataHint"></div>
       </section>
 
-      <section id="scatter" aria-label="Scatter plot of two dimensions" hidden>
-        <div id="scBar" class="view-bar">
-          <label>X <select id="scX" aria-label="Dimension on the horizontal axis"></select></label>
-          <label>Y <select id="scY" aria-label="Dimension on the vertical axis"></select></label>
-          <label>Colour
-            <select id="scColor" aria-label="Colour points by">
-              <option value="region">peak region (distinct colours)</option>
-              <option value="value">field value</option>
-              <option value="cluster" id="scColorCluster" disabled>cluster (run Clustering first)</option>
-              <optgroup id="scColorDims" label="a dimension"></optgroup>
-            </select>
-          </label>
-          <label>Draw
-            <select id="scDraw" aria-label="Draw the points as dots or as a density">
-              <option value="points" selected>points</option>
-              <option value="density">density</option>
-            </select>
-          </label>
-          <button id="scPeakDims" type="button"
-                  title="Put on the axes the two dimensions that set the selected peak apart most (the top of its peak profile)">Selected peak's top 2 dimensions</button>
-        </div>
-        <div id="scInfo" class="pc-brush" aria-live="polite"></div>
-        <div class="pc-brush"><span id="scBrush"></span>
-          <button id="scClear" type="button" disabled title="Remove the box brush">Clear brush</button></div>
-        <div id="scCanvas"></div>
-        <p id="scNote" class="pc-note" hidden></p>
-        <div class="hint" id="scHint">drag to pan · shift-drag to brush a box · wheel to zoom · double-click to reset · click a point to select its peak</div>
-      </section>
-
       <section id="parallel" aria-label="Parallel coordinates" hidden>
         <div id="pcBar" class="view-bar">
           <label>Colour
@@ -236,44 +195,15 @@
       <p id="blurb"></p>
       <section id="compareBox" class="compare-box" hidden aria-live="polite"></section>
 
-      <details class="sec" data-sec="simplification" open>
-        <summary><h2>Simplification</h2></summary>
-      <label class="field scalar-field" id="fRowA" hidden><span id="fLabelA">Scalar (f)</span>
-        <select id="fA" aria-label="Scalar function of the left spine"></select></label>
-      <label class="field scalar-field" id="fRowB" hidden><span>Scalar (f), right</span>
-        <select id="fB" aria-label="Scalar function of the right spine"></select></label>
-      <p class="caption" id="fNote">The function whose peaks are found. The points and their neighbour graph stay the
-        same, so switching f changes what a peak means, not which samples are neighbours. "Smoothed x2": each
-        value averaged with its neighbours twice before peaks are found.</p>
-      <label class="slider" id="kRowA" hidden>
-        <span><span id="kLabelA">Neighbours (k)</span> <output id="kOutA"></output></span>
-        <input id="kA" type="range" min="0" max="0" step="1" value="0">
-      </label>
-      <label class="slider" id="kRowB" hidden>
-        <span>Neighbours (k), right <output id="kOutB"></output></span>
-        <input id="kB" type="range" min="0" max="0" step="1" value="0">
-      </label>
-      <p class="caption" id="kNote">How many nearest points each point is linked to before peaks and saddles
-        are found (Ours only; a point cloud's other methods use the dataset's own k). Small k: more, smaller
-        peaks, noise shows up. Large k: fewer, broader peaks; nearby groups merge. The graph is built in Python,
-        so only the values computed by build_data.py are offered (comparison/variants.py, K_CHOICES).</p>
+      <h2>Simplification</h2>
       <label class="slider">
-        <span>Peak persistence simplification <output id="thresholdOut"></output></span>
+        <span>Persistence threshold <output id="thresholdOut"></output></span>
         <input id="threshold" type="range" min="0" max="1" step="0.001" value="0">
       </label>
       <label class="slider">
         <span>Variation threshold (p_hi) <output id="variationOut"></output></span>
         <input id="variation" type="range" min="0" max="1" step="0.001" value="1">
       </label>
-      <label class="slider" id="arcRow" hidden>
-        <span><span id="arcLabel">Arc height-difference filter</span> <output id="arcOut"></output></span>
-        <input id="arcLow" type="range" min="0" max="1" step="0.001" value="0">
-      </label>
-      <p class="caption" id="arcNote">AnyEG's own filter, a different operation from peak persistence
-        simplification: a link from a saddle to a maximum is hidden when the height difference
-        |f(saddle) - f(maximum)| is below this value. Maxima are never removed and their regions never change;
-        only links disappear. (Peak persistence simplification instead merges a peak into its higher neighbour
-        and gives its points to the surviving region.) Off at 0, which is what AnyEG's released code uses.</p>
       <canvas id="plot" aria-label="Peaks left against the noise threshold (blue) and links left against the variation threshold (red)"></canvas>
       <p class="caption" id="plotNote"><b class="blue">Blue</b>: peaks left at each noise threshold. <b class="red">Red</b>: links
         left at each variation threshold; links (saddles) above p<sub>hi</sub> are cut, which can split the graph
@@ -281,10 +211,8 @@
         threshold, shift+click to set p<sub>hi</sub>. Grey: below this file's base threshold.</p>
       <p id="sliderNote" class="caption" hidden></p>
       <p id="counts"></p>
-      </details>
 
-      <details class="sec" data-sec="spine-drawing" open>
-        <summary><h2>Spine drawing</h2></summary>
+      <h2>Spine drawing</h2>
       <label class="field">Style
         <select id="style" aria-label="Spine drawing style">
           <option value="simple" selected>Extremum graph</option>
@@ -308,6 +236,7 @@
           <option value="grey">grey</option>
         </select>
       </label>
+      <label class="check"><input id="cmapReverse" type="checkbox"> Reverse colour map</label>
       <div class="cmap-preview" id="cmapPreview" aria-hidden="true"></div>
       <label class="check"><input id="height" type="checkbox"> Height (value as height)</label>
       <div id="heightRows" hidden>
@@ -329,9 +258,6 @@
           bands of the flat spine; terraces is one flat step per contour. Drag to orbit, shift-drag to pan, wheel to zoom,
           double-click to reset.</p>
       </div>
-      <details class="more" data-sec="more-drawing">
-        <summary>More drawing options</summary>
-      <label class="check"><input id="cmapReverse" type="checkbox"> Reverse colour map</label>
       <div id="paperRows">
       <label class="slider" id="scaleRow">
         <span>Contour size <output id="scaleOut"></output></span>
@@ -372,71 +298,11 @@
       <p class="caption" id="relayoutNote">Lays out the peaks and saddles that are left again, so their positions fit their
         own distances (the exported layout was made for the full graph). Used up to 150 nodes. In compare
         mode the two spines then no longer share positions; untick it to line them up again.</p>
-      </details>
-      </details>
 
-      <details class="sec" data-sec="selection" open>
-        <summary><h2>Selection</h2></summary>
+      <h2>Selection</h2>
       <div id="info"><p class="muted">Hover or click a node.</p></div>
-      </details>
 
-      <details class="sec" data-sec="peak-profile">
-        <summary><h2>Peak profile</h2></summary>
-      <div class="profile-bar">
-        <label>Show
-          <select id="profileShow" aria-label="Which dimensions the peak profile shows">
-            <option value="8" selected>8 most distinctive</option>
-            <option value="20">20 most distinctive</option>
-            <option value="all">all dimensions</option>
-          </select>
-        </label>
-        <label class="check"><input id="profileOrder" type="checkbox"> original order</label>
-      </div>
-      <p class="caption" id="profileNote">What sets a peak's region apart. For the selected (or hovered) peak, every
-        dimension of the data (and the value f) gets a small histogram: <b class="blue">blue</b>, the points of this
-        peak's region; grey, all points. On the right, the region's median and its 5&ndash;95&nbsp;% range, and
-        <i>d</i>: how far the region's mean sits from the mean of all points, in standard deviations of all points
-        (an effect size: around 0.2 small, 0.8 large). Dimensions are sorted by |<i>d</i>|, so the ones that
-        characterise this peak come first; "narrow" marks a region much more concentrated than the data.</p>
-      <div id="profile"><p class="muted">Select a peak to see what sets its region apart.</p></div>
-      </details>
-
-      <details class="sec" data-sec="clustering">
-        <summary><h2>Clustering</h2></summary>
-      <div class="cluster-form">
-        <label class="field">Method
-          <select id="clMethod" aria-label="Clustering method">
-            <option value="kmeans" selected>KMeans</option>
-            <option value="dbscan">DBSCAN</option>
-            <option value="labels:0" id="clLabelsOpt" disabled>Known labels (from the data)</option>
-          </select>
-        </label>
-        <label class="field" id="clKRow">Clusters (k) <input id="clK" type="number" min="2" max="40" step="1" value="5"></label>
-        <label class="field" id="clEpsRow" hidden>Radius (eps) <input id="clEps" type="number" min="0.001" max="2" step="0.005" value="0.05"></label>
-        <label class="field" id="clMinRow" hidden>Min. neighbours <input id="clMin" type="number" min="2" max="200" step="1" value="8"></label>
-        <label class="field">On
-          <select id="clSpace" aria-label="Which coordinates to cluster">
-            <option value="all" selected>all dimensions</option>
-            <option value="view">the 2D view</option>
-          </select>
-        </label>
-        <div class="cluster-buttons">
-          <button id="clRun" type="button">Run</button>
-          <button id="clClear" type="button" disabled>Clear</button>
-        </div>
-      </div>
-      <p class="caption" id="clusterNote">Ordinary clustering of the same points, to set beside the peak regions.
-        KMeans splits the points into k groups around k centres; DBSCAN joins points that have at least
-        "min. neighbours" others within "radius" (in units where every dimension runs from 0 to 1) and calls
-        the rest noise. "On": all original dimensions, or the 2D positions of the data view. The agreement
-        with the peak regions is the adjusted Rand index (1: the same grouping, 0: no better than chance);
-        the table says which peak holds most of each cluster. Colour the data view or the scatter plot by
-        cluster to see them.</p>
-      <div id="clResult"><p class="muted">Not run yet (point clouds only).</p></div>
-      </details>
-
-      <details class="sec" data-sec="legend">
-        <summary><h2>Legend</h2></summary>
+      <h2>Legend</h2>
       <div class="legend">
         <div><span class="sw peak-bar" id="valueBar"></span>
           <span class="range"><span id="vLo"></span><span>peak value</span><span id="vHi"></span></span></div>
@@ -446,12 +312,9 @@
         <div><span class="sw ghost"></span> peak merged away, on a kept arc (p*)</div>
         <div id="markLegend" hidden><span class="sw mark-ring"></span> maximum the other method does not have</div>
       </div>
-      </details>
 
-      <details class="sec" data-sec="layout">
-        <summary><h2>Layout</h2></summary>
+      <h2>Layout</h2>
       <p id="layoutInfo" class="muted"></p>
-      </details>
     </aside>
   </main>
 

@@ -46,9 +46,9 @@ export class ComparePanel {
   }
 
   /** Apply the sliders (ignored by methods without simplification, see ``visibleGraph``). */
-  setThresholds(threshold, variation, arcLow = 0) {
+  setThresholds(threshold, variation) {
     if (!this.doc) return;
-    this.vis = visibleGraph(this.doc, threshold, variation, arcLow);
+    this.vis = visibleGraph(this.doc, threshold, variation);
     this.view.setVisible(this.vis);
   }
 

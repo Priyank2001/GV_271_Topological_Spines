@@ -183,35 +183,6 @@ def knn_graph(points: np.ndarray, k: int,
     return NeighborGraph.from_edges(n, edges, backend=backend)
 
 
-def relaxed_gabriel_graph(points: np.ndarray, candidates: int = 30) -> NeighborGraph:
-    """Relaxed Gabriel graph (as in NDDAV / Correa and Lindstrom 2011), from kNN candidates.
-
-    Points p and q are linked when no third point r lies inside the ball whose diameter is pq,
-    i.e. no r with |pr|^2 + |qr|^2 < |pq|^2. "Relaxed": only the ``candidates`` nearest
-    neighbours of p are tried as q and as witnesses r, so the cost is N * candidates^2 * d
-    instead of the full Gabriel graph's N^3. An edge kept from either end is kept.
-    Sparser than kNN in dense regions, and it adapts its degree to the local geometry.
-    """
-    pts = np.ascontiguousarray(points, dtype=np.float64)
-    n = pts.shape[0]
-    k = min(candidates, n - 1)
-    idx = knn_indices(pts.astype(np.float32), k)
-    keep_src, keep_dst = [], []
-    for i in range(n):
-        nb = idx[i]
-        Q = pts[nb] - pts[i]                              # neighbours relative to p
-        d_pq = np.einsum("ij,ij->i", Q, Q)               # |pq|^2 for every candidate q (= |pr|^2 for r)
-        G = Q @ Q.T
-        d_qr = d_pq[:, None] + d_pq[None, :] - 2 * G     # |qr|^2
-        blocked = (d_pq[None, :] + d_qr) < d_pq[:, None] - 1e-12   # [q, r]: r inside the ball of pq
-        np.fill_diagonal(blocked, False)
-        ok = ~blocked.any(axis=1)
-        keep_src.append(np.full(int(ok.sum()), i, dtype=np.int64))
-        keep_dst.append(nb[ok].astype(np.int64))
-    edges = np.stack([np.concatenate(keep_src), np.concatenate(keep_dst)], axis=1)
-    return NeighborGraph.from_edges(n, edges)
-
-
 # ---------------------------------------------------------------------------
 # Regular grids
 # ---------------------------------------------------------------------------

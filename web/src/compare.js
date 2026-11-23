@@ -6,18 +6,16 @@
 // maximum" when they sit at the same sample point. The build gives such
 // vertices the same layout position in both files (comparison/viewer_export.py).
 
-import { simplify, arcFiltered } from './simplify.js';
+import { simplify, showAll } from './simplify.js';
 
-/** False for methods without peak persistence simplification (AnyEG): the noise / variation
- *  sliders leave them alone; AnyEG's own arc height-difference filter applies instead. */
+/** False for methods without persistence (e.g. AnyEG): their full graph is always shown. */
 export function isSimplifiable(doc) {
   return doc?.meta?.variant?.simplifiable !== false;
 }
 
-/** What to draw at noise threshold ``t`` and variation threshold ``v`` (our peak persistence
- *  simplification), or, for a method without it, at arc height-difference filter ``arcLow``. */
-export function visibleGraph(doc, t, v = Infinity, arcLow = 0) {
-  return isSimplifiable(doc) ? simplify(doc, t, v) : arcFiltered(doc, arcLow);
+/** What to draw at noise threshold ``t`` and variation threshold ``v``. */
+export function visibleGraph(doc, t, v = Infinity) {
+  return isSimplifiable(doc) ? simplify(doc, t, v) : showAll(doc);
 }
 
 /** Vertices of every maximum the method found before any simplification. */

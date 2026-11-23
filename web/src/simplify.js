@@ -108,33 +108,6 @@ export function showAll(doc) {
   };
 }
 
-/** Height difference of each arc of a saddle entry: |f(saddle) - f(peak)| for both of its peaks. */
-export function arcHeights(doc, s) {
-  const sd = doc.saddles[s];
-  return [Math.abs(doc.peaks[sd.peaks[0]].value - sd.value), Math.abs(doc.peaks[sd.peaks[1]].value - sd.value)];
-}
-
-/**
- * AnyEG's own filter ("persistence-based extremum-saddle filtering" in its code): an arc
- * saddle -> maximum is kept when its height difference |f(saddle) - f(maximum)| is at least
- * ``low``. Maxima are never removed and regions never change; only links disappear. Here a
- * saddle entry joins two peaks, so it is drawn when both of its arcs are kept.
- * (AnyEG also has an upper bound; its released code sets the range to [0, 20000).)
- */
-export function arcFiltered(doc, low) {
-  const all = showAll(doc);
-  if (!(low > 0)) return all;
-  const saddles = all.saddles.filter((s) => Math.min(...arcHeights(doc, s)) >= low);
-  return { ...all, saddles, saddleEnds: saddles.map((s) => all.saddleEnds[s]), arcs: saddles.slice() };
-}
-
-/** Largest arc height difference in ``doc`` (the arc filter's range). */
-export function maxArcHeight(doc) {
-  let m = 0;
-  for (let s = 0; s < doc.saddles.length; s++) m = Math.max(m, Math.min(...arcHeights(doc, s)));
-  return m;
-}
-
 /**
  * Document saddle ids on the drawn path from document peak ``from`` to the
  * surviving peak it belongs to, through hidden peaks only (breadth first over
