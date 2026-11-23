@@ -20,12 +20,22 @@ This is a port of the second half of ``ttkExtremeGraphDev::RequestData``
 
 AnyEG keeps the groups in a hash map, so the order of a saddle's arcs is not
 defined there; here they are sorted by the maximum's vertex id.
+
+Order and heights
+-----------------
+Every choice above that compares values (highest neighbour, highest saddle
+when bundling) only needs their *order*; steps 1 and 3's ``[low, high)``
+filter measure *heights*. When the caller replaces the values by their ranks
+(to break ties, see ``comparison/inputs.py``), it passes the original values
+as ``heights`` so the filter still sees heights. Without that, a rank gap
+above 20,000 (common on fields with 10^5+ vertices) would silently drop arcs
+that AnyEG keeps on the real data.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -46,16 +56,22 @@ class ArcAssembler:
     def __init__(self, options: AssemblyOptions = AssemblyOptions()):
         self.options = options
 
-    def assemble(self, values: np.ndarray, neighbors: NeighborTable, k: KernelOutput) -> AnyEGGraph:
+    def assemble(self, values: np.ndarray, neighbors: NeighborTable, k: KernelOutput,
+                 heights: Optional[np.ndarray] = None) -> AnyEGGraph:
+        """``heights``: the real field values when ``values`` only carry the order
+        (e.g. ranks); persistence and its range filter use them. Default: ``values``."""
         f = np.asarray(values, dtype=np.float32).astype(np.float64)   # AnyEG: float -> double
+        h = f if heights is None else np.asarray(heights, dtype=np.float64).reshape(-1)
+        if h.shape != f.shape:
+            raise ValueError("heights and values have different lengths")
         saddles = k.saddles
-        persistence = np.abs(f[saddles] - f[k.final_link[saddles]])
+        persistence = np.abs(h[saddles] - h[k.final_link[saddles]])
 
         drawn = self._bundled(f, neighbors, k) if self.options.bundle_edges else saddles
         arc_saddle, arc_start, arc_max = self._arc_starts(f, neighbors, k.final_link, drawn)
 
         low, high = self.options.persistence_range
-        d = np.abs(f[arc_saddle] - f[arc_max])
+        d = np.abs(h[arc_saddle] - h[arc_max])
         keep = (d >= low) & (d < high)
         arc_saddle, arc_start, arc_max = arc_saddle[keep], arc_start[keep], arc_max[keep]
 

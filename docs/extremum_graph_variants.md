@@ -60,6 +60,14 @@ the original values. The ranks only decide the comparisons inside the method.
   intends, done without the float32 precision loss.
 * Ranks are whole numbers, so the float32 subtraction inside AnyEG is exact. On
   raw floats, two different rises could round to the same float32 number.
+* **One exception, a height test:** AnyEG's arc assembly keeps an arc only if
+  |f(saddle) − f(maximum)| lies in `[0, 20000)`. On the real values that keeps
+  every arc; on ranks (up to 2 million) it silently dropped up to 2/3 of them
+  until 2026-11-23. So the assembly gets the real values as `heights`
+  (`ArcAssembler.assemble(..., heights=...)`) and the ranks only for order.
+  Likewise our pipeline gets the real values, because its loop filter
+  (relief) measures heights. Its tie-break gives the same order as the ranks.
+  See `python3 -m comparison.fair` for the controlled comparison.
 
 The PyTorch port of AnyEG is checked against AnyEG's own CUDA code on these
 inputs (`python3 -m comparison`, `tests/test_anyeg.py`). It gives identical

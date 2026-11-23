@@ -30,9 +30,15 @@ class ScalarField:
     origin: Tuple[float, float, float] = (0.0, 0.0, 0.0)
     positions: Optional[np.ndarray] = None              # (N, d) for point clouds
     extra: dict = field(default_factory=dict)           # e.g. other point arrays
+    heights: Optional[np.ndarray] = None                # (N,) real values when ``values`` are
+                                                        # only an order (ranks); see assembly.py
 
     def __post_init__(self):
         self.values = np.ascontiguousarray(self.values, dtype=np.float32).reshape(-1)
+        if self.heights is not None:
+            self.heights = np.asarray(self.heights, dtype=np.float64).reshape(-1)
+            if self.heights.shape != self.values.shape:
+                raise ValueError("heights and values have different lengths")
         if self.is_grid and int(np.prod(self.dims)) != self.num_points:
             raise ValueError(f"dims {self.dims} do not match {self.num_points} values")
         if not self.is_grid:

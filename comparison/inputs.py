@@ -75,14 +75,19 @@ class ValueVariant(ABC):
     name: str = "abstract"
     description: str = ""
 
+    keeps_heights: bool = True      # False when ``apply`` changes only the order
+
     @abstractmethod
     def apply(self, values: np.ndarray) -> np.ndarray:
         """float32 values both methods receive."""
 
     def field(self, field: ScalarField) -> ScalarField:
+        # A variant that keeps only the order hands the real values on as
+        # ``heights``, so AnyEG's height filter is not applied to ranks.
+        heights = None if self.keeps_heights else field.values
         return ScalarField(self.apply(field.values), name=field.name, array_name=field.array_name,
                            dims=field.dims, spacing=field.spacing, origin=field.origin,
-                           positions=field.positions)
+                           positions=field.positions, heights=heights)
 
 
 class RawValues(ValueVariant):
@@ -109,7 +114,9 @@ class AnyEGPreprocess(ValueVariant):
 
 class RankValues(ValueVariant):
     name = "rank"
-    description = "rank in (value, index) order: all distinct, our pipeline's order"
+    description = ("rank in (value, index) order: all distinct, our pipeline's order "
+                   "(heights kept for AnyEG's arc filter)")
+    keeps_heights = False
 
     def apply(self, values):
         v = np.asarray(values)

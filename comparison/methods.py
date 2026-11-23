@@ -71,7 +71,9 @@ class OursMethod(Method):
         t0 = time.perf_counter()
         g = self._graph(field)
         t1 = time.perf_counter()
-        eg = extremum_graph(field.values.astype(np.float64), g, backend=self.backend)
+        # Heights for our height-based loop filter; the order is the same either way.
+        values = field.heights if field.heights is not None else field.values
+        eg = extremum_graph(values.astype(np.float64), g, backend=self.backend)
         t2 = time.perf_counter()
         return from_ours(eg, self.name, {"graph": t1 - t0, "core": t2 - t1, "post": 0.0,
                                          "total": t2 - t0})

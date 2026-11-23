@@ -173,7 +173,7 @@ class AnyEGVariant(ExtractionVariant):
             raise ValueError("ranks above 2^24 are not exact in float32")
         distinct = source.order.astype(np.float32)          # only the order, never the heights
         out = self.kernels.run(distinct, table)
-        graph = ArcAssembler().assemble(distinct, table, out)
+        graph = ArcAssembler().assemble(distinct, table, out, heights=source.values)
         eg, extra = anyeg_to_extremum_graph(graph, source.values, source.order)
         notes = {
             "maxima": graph.num_maxima,

@@ -54,7 +54,7 @@ class AnyEGPipeline:
         t1 = time.perf_counter()
         out = self.kernels.run(field.values, neighbors)
         t2 = time.perf_counter()
-        graph = self.assembler.assemble(field.values, neighbors, out)
+        graph = self.assembler.assemble(field.values, neighbors, out, heights=field.heights)
         t3 = time.perf_counter()
         graph.seconds.update(neighborhood=t1 - t0, kernels_total=t2 - t1, assembly=t3 - t2,
                              total=t3 - t0)

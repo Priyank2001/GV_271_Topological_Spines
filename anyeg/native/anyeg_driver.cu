@@ -19,7 +19,7 @@
 //
 // output.bin:
 //   char[4]  "AEG1"
-//   float64  seconds        wall time of compute() including its copies
+//   float64  seconds        wall time of compute() including its copies (CUDA context already created)
 //   int32    L              length of AnyEG's result buffer
 //   int32    result[L]      the buffer returned by compute(), unchanged:
 //            [nCand, cand..., nExt, ext..., FatherLinks_cpy[N], FatherLinks[N], int(Values)[N]]
@@ -67,6 +67,12 @@ int main(int argc, char** argv) {
         rows[i] = neighbours.data() + offset;
         offset += counts[i];
     }
+
+    // Create the CUDA context before the clock starts: that one-off start-up
+    // (0.1-0.3 s) is not part of AnyEG's work, and the Python ports run in a
+    // process whose context already exists.
+    cudaFree(0);
+    cudaDeviceSynchronize();
 
     auto t0 = std::chrono::steady_clock::now();
     int* result = compute(n, values.data(), counts.data(), rows.data(), dims);
