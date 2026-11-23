@@ -229,3 +229,29 @@ def grid_graph(shape: tuple[int, ...], backend: BackendSpec = None) -> NeighborG
         parts.append(np.stack([a, b], axis=1))
     edges = np.concatenate(parts) if parts else np.empty((0, 2), np.int64)
     return NeighborGraph.from_edges(ids.size, edges, backend=backend)
+
+
+def freudenthal_grid_graph(shape: tuple[int, ...], backend: BackendSpec = None) -> NeighborGraph:
+    """Edges of the Freudenthal (Kuhn) triangulation of a regular grid, in any dimension.
+
+    Vertex ``u`` and ``u + o`` are joined for every offset ``o`` in {0, 1}^d without the
+    zero vector (and, by symmetry, ``-o``), i.e. 2 (2^d - 1) neighbours per interior vertex:
+    14 in 3-D, 30 in 4-D. On this graph a field interpolated linearly inside each simplex is
+    piecewise linear, so its maxima and merge saddles are exact for the PL field (unlike the
+    axis-only ``grid_graph``, where a diagonal ridge can split into several maxima).
+    In 3-D this is TTK's (and AnyEG's) 14-neighbour grid up to flipping the y and z axes
+    (``anyeg.neighborhood.FREUDENTHAL_OFFSETS``). Vertices are numbered in C order.
+    """
+    import itertools
+
+    d = len(shape)
+    ids = np.arange(int(np.prod(shape)), dtype=np.int64).reshape(shape)
+    parts = []
+    for o in itertools.product((0, 1), repeat=d):
+        if not any(o):
+            continue
+        src = ids[tuple(slice(0, n - k) for n, k in zip(shape, o))].reshape(-1)
+        dst = ids[tuple(slice(k, n) for n, k in zip(shape, o))].reshape(-1)
+        parts.append(np.stack([src, dst], axis=1))
+    edges = np.concatenate(parts) if parts else np.empty((0, 2), np.int64)
+    return NeighborGraph.from_edges(ids.size, edges, backend=backend)

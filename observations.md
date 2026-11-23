@@ -6,6 +6,40 @@ and what is still open.
 
 ---
 
+## 2026-11-24 — Loss landscapes (CIFAR-10): the kNN extremum graph matches a dense PL grid
+
+**What we did.** New package `landscape/` (Option A, steps 1–2). Two sets of four small
+CNNs (0.19 M parameters, no BatchNorm, ~86% test accuracy) were trained on CIFAR-10
+(`python3 -m landscape.train`): independent runs (`cnn_m4_e30`) and four children of one
+parent trained 2 epochs (`cnn_m4_e30_spawn2`). The landscape is the training objective
+(CE on 2,000 fixed training images + the weight-decay term, so each model is a stationary
+point) in the 3-D affine subspace through the four models' weights; f = −log L.
+`python3 -m landscape.accuracy` compares our kNN extremum graph on scattered samples
+(Sobol / uniform, N = 1k–32k, k = 8/15/30, 3 seeds) with our sweep on a 49³ grid
+triangulated by Freudenthal (new `pipeline.neighbor_graph.freudenthal_grid_graph`, any d),
+where the PL field's maxima and merge saddles are exact. Reports:
+`comparison/results/loss_landscape_accuracy_<run>.md`, figure `…_tau0.005.png`.
+
+**What we saw.**
+- The reference is converged (13³ and 25³ give the same 4 minima, barriers within 1%) and
+  passes two checks that use no topology method: every trained model lies in its own
+  reference basin (distance 0.000–0.060 of the box), and no reference barrier exceeds the
+  straight-line barrier (an upper bound) for any of the 12 pairs.
+- Every reference minimum was found in all 432 scattered runs. False minima come from
+  k = 8 (up to 26 extra on uniform samples of the independent runs' plateau at τ = 0.005);
+  k = 15 is exact on the spawned landscape and adds at most 2 (5 of 36 runs, uniform only)
+  on the plateau. Barrier errors from N = 8k: ≤ 1.5% (k = 8), ≤ 2.5% (k = 15), ≤ 5.2%
+  (k = 30, which over-reaches across ridges at small N: 9% median at N = 1k).
+- Independent runs: barriers 2.22–2.36 ≈ chance loss (2.30), 7–13% below the straight
+  lines. Spawned runs: barriers 0.440–0.443 vs minima 0.404–0.421, straight lines up to 0.467.
+
+**Open.** Step 3 (2-D slices vs the full subspace), more dimensions (d = 4–8: grid
+reference only up to d = 4), Hessian directions as in Landscaper, viewer entries.
+Evaluation runs at ~150 loss evaluations/s per RTX 3090 (vmap over 2,000 images), which
+sets the sampling budget.
+
+---
+
 ## 2026-11-23 — A fair comparison of AnyEG and our pipeline
 
 **What we did.** `python3 -m comparison.fair` (`comparison/fair.py`,

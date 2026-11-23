@@ -19,3 +19,8 @@ anyeg/native/build/
 
 # Downloaded raw data (generator/make_pbmc3k_dataset.py fetches it again)
 data/pbmc3k/
+
+# Loss landscapes: trained models and cached loss samples (python3 -m landscape.train / landscape.accuracy recreate them)
+data/loss_landscape/
+# DomainNet metadata cache (branch domainnet)
+data/domainnet/
