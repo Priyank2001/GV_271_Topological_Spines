@@ -30,7 +30,11 @@ export function noteText(info) {
 }
 
 export class ComparisonBox {
-  constructor(element) { this.el = element; }
+  constructor(element) {
+    this.el = element;
+    this.open = false;                // the Details part, kept open across re-renders
+    element.addEventListener('toggle', (e) => { if (e.target.matches?.('details.cmp-more')) this.open = e.target.open; }, true);
+  }
 
   hide() { this.el.hidden = true; }
 
@@ -45,8 +49,11 @@ export class ComparisonBox {
   render({ infoA, infoB, shown, agreement, diffs, selection = '' }) {
     const A = esc(infoA?.label ?? 'left'), B = esc(infoB?.label ?? 'right');
     const html = [];
-    html.push(`<div class="title">Comparing <span class="who">${A}</span> (left) and ` +
-              `<span class="who">${B}</span> (right)</div>`);
+    html.push(`<div class="title"><span class="who">${A}</span> (left) vs <span class="who">${B}</span> (right)</div>`);
+    html.push(`<p class="cmp-line">${int(shown.shownA)} vs ${int(shown.shownB)} peaks shown · ${int(shown.shared)} shared` +
+              (agreement ? ` · ${pct(agreement.region_agreement)} of points agree` : '') + '</p>');
+    if (selection) html.push(`<p class="sel">${selection}</p>`);
+    html.push(`<details class="cmp-more"${this.open ? ' open' : ''}><summary>Details</summary>`);
 
     html.push(`<p><b>Shown now:</b> ${int(shown.shownA)} peaks left, ${int(shown.shownB)} right; ` +
               `${int(shown.shared)} at the same vertex in both. ` +
@@ -60,8 +67,6 @@ export class ComparisonBox {
                 `linked pairs of maxima: Jaccard ${agreement.pair_jaccard.toFixed(3)} ` +
                 `(${int(agreement.pairs_only_a)} only left, ${int(agreement.pairs_only_b)} only right).</p>`);
     }
-    if (selection) html.push(`<p class="sel">${selection}</p>`);
-
     html.push('<div class="why"><b>Why they differ</b>');
     if (diffs.length) {
       html.push('<dl>' + diffs.map((d) =>
@@ -77,6 +82,7 @@ export class ComparisonBox {
       html.push('<div class="facts"><b>Full graphs</b><ul>' +
                 notes.map(([who, t]) => `<li><span class="who">${who}:</span> ${esc(t)}</li>`).join('') + '</ul></div>');
     }
+    html.push('</details>');
     this.el.innerHTML = html.join('');
     this.el.hidden = false;
   }

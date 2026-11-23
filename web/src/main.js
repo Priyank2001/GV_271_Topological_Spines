@@ -3,16 +3,18 @@
 // (a second spine with another extraction method, see compare.js) and parallel
 // coordinates (spine + every point as a line across its original dimensions).
 
-import { maxPersistence, maxSaddlePersistence } from './simplify.js';
+import { maxPersistence, maxSaddlePersistence, maxArcHeight } from './simplify.js';
 import { visibleGraph, isSimplifiable, compareShown, traitDifferences, findAgreement, findVisible,
          allMaxima, sharedColorIds } from './compare.js';
 import { ComparePanel } from './comparePanel.js';
 import { ComparisonBox } from './comparisonBox.js';
 import { SpineView, peakGradientCss, hexToRgb, regionColor, setColormap, getColormap } from './spineView.js';
-import { DataView } from './dataView.js';
+import { DataView, clusterColor } from './dataView.js';
 import { VolumeView, RAMP, bandColor } from './volumeView.js';
 import { PersistencePlot, sliderToThreshold, thresholdToSlider } from './persistencePlot.js';
 import { ParallelView } from './parallelView.js';
+import { profileColumns, peakProfile, orderRows, PROFILE_BINS } from './profile.js';
+import { kmeans, dbscan, dbscanCost, agreement } from './cluster.js';
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -22,7 +24,15 @@ const el = {
   layoutInfo: $('layoutInfo'),
   data: $('data'), dataCanvas: $('dataCanvas'), dataBar: $('dataBar'), dataNote: $('dataNote'),
   variation: $('variation'), variationOut: $('variationOut'),
+  arcRow: $('arcRow'), arcLow: $('arcLow'), arcOut: $('arcOut'),
   dataHint: $('dataHint'), volumeCanvas: $('volumeCanvas'), embeddingRow: $('embeddingRow'),
+  drawRow: $('drawRow'), drawMode: $('drawMode'),
+  scatter: $('scatter'), scX: $('scX'), scY: $('scY'), scColor: $('scColor'), scColorDims: $('scColorDims'),
+  scDraw: $('scDraw'), scPeakDims: $('scPeakDims'), scInfo: $('scInfo'), scCanvas: $('scCanvas'), scNote: $('scNote'),
+  scBrush: $('scBrush'), scClear: $('scClear'),
+  clMethod: $('clMethod'), clK: $('clK'), clEps: $('clEps'), clMin: $('clMin'), clSpace: $('clSpace'),
+  clKRow: $('clKRow'), clEpsRow: $('clEpsRow'), clMinRow: $('clMinRow'), clRun: $('clRun'), clClear: $('clClear'),
+  clResult: $('clResult'), colorByCluster: $('colorByCluster'), scColorCluster: $('scColorCluster'),
   volumeControls: $('volumeControls'), volThresh: $('volThresh'), volThreshOut: $('volThreshOut'),
   volDensity: $('volDensity'), volShade: $('volShade'), colorByIso: $('colorByIso'), isoControls: $('isoControls'),
   volIsoLevels: $('volIsoLevels'), volIsoSurf: $('volIsoSurf'), volIsoCmap: $('volIsoCmap'), volIsoRev: $('volIsoRev'), embedding: $('embedding'), colorBy: $('colorBy'),
@@ -32,6 +42,7 @@ const el = {
   colormap: $('colormap'), cmapReverse: $('cmapReverse'), cmapPreview: $('cmapPreview'),
   styleNote: $('styleNote'), discLegend: $('discLegend'), arcs: $('arcs'), relayout: $('relayout'), floor: $('floor'), height: $('height'), heightRows: $('heightRows'),
   panelH: $('panelH'), spineH: $('spineH'), tooltipH: $('tooltipH'), tipBox: $('tipBox'),
+  profile: $('profile'), profileShow: $('profileShow'), profileOrder: $('profileOrder'),
   heightScale: $('heightScale'), heightScaleOut: $('heightScaleOut'), heightShape: $('heightShape'),
   toggleData: $('toggleData'), toggleSide: $('toggleSide'),
   colorLegend: $('colorLegend'), clTitle: $('clTitle'), clBar: $('clBar'), clFade: $('clFade'),
@@ -77,7 +88,7 @@ window.addEventListener('keydown', (e) => {
 // Compare mode: variantA is drawn in the main panel (and drives the data view), variantB in panelB.
 // sliderDoc: the shown document whose persistence the sliders walk (null when no shown method simplifies).
 // mode: 'explore' | 'compare' | 'parallel' (the rail on the left); compare mirrors state.compare.
-const state = { doc: null, index: [], tmax: 1, base: 0, threshold: 0, variation: Infinity, vis: null,
+const state = { doc: null, index: [], tmax: 1, base: 0, threshold: 0, variation: Infinity, arcLow: 0, arcMax: 1, vis: null,
                 entry: null, variantA: null, variantB: null, compare: false, sliderDoc: null, traitLabels: {},
                 mode: 'explore' };
 
@@ -85,6 +96,16 @@ const fmt = (x, digits = 4) => (x === null || x === undefined ? '–' : Number(x
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const pct = (a, b) => `${((100 * a) / b).toFixed(a / b < 0.01 ? 2 : 1)} %`;
 const count = (n) => n.toLocaleString('en-US');
+// Brushes that filter the spine: the points each one keeps (Uint8Array) or null (see applyBrushFocus)
+const brushes = { parallel: null, scatter: null };
+// Clustering result (see runClustering near the end): labels per point of ``doc``, or null
+let clusterRes = null;
+const FOCUS_SHARE = 0.2;    // a peak stays in colour if at least this share of its region is brushed
+// Scatter mode state (see loadScatter near the end): its view and the document it shows
+let scatterView = null;
+const sc = { doc: null };
+// peak profile state (see renderProfile near the end): declared early, the info panel renders during loading
+const prof = { doc: null, coords: null, cols: null, note: '', loading: null, vis: null, cache: new Map(), last: null };
 
 function cssColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
@@ -285,6 +306,7 @@ function applyTheme() {
   const c = themeColors();
   for (const v of spineViews()) v.setTheme(c);
   dataView.setTheme({ bg: hexToRgb(cssColor('--bg')) });
+  scatterView?.setTheme({ bg: hexToRgb(cssColor('--bg')) });
   pcView?.setTheme(pcTheme());
   volumeView.setTheme({ bg: hexToRgb(cssColor('--bg')), marker: hexToRgb(cssColor('--ring')),
                         select: hexToRgb(cssColor('--accent')) });
@@ -304,6 +326,7 @@ function applyColormap() {
   el.valueBar.style.background = el.cmapPreview.style.background = peakGradientCss();
   for (const v of spineViews()) v.refreshColors?.();
   dataView.refreshColors?.();
+  scatterView?.refreshColors?.();
   volumeView.refreshColors?.();
   pcView?.refreshColors();
   syncedKey = ''; syncDataSelection();             // redraw the data-view legend
@@ -328,16 +351,19 @@ function setThresholds(t, v) {
   }
   state.threshold = t;
   state.variation = v;
-  state.vis = visibleGraph(doc, t, v);                               // the full graph if doc cannot simplify
+  state.vis = visibleGraph(doc, t, v, state.arcLow);                 // AnyEG: its own arc filter instead
   view.setVisible(state.vis);
   if (heightView && state.mode === 'height') {
     if (heightView.doc !== doc) heightView.setGraph(doc);
     heightView.setVisible(state.vis);
   }
   dataView.setVisible(state.vis);
+  if (scatterView && sc.doc === state.doc) scatterView.setVisible(state.vis);
+  applyBrushFocus();                               // the same brush, the peaks of the new threshold
+  if (clusterRes?.doc === state.doc) renderClusters();   // agreement with the peaks of this threshold
   volumeView.setVisible(state.vis);
   if (pcReady()) pcView.setVisible(state.vis);
-  if (state.compare && panelB.doc) panelB.setThresholds(t, v);
+  if (state.compare && panelB.doc) panelB.setThresholds(t, v, state.arcLow);
   lastHover = null;                    // hover indices refer to the previous visible lists
   syncDataSelection();
 
@@ -348,13 +374,13 @@ function setThresholds(t, v) {
   el.variationOut.textContent = !state.sliderDoc ? '–' : Number.isFinite(v) ? fmt(v, 3) : 'off';
   plot.setThreshold(t);
   plot.setVariation(v);
-  const ridges = el.arcs.checked && state.vis.ridges.length
-    ? `; ${count(state.vis.ridges.length)} more arcs kept by p* through ${count(state.vis.ghosts.length)} merged peaks` : '';
   el.counts.textContent = isSimplifiable(doc)
-    ? `${count(state.vis.peaks.length)} of ${count(doc.peaks.length)} peaks, ` +
-      `${count(state.vis.saddles.length)} of ${count(doc.saddles.length)} saddles shown${ridges}`
-    : `All ${count(doc.peaks.length)} peaks and ${count(doc.saddles.length)} saddle links shown ` +
-      `(${variantLabel(doc)} has no simplification).`;
+    ? `${count(state.vis.peaks.length)} of ${count(doc.peaks.length)} peaks · ` +
+      `${count(state.vis.saddles.length)} of ${count(doc.saddles.length)} saddles shown`
+    : `All ${count(doc.peaks.length)} peaks · ${count(state.vis.saddles.length)} of ${count(doc.saddles.length)} links shown` +
+      (state.arcLow > 0 ? ' (arc filter)' : '');
+  el.counts.title = el.arcs.checked && state.vis.ridges.length
+    ? `${count(state.vis.ridges.length)} more arcs kept by p* through ${count(state.vis.ghosts.length)} merged peaks` : '';
   renderInfo(view.selected);
   updateComparison();
 }
@@ -372,9 +398,19 @@ function configureSlider() {
   const fixed = shown.filter((d) => !isSimplifiable(d)).map(variantLabel);
   el.sliderNote.hidden = fixed.length === 0;
   el.sliderNote.textContent = !fixed.length ? ''
-    : sdoc ? `The sliders act on ${variantLabel(sdoc)} only. ${fixed.join(' and ')} has no simplification, ` +
-             'so its full graph is always shown.'
-           : `${fixed.join(' and ')} has no simplification: its full graph is shown and the sliders are off.`;
+    : sdoc ? `Peak persistence simplification acts on ${variantLabel(sdoc)} only. ${fixed.join(' and ')} ` +
+             'has no peak hierarchy; it uses its own arc height-difference filter (below).'
+           : `${fixed.join(' and ')} has no peak hierarchy: use its arc height-difference filter (below).`;
+  // AnyEG's own filter: its own control, over the arc heights of the shown method without simplification
+  const adoc = shown.find((d) => !isSimplifiable(d)) ?? null;
+  el.arcRow.hidden = !adoc;
+  if (adoc) {
+    state.arcMax = maxArcHeight(adoc) || 1;
+    $('arcLabel').textContent = `Arc height-difference filter (${variantLabel(adoc)})`;
+    state.arcLow = Math.min(state.arcLow ?? 0, state.arcMax);
+    el.arcLow.value = String(state.arcLow / state.arcMax);
+    el.arcOut.textContent = state.arcLow > 0 ? fmt(state.arcLow, 3) : 'off';
+  } else state.arcLow = 0;
   if (!sdoc) {
     state.tmax = 1; state.base = 0;
     plot.setData({ curve: [], tmax: 1, minThreshold: 0, saddles: [] });
@@ -391,6 +427,17 @@ function configureSlider() {
 function initialThreshold() {
   return state.sliderDoc ? (state.sliderDoc.meta.initial_threshold ?? state.base) : 0;
 }
+
+el.arcLow.addEventListener('input', () => {
+  state.arcLow = Number(el.arcLow.value) * (state.arcMax ?? 1);
+  el.arcOut.textContent = state.arcLow > 0 ? fmt(state.arcLow, 3) : 'off';
+  // only the panel(s) showing a method with arc filtering change; the other keeps its graph and view
+  if (state.compare && panelB.doc && !isSimplifiable(panelB.doc)) {
+    panelB.setThresholds(state.threshold, state.variation, state.arcLow);
+  }
+  if (state.doc && !isSimplifiable(state.doc)) setThresholds(state.threshold, state.variation);
+  else updateComparison();
+});
 
 el.variation.addEventListener('input', () => {
   setVariation(sliderToThreshold(Number(el.variation.value), state.tmax));
@@ -527,6 +574,7 @@ function syncDataSelection() {
     dataView.setSelectedPeaks(picked);
     volumeView.setSelectedPeaks(picked);
     if (pcReady()) pcView.setSelectedPeaks(picked);
+    if (scatterView && sc.doc === state.doc) scatterView.setSelectedPeaks(picked);
     updateLegend(picked);
   });
 }
@@ -547,6 +595,7 @@ function updateLegend(picked = []) {
   const [lo, hi] = doc.meta.value_range ?? [0, 1];
   const span = hi - lo || 1;
   const byValue = el.colorBy.value === 'value';
+  const byCluster = cloud && el.colorBy.value === 'cluster' && clusterRes?.doc === doc;
   const byIso = volume && el.colorBy.value === 'iso';
   const thr = volume ? Number(el.volThresh.value) : null;            // volumes hold values in [0, 1]
   const fadePct = (x) => `${(100 * Math.min(1, Math.max(0, (x - lo) / span))).toFixed(1)}%`;
@@ -555,8 +604,10 @@ function updateLegend(picked = []) {
   const levels = byIso ? volumeView.getIsoLevels?.() ?? [] : [];
   const bandLabel = bandMapName() === 'fig1' ? 'the paper\'s Fig. 1 colours' : el.volIsoCmap.value === 'spine' ? cmapLabel
     : `${el.volIsoCmap.value}${el.volIsoRev.checked ? ', reversed' : ''}`;
-  el.clTitle.textContent = byIso ? `Colour: iso-value bands (${levels.length + 1} bands, ${bandLabel})`
-    : byValue ? `Colour: field value (${cmapLabel})` : 'Colour: peak region';
+  el.clTitle.textContent = (byIso ? `Colour: iso-value bands (${levels.length + 1} bands, ${bandLabel})`
+    : byValue ? `Colour: field value (${cmapLabel})`
+    : byCluster ? (clusterRes.names ? `Colour: ${clusterRes.label}` : `Colour: cluster (${clusterRes.label})`) : 'Colour: peak region') +
+    (cloud && el.drawMode?.value === 'density' ? ' · density: brighter = more points (log scale)' : '');
   el.clBar.hidden = el.clRange.hidden = !byValue && !volume;
   el.clLo.textContent = fmt(lo, 3);
   el.clHi.textContent = fmt(hi, 3);
@@ -583,7 +634,15 @@ function updateLegend(picked = []) {
   }
 
   el.clSwatches.replaceChildren();
-  if (!byValue && !byIso) {
+  if (byCluster) {
+    for (const r of clusterRes.table.slice(0, 8)) {
+      const item = document.createElement('span');
+      const sw = document.createElement('i');
+      sw.style.background = `rgb(${clusterColor(r.cluster).map((c) => Math.round(c * 255)).join(',')})`;
+      item.append(sw, r.cluster < 0 ? (clusterRes.names ? 'unknown' : 'noise') : clusterRes.names?.[r.cluster] ?? `cluster ${r.cluster + 1}`);
+      el.clSwatches.append(item);
+    }
+  } else if (!byValue && !byIso) {
     const show = new Set(picked);
     const order = vis.peaks.map((_, i) => i).sort((a, b) => (show.has(b) - show.has(a)) || vis.size[b] - vis.size[a]);
     const MAX = 8;
@@ -616,9 +675,10 @@ function onPickPoint(i) {
 }
 
 el.embedding.addEventListener('change', () => dataView.setEmbedding(el.embedding.value));
+el.drawMode?.addEventListener('change', () => { dataView.setDraw?.(el.drawMode.value); updateLegend(pickedPeaks()); });
 el.colorBy.addEventListener('change', () => {
   dataView.setColorBy(el.colorBy.value);
-  volumeView.setColorBy(el.colorBy.value);
+  volumeView.setColorBy(el.colorBy.value === 'cluster' ? 'region' : el.colorBy.value);
   syncIsoControls();
   syncedKey = ''; syncDataSelection();             // redraw the legend
 });
@@ -690,12 +750,13 @@ function applyStyle() {
         'peak\'s region between the contour and that point of the link, so the contour through a saddle ' +
         'pinches to a figure-eight there. Colour = isovalue.';
   const law = el.radiusLaw.value;
-  el.discLegend.textContent = contours
-    ? (law === 'nddav' ? 'contour radius grows as (points of the peak\'s region it encloses)^(2/d)'
-      : `contour ${law === '1' ? 'radius' : 'area'} is proportional to the points of the peak's region it encloses`) +
-      (el.scaleMode.value === 'saddle' ? ' (the pale outer halo is capped at 2× the widest saddle-level contour)' : '') +
-      '; the dot is the maximum'
-    : 'disc area is proportional to the points in the peak\'s region';
+  el.discLegend.textContent = contours ? 'contour size: points in the peak\'s region; dot: the maximum'
+    : 'disc size: points in the peak\'s region';
+  el.discLegend.title = contours
+    ? (law === 'nddav' ? 'Contour radius grows as (points of the peak\'s region it encloses)^(2/d).'
+      : `Contour ${law === '1' ? 'radius' : 'area'} is proportional to the points of the peak's region it encloses.`) +
+      (el.scaleMode.value === 'saddle' ? ' The pale outer halo is capped at 2x the widest saddle-level contour.' : '')
+    : 'Disc area is proportional to the points in the peak\'s region.';
 }
 // The page opens on the extremum graph (discs and lines); "Spine" draws the contours of the
 // topological spine around it, "Spine" again goes back. The contour style comes back as it was.
@@ -792,6 +853,7 @@ function row(label, value) { return `<tr><th>${label}</th><td>${value}</td></tr>
  * (compare mode). Methods without simplification have no persistence to show.
  */
 function renderInfo(node, side = 'A') {
+  renderProfile(side === 'B' ? null : node);
   const B = side === 'B';
   const doc = B ? panelB.doc : state.doc, vis = B ? panelB.vis : state.vis;
   const shownIn = B ? panelB.view : view;
@@ -864,6 +926,7 @@ function showDataPanel(doc, names, volume) {
   el.dataCanvas.hidden = !cloud;
   el.volumeCanvas.hidden = !volume;
   el.embeddingRow.hidden = !cloud;
+  if (el.drawRow) el.drawRow.hidden = !cloud;
   el.volumeControls.hidden = !volume;
   el.colorByIso.hidden = !volume;                  // bands are drawn by the volume view only
   el.isoControls.hidden = true;                    // shown again by syncIsoControls for volumes
@@ -886,6 +949,7 @@ function showDataPanel(doc, names, volume) {
     volumeView.setIsoLevels?.(el.volIsoLevels.value);
     volumeView.setBandColormap?.(bandMapName(), el.volIsoRev.checked);   // the browser may restore the form
     applyHeight();
+    dataView.setDraw?.(el.drawMode?.value ?? 'points');
     syncIsoControls();
     volumeView.resize?.();
     return;
@@ -932,13 +996,125 @@ async function variantDoc(entry, id) {
   const v = variantInfo(id);
   if (!v?.file || v.file === entry.file) return main;
   const doc = await cachedJSON(v.file);
-  if (!doc.data && main.data) doc.data = main.data;
+  // a variant with another function on the same points carries its own values; the rest
+  // of the data section (embeddings) is shared with the main file
+  if (main.data) doc.data = doc.data ? { ...main.data, ...doc.data } : main.data;
   return doc;
+}
+
+// ---- our pipeline's family of files: one per (scalar function, k). Ids: 'ours' (the main file),
+// 'ours_k<k>' (the main function at another k) and, for datasets with several scalar functions
+// (index.json "scalars"), 'ours_f_<function>_s<smoothing>[_k<k>]'. The Method menus show one
+// "Ours"; the Scalar menu and the k slider of each panel pick the file.
+const K_ID = /^ours_k(\d+)$/;
+const F_ID = /^ours_f_(\w+?_s\d+)(?:_k(\d+))?$/;
+const isOurs = (id) => id === 'ours' || K_ID.test(id) || F_ID.test(id);
+const methodOf = (id) => (isOurs(id) ? 'ours' : id);
+const mainScalar = (entry = state.entry) => entry?.scalars?.main ?? null;
+/** {f, k} of an id of our family (f: scalar menu id, null for datasets with one function). */
+function parseOurs(id, entry = state.entry) {
+  if (id === 'ours') return { f: mainScalar(entry), k: entry?.k };
+  let m = K_ID.exec(id);
+  if (m) return { f: mainScalar(entry), k: Number(m[1]) };
+  m = F_ID.exec(id);
+  return m ? { f: m[1], k: m[2] ? Number(m[2]) : entry?.k } : null;
+}
+function oursId(f, k, entry = state.entry) {
+  if (!f || f === mainScalar(entry)) return k === entry?.k ? 'ours' : `ours_k${k}`;
+  return k === entry?.k ? `ours_f_${f}` : `ours_f_${f}_k${k}`;
+}
+const hasFile = (id, entry = state.entry) => usableVariants(entry).some((v) => v.id === id);
+/** The k values with a file for function ``f``, ascending: [{k, id}]. Empty for volumes and old index files. */
+function kChoices(entry = state.entry, f = mainScalar(entry)) {
+  if (!entry?.k) return [];
+  const list = usableVariants(entry).map((v) => ({ id: v.id, p: parseOurs(v.id, entry) }))
+    .filter((x) => x.p && x.p.f === f).map((x) => ({ k: x.p.k, id: x.id }));
+  return list.length > 1 ? list.sort((a, b) => a.k - b.k) : [];
+}
+function kOfVariant(id) { return parseOurs(id)?.k ?? state.entry?.k; }
+const kState = { A: null, B: null };            // chosen k per panel (null: the dataset's own)
+const fState = { A: null, B: null };            // chosen scalar function per panel (null: the main one)
+const panelId = (side) => (side === 'A' ? state.variantA : state.variantB);
+/** The scalar function shown (or, for another method, chosen) in panel ``side``. */
+function fOf(side) {
+  const id = panelId(side);
+  return methodOf(id) === 'ours' ? parseOurs(id)?.f ?? null : (fState[side] ?? mainScalar());
+}
+/** The variant id to load for a Method-menu choice in panel ``side``. */
+function resolveMethod(value, side) {
+  if (value !== 'ours') return value;
+  const f = fState[side] ?? mainScalar(), k = kState[side] ?? state.entry?.k;
+  for (const id of [oursId(f, k), oursId(f, state.entry?.k)]) if (hasFile(id)) return id;
+  return 'ours';
+}
+function syncKControls() {
+  for (const side of ['A', 'B']) {
+    const row = $(`kRow${side}`), input = $(`k${side}`), out = $(`kOut${side}`);
+    if (!row) continue;
+    const id = panelId(side);
+    const choices = kChoices(state.entry, fOf(side));
+    const show = choices.length > 1 && (side === 'A' || state.compare);
+    row.hidden = !show;
+    if (!show) continue;
+    const ours = methodOf(id) === 'ours';
+    const k = ours ? kOfVariant(id) : (kState[side] ?? state.entry.k);
+    input.max = String(choices.length - 1);
+    input.value = String(Math.max(0, choices.findIndex((c) => c.k === k)));
+    input.disabled = !ours;
+    out.textContent = ours ? String(k) : `${k} (Ours only)`;
+  }
+  const lab = $('kLabelA');
+  if (lab) lab.textContent = state.compare ? 'Neighbours (k), left' : 'Neighbours (k)';
+  syncFControls();
+}
+/** The Scalar menus: shown for datasets with several functions, when the panel shows Ours. */
+function syncFControls() {
+  const menu = state.entry?.scalars;
+  for (const side of ['A', 'B']) {
+    const row = $(`fRow${side}`), select = $(`f${side}`);
+    if (!row) continue;
+    const ours = methodOf(panelId(side)) === 'ours';
+    const show = !!menu && ours && (side === 'A' || state.compare);
+    row.hidden = !show;
+    if (!show) continue;
+    const choices = menu.choices.filter((c) => hasFile(oursId(c.id, state.entry.k)));
+    if (select.dataset.entry !== state.entry.id) {
+      select.replaceChildren(...choices.map((c) => {
+        const o = document.createElement('option');
+        o.value = c.id;
+        o.textContent = c.label;
+        return o;
+      }));
+      select.dataset.entry = state.entry.id;
+    }
+    select.value = fOf(side) ?? menu.main;
+  }
+  const lab = $('fLabelA');
+  if (lab) lab.textContent = state.compare ? 'Scalar (f), left' : 'Scalar (f)';
+}
+for (const side of ['A', 'B']) {
+  const input = $(`k${side}`);
+  if (!input) continue;
+  input.addEventListener('input', () => { $(`kOut${side}`).textContent = String(kChoices(state.entry, fOf(side))[Number(input.value)]?.k ?? ''); });
+  input.addEventListener('change', async () => {
+    const c = kChoices(state.entry, fOf(side))[Number(input.value)];
+    if (!c) return;
+    kState[side] = c.k;
+    if (side === 'A') { state.variantA = c.id; await showVariantA(); }
+    else { state.variantB = c.id; await showVariantB(); }
+  });
+  const fsel = $(`f${side}`);
+  fsel?.addEventListener('change', async () => {
+    fState[side] = fsel.value;
+    const id = resolveMethod('ours', side);
+    if (side === 'A') { state.variantA = id; await showVariantA(); }
+    else { state.variantB = id; await showVariantB(); }
+  });
 }
 
 function fillVariantMenus(entry) {
   for (const select of [el.variantA, el.variantB]) {
-    select.replaceChildren(...availableVariants(entry).map((v) => {
+    select.replaceChildren(...availableVariants(entry).filter((v) => v.id === 'ours' || !isOurs(v.id)).map((v) => {
       const o = document.createElement('option');
       o.value = v.id;
       o.textContent = v.file ? v.label : `${v.label} (not available)`;
@@ -983,8 +1159,12 @@ async function loadDataset(id, wantA = null, wantB = null) {
   state.variantA = ids.includes(wantA) ? wantA : ids[0];
   state.variantB = ids.includes(wantB) && wantB !== state.variantA ? wantB
     : ids.find((v) => v !== state.variantA) ?? state.variantA;
-  el.variantA.value = state.variantA;
-  el.variantB.value = state.variantB;
+  el.variantA.value = methodOf(state.variantA);
+  el.variantB.value = methodOf(state.variantB);
+  kState.A = isOurs(state.variantA) && state.variantA !== 'ours' ? kOfVariant(state.variantA) : null;
+  kState.B = isOurs(state.variantB) && state.variantB !== 'ours' ? kOfVariant(state.variantB) : null;
+  fState.A = isOurs(state.variantA) ? parseOurs(state.variantA)?.f ?? null : null;
+  fState.B = isOurs(state.variantB) ? parseOurs(state.variantB)?.f ?? null : null;
   if (state.compare && ids.length < 2) await setCompare(false);
   await showVariantA();
   if (state.compare) await showVariantB();
@@ -1007,15 +1187,19 @@ async function showVariantA() {
     lastHover = null;
     view.select(null);
     const names = dataView.setGraph(doc);
+    if (clusterRes && clusterRes.doc !== doc) clearClusters();
+    syncLabelOption();
     const volume = volumeView.setGraph(doc);
     showDataPanel(doc, names, volume);
     state.loads = (state.loads ?? 0) + 1;
     syncedKey = '';
     setThreshold(initialThreshold());
     if (state.mode === 'parallel') loadParallel();
+    if (state.mode === 'scatter') loadScatter();
     if (state.compare && panelB.doc) panelB.view.setColorIds?.(sharedColorIds(doc, panelB.doc));
     applyStyle();
     setStatus(`${count(doc.meta.num_points)} points · ${doc.meta.dimensions}D`);
+    syncKControls();
     updateHash();
   } catch (err) {
     console.error(err);
@@ -1041,6 +1225,7 @@ async function showVariantB() {
     setThresholds(!hadSlider && state.sliderDoc ? initialThreshold() : state.threshold, state.variation);
     if (view.getCamera) panelB.view.setCamera?.(view.getCamera());   // start from the left panel's view
     panelB.view.setColorIds?.(sharedColorIds(state.doc, doc));       // a shared maximum: same colour
+    syncKControls();
     updateHash();
   } catch (err) {
     console.error(err);
@@ -1058,6 +1243,7 @@ async function setCompare(on) {
   el.panelB.hidden = !on;                         // shown before the view is created, so it gets a size
   el.swapVariants.hidden = !on;
   el.toggleCompare.setAttribute('aria-pressed', String(on));
+  syncKControls();
   if (on) {
     await showVariantB();
     return;
@@ -1069,12 +1255,14 @@ async function setCompare(on) {
 }
 
 el.toggleCompare.addEventListener('click', () => setCompare(!state.compare));
-el.variantA.addEventListener('change', async () => { state.variantA = el.variantA.value; await showVariantA(); });
-el.variantB.addEventListener('change', async () => { state.variantB = el.variantB.value; await showVariantB(); });
+el.variantA.addEventListener('change', async () => { state.variantA = resolveMethod(el.variantA.value, 'A'); await showVariantA(); });
+el.variantB.addEventListener('change', async () => { state.variantB = resolveMethod(el.variantB.value, 'B'); await showVariantB(); });
 el.swapVariants.addEventListener('click', async () => {
   [state.variantA, state.variantB] = [state.variantB, state.variantA];
-  el.variantA.value = state.variantA;
-  el.variantB.value = state.variantB;
+  [kState.A, kState.B] = [kState.B, kState.A];
+  [fState.A, fState.B] = [fState.B, fState.A];
+  el.variantA.value = methodOf(state.variantA);
+  el.variantB.value = methodOf(state.variantB);
   await showVariantA();
   await showVariantB();
 });
@@ -1109,6 +1297,7 @@ async function init() {
   if (b) await setCompare(true);
   else if (storedMode() === 'parallel') await setMode('parallel');
   else if (storedMode() === 'height') await setMode('height');
+  else if (storedMode() === 'scatter') await setMode('scatter');
   window.addEventListener('hashchange', () => openHash(location.hash));   // a typed or followed link
 }
 
@@ -1133,9 +1322,11 @@ function syncModeUi() {
   for (const b of el.modeButtons) b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode));
   document.body.classList.toggle('mode-parallel', state.mode === 'parallel');
   document.body.classList.toggle('mode-height', state.mode === 'height');
+  document.body.classList.toggle('mode-scatter', state.mode === 'scatter');
+  el.scatter.hidden = state.mode !== 'scatter';
   el.panelH.hidden = state.mode !== 'height';
   el.parallel.hidden = state.mode !== 'parallel';
-  el.data.hidden = state.mode === 'parallel';
+  el.data.hidden = state.mode === 'parallel' || state.mode === 'scatter';
   el.toggleData.title = state.mode === 'parallel'
     ? 'Show or hide the parallel coordinates (key: d)' : 'Show or hide the data view (key: d)';
   if (state.mode !== 'parallel') pcView?.setActive(false);
@@ -1148,6 +1339,8 @@ async function setMode(mode) {
   try { localStorage.setItem(MODE_STORE, mode); } catch { /* storage blocked */ }
   syncModeUi();
   if (mode === 'parallel') await loadParallel();
+  if (mode === 'scatter') await loadScatter();
+  applyBrushFocus();                               // the spine follows the brush of the view on screen
   if (mode === 'height') syncHeightView();
   else applyHeight();                            // the main spine follows the checkbox again
   syncedKey = ''; syncDataSelection();
@@ -1240,8 +1433,31 @@ function setPcOpacity(a) {
   pcView?.setOpacity(Number(el.pcOpacity.value));
 }
 
+/**
+ * The spine follows the brush of the view on screen (Parallel or Scatter): a peak whose region has
+ * at least FOCUS_SHARE of its points inside the brush stays in colour, the others fade.
+ */
+function applyBrushFocus() {
+  const mask = state.mode === 'parallel' ? brushes.parallel : state.mode === 'scatter' ? brushes.scatter : null;
+  const vis = state.vis, doc = state.doc;
+  if (!mask || !vis || !doc || mask.length !== doc.meta.num_points) { view.setFocus?.(null); return null; }
+  const inside = new Float64Array(vis.peaks.length), total = new Float64Array(vis.peaks.length);
+  const owner = vis.owner, region = doc.region;
+  for (let i = 0; i < mask.length; i++) { const k = owner[region[i]]; total[k]++; if (mask[i]) inside[k]++; }
+  const keep = [], shares = [];
+  for (let k = 0; k < vis.peaks.length; k++) {
+    const sh = total[k] ? inside[k] / total[k] : 0;
+    if (sh >= FOCUS_SHARE) keep.push(k);
+    if (inside[k]) shares.push({ k, id: vis.peaks[k], share: sh, count: inside[k] });
+  }
+  view.setFocus?.(keep);
+  return shares.sort((a, b) => b.share - a.share);
+}
+
 /** The brush summary above the plot: how many points pass, and in which peaks (click one to select it). */
 function renderBrush(summary) {
+  brushes.parallel = summary?.mask ?? null;
+  applyBrushFocus();
   el.pcClear.disabled = !summary;
   if (!summary) {
     el.pcBrush.innerHTML = '<span>No brush: drag along an axis to keep the points in a range; ' +
@@ -1261,6 +1477,7 @@ function renderBrush(summary) {
     }
     if (peaks.length > MAX) parts.push(`<span>+${peaks.length - MAX} more</span>`);
   }
+  parts.push(`<span class="muted">· peaks with under ${Math.round(100 * FOCUS_SHARE)}% of their region brushed fade in the spine</span>`);
   el.pcBrush.innerHTML = parts.join(' ');
 }
 el.pcBrush.addEventListener('click', (e) => {
@@ -1315,7 +1532,14 @@ init();
 // ---- descriptions of the controls as hover tips ----------------------------
 // The long captions under the options stay in the page (some are rewritten as settings change)
 // but are hidden; hovering the option (marked with a small i) shows the caption in a box.
-const TIPS = [['plotNote', 'plot'], ['heightNote', 'height'], ['styleNote', 'style'],
+// Collapsible Controls sections (<details class="sec" data-sec=...>): remember which are open.
+for (const d of document.querySelectorAll('details[data-sec]')) {
+  const key = `gv.sec.${d.dataset.sec}`;
+  try { const v = localStorage.getItem(key); if (v !== null) d.open = v === '1'; } catch { /* no storage */ }
+  d.addEventListener('toggle', () => { try { localStorage.setItem(key, d.open ? '1' : '0'); } catch { /* no storage */ } });
+}
+
+const TIPS = [['fNote', 'fA'], ['kNote', 'kA'], ['arcNote', 'arcLow'], ['clusterNote', 'clMethod'], ['profileNote', 'profileShow'], ['plotNote', 'plot'], ['heightNote', 'height'], ['styleNote', 'style'],
               ['arcsNote', 'arcs'], ['floorNote', 'floor'], ['relayoutNote', 'relayout']];
 function initTips() {
   const box = el.tipBox;
@@ -1332,7 +1556,9 @@ function initTips() {
       badge.className = 'tip-badge';
       badge.textContent = 'i';
       badge.setAttribute('aria-hidden', 'true');
-      if (ctrl.tagName === 'SELECT') anchor.insertBefore(badge, ctrl); else anchor.appendChild(badge);
+      const head = anchor.classList.contains('slider') ? anchor.querySelector('span') : null;   // a slider: next to its name
+      if (head) head.firstElementChild ? head.insertBefore(badge, head.querySelector('output')) : head.appendChild(badge);
+      else if (ctrl.tagName === 'SELECT') anchor.insertBefore(badge, ctrl); else anchor.appendChild(badge);
     }
     anchor.setAttribute('aria-describedby', noteId);
     const show = () => {
@@ -1354,3 +1580,407 @@ function initTips() {
   }
 }
 initTips();
+
+// ---- peak profile: what sets a peak's region apart ---------------------------
+// For the hovered or selected peak of the main panel: every dimension (original coordinates of
+// a point cloud, x, y, z of a volume, and the value) as a small histogram of the region against
+// all points, sorted by the effect size |d| (see profile.js).
+
+/** The columns of the current document, loading a point cloud's coordinates the first time. */
+function profileData() {
+  const doc = state.doc, entry = state.entry;
+  if (!doc?.region || !doc.data?.values) return null;
+  if (prof.doc !== doc) {
+    Object.assign(prof, { doc, coords: null, cols: null, note: '', loading: null, vis: null, cache: new Map() });
+  }
+  if (prof.cols) return prof;
+  const cloud = doc.meta.kind !== 'grid';
+  if (cloud && entry?.coords_file && !prof.coords) {
+    if (!prof.loading) {
+      prof.loading = cachedJSON(entry.coords_file).then((c) => {
+        if (prof.doc !== doc) return;
+        prof.coords = c;
+        renderProfile(prof.last);
+      }).catch((err) => {
+        console.error(err);
+        if (prof.doc !== doc) return;
+        prof.coords = false;                       // build without coordinates
+        renderProfile(prof.last);
+      });
+    }
+    return 'loading';
+  }
+  try {
+    ({ columns: prof.cols, note: prof.note } = profileColumns(doc, prof.coords || null));
+  } catch (err) {
+    console.error(err);
+    ({ columns: prof.cols, note: prof.note } = profileColumns(doc, null));
+  }
+  return prof;
+}
+
+/** A number of a profile row, with values that are zero up to rounding shown as 0. */
+function fz(x, r) { return Math.abs(x) < 1e-9 * Math.max(1e-30, Math.abs(r.hi - r.lo)) ? '0' : fmt(x, 3); }
+
+/** A row's two histograms (grey: all points, blue: this region) and a tick at the region's median. */
+function profileSvg(r) {
+  const W = 160, H = 26, bw = W / PROFILE_BINS;
+  const amax = Math.max(...r.all) || 1, rmax = Math.max(...r.hist) || 1;
+  let area = `M0 ${H}`;
+  r.all.forEach((c, i) => { const y = H - (c / amax) * (H - 2); area += ` L${(i * bw).toFixed(1)} ${y.toFixed(1)} L${((i + 1) * bw).toFixed(1)} ${y.toFixed(1)}`; });
+  area += ` L${W} ${H} Z`;
+  const bars = Array.from(r.hist, (c, i) => {
+    if (!c) return '';
+    const h = (c / rmax) * (H - 2);
+    return `<rect x="${(i * bw + 0.6).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${(bw - 1.2).toFixed(1)}" height="${h.toFixed(1)}"/>`;
+  }).join('');
+  const span = r.hi - r.lo || 1;
+  const mx = Math.min(W, Math.max(0, ((r.median - r.lo) / span) * W));
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">` +
+    `<path d="${area}" fill="var(--muted)" opacity="0.28"/>` +
+    `<g fill="var(--accent)" opacity="0.85">${bars}</g>` +
+    `<line x1="${mx.toFixed(1)}" x2="${mx.toFixed(1)}" y1="0" y2="${H}" stroke="var(--text)" stroke-width="1.2"/></svg>`;
+}
+
+function renderProfile(node) {
+  if (!el.profile) return;
+  const vis = state.vis, doc = state.doc;
+  // the peak: the one hovered or clicked; a hovered saddle keeps the selected peak's profile
+  const sel = view.selected?.kind === 'peak' ? view.selected : null;
+  const peak = node?.kind === 'peak' ? node : sel;
+  prof.last = peak;
+  if (!peak || !vis || !doc) {
+    el.profile.innerHTML = '<p class="muted">Select a peak to see what sets its region apart.</p>';
+    return;
+  }
+  const data = profileData();
+  if (data === null) { el.profile.innerHTML = '<p class="muted">This file has no per-point regions to profile.</p>'; return; }
+  if (data === 'loading') { el.profile.innerHTML = '<p class="muted">Loading the coordinates…</p>'; return; }
+  if (prof.vis !== vis) { prof.vis = vis; prof.cache = new Map(); }
+  let p = prof.cache.get(peak.index);
+  if (!p) { p = peakProfile(prof.cols, doc, vis, peak.index); prof.cache.set(peak.index, p); }
+
+  const show = el.profileShow?.value ?? '8';
+  const rows = orderRows(p.rows, { sort: el.profileOrder?.checked ? 'order' : 'distinctive',
+                                   limit: show === 'all' ? Infinity : Number(show) });
+  const dims = p.rows.filter((r) => r.kind !== 'value').length;
+  const pk = doc.peaks[peak.docId];
+  // the peaks it is linked to, through which saddles (highest pass first)
+  const links = [];
+  vis.saddleEnds.forEach(([a, b], j) => {
+    if (a !== peak.index && b !== peak.index) return;
+    const o = a === peak.index ? b : a;
+    if (o === peak.index) return;
+    links.push([vis.peaks[o], doc.saddles[vis.saddles[j]].value]);
+  });
+  links.sort((x, y) => y[1] - x[1]);
+  const linkText = links.length
+    ? links.slice(0, 5).map(([id, v]) => `peak ${id} at ${fmt(v, 3)}`).join(', ') + (links.length > 5 ? `, +${links.length - 5} more` : '')
+    : 'none';
+  const absorbed = Array.from(vis.owner).filter((o) => o === peak.index).length - 1;
+  const sum = `<p class="psum"><b>Peak ${peak.docId}</b> · value <b>${fmt(pk.value, 3)}</b>` +
+    (isSimplifiable(doc) && pk.persistence !== null ? ` · persistence <b>${fmt(pk.persistence, 3)}</b>` : '') +
+    `<br>${count(p.n)} points (${pct(p.n, p.total)})` + (absorbed > 0 ? ` · absorbed ${absorbed} smaller peak${absorbed > 1 ? 's' : ''}` : '') +
+    `<br>linked to: ${linkText}` +
+    (dims > rows.length - 1 ? `<br>showing ${rows.length - 1} of ${dims} dimensions` : '') +
+    (prof.note ? `<br>${esc(prof.note)}` : '') + '</p>';
+  const body = rows.map((r) => {
+    const strong = Math.abs(r.d) >= 0.8;
+    const narrow = r.spread < 0.5 ? ' <span class="pnarrow">narrow</span>' : '';
+    return `<div class="prow"><span class="pname" title="${esc(r.label)}">${esc(r.label)}</span>${profileSvg(r)}` +
+      `<span class="pstat"><span>median ${fz(r.median, r)} <span class="prange">(${fz(r.q05, r)} to ${fz(r.q95, r)})</span></span>` +
+      `<span><span class="pd${strong ? ' strong' : ''}">d ${r.d >= 0 ? '+' : ''}${r.d.toFixed(2)}</span>${narrow}</span></span></div>`;
+  }).join('');
+  el.profile.innerHTML = sum + body;
+}
+el.profileShow?.addEventListener('change', () => renderProfile(prof.last));
+el.profileOrder?.addEventListener('change', () => renderProfile(prof.last));
+
+// ---- Scatter mode: two chosen dimensions against each other ------------------
+// Like the scatterplot in NDDAV (and the thesis built on it): any two original dimensions of the
+// data (x, y, z for a volume) or the value on the axes, coloured by peak region, value or a third
+// dimension; drawn as dots or as a density. Linked to the spine like the data view. The columns
+// are the peak profile's (same coordinates file, loaded once).
+function ensureScatterView() {
+  if (scatterView) return scatterView;
+  try {
+    scatterView = new DataView(el.scCanvas, { onPick: onPickPoint, onBrush: onScatterBrush }, { brushable: true });
+    scatterView.setTheme({ bg: hexToRgb(cssColor('--bg')) });
+  } catch (err) {
+    console.error(err);
+    setStatus('WebGL unavailable for the scatter plot', true);
+    return null;
+  }
+  return scatterView;
+}
+
+const scColumn = (key) => prof.cols?.find((c) => c.key === key) ?? null;
+
+async function loadScatter() {
+  const doc = state.doc;
+  if (!doc || !ensureScatterView()) return;
+  let d = profileData();
+  if (d === 'loading') {
+    el.scNote.textContent = 'Loading the coordinates…';
+    el.scNote.hidden = false;
+    try { await prof.loading; } catch { /* handled in profileData */ }
+    if (state.doc !== doc || state.mode !== 'scatter') return;
+    d = profileData();
+  }
+  if (!d || d === 'loading' || !prof.cols?.length) {
+    el.scNote.textContent = 'This file has no per-point data to plot.';
+    el.scNote.hidden = false;
+    return;
+  }
+  el.scNote.hidden = !prof.note;
+  el.scNote.textContent = prof.note ?? '';
+  if (sc.doc !== doc) {
+    const coords = prof.cols.filter((c) => c.kind !== 'value'), value = prof.cols.find((c) => c.kind === 'value');
+    const opts = [...coords, ...(value ? [value] : [])]
+      .map((c) => `<option value="${esc(c.key)}">${esc(c.label)}</option>`).join('');
+    el.scX.innerHTML = opts;
+    el.scY.innerHTML = opts;
+    el.scColorDims.innerHTML = coords.map((c) => `<option value="dim:${esc(c.key)}">${esc(c.label)}</option>`).join('');
+    el.scX.value = (coords[0] ?? value).key;
+    el.scY.value = (coords[1] ?? value ?? coords[0]).key;
+    if (el.scColor.value.startsWith('dim:') || el.scColor.value === 'cluster') el.scColor.value = 'region';
+    sc.doc = doc;
+    scatterView.setPoints(doc, scatterXY());
+    onScatterBrush(null);
+  }
+  scatterView.setVisible(state.vis);
+  scatterView.setSelectedPeaks(pickedPeaks());
+  applyScatter();
+}
+
+/** Positions of the points for the chosen X and Y columns, in [-1, 1]. */
+function scatterXY() {
+  const n = state.doc.meta.num_points, xy = new Float32Array(2 * n);
+  const cx = scColumn(el.scX.value), cy = scColumn(el.scY.value);
+  // a volume: voxels below "Show above" (mostly empty space) are left out, as in the 3D view
+  const grid = state.doc.meta.kind === 'grid', cut = grid ? Number(el.volThresh.value) : -Infinity;
+  const values = state.doc.data.values;
+  for (let i = 0; i < n; i++) {
+    if (values[i] < cut) { xy[2 * i] = xy[2 * i + 1] = 9; continue; }     // off the plot
+    xy[2 * i] = cx ? 2 * cx.v[i] - 1 : 0;
+    xy[2 * i + 1] = cy ? 2 * cy.v[i] - 1 : 0;
+  }
+  return xy;
+}
+
+/** Axes, colour and drawing of the scatter plot from the controls; the line above the plot. */
+function applyScatter(moved = false) {
+  if (!scatterView || sc.doc !== state.doc) return;
+  if (moved) scatterView.setXY(scatterXY());
+  const mode = el.scColor.value;
+  if (mode === 'cluster') {
+    scatterView.setClusters(clusterRes?.doc === state.doc ? clusterRes.labels : null);
+    scatterView.setColorBy('cluster');
+  } else if (mode.startsWith('dim:')) {
+    const c = scColumn(mode.slice(4));
+    scatterView.setCustomColors(c ? c.v : null);
+    scatterView.setColorBy('custom');
+  } else {
+    scatterView.setColorBy(mode);
+  }
+  scatterView.setDraw(el.scDraw.value);
+  const cx = scColumn(el.scX.value), cy = scColumn(el.scY.value);
+  const range = (c) => c ? `<b>${esc(c.label)}</b> ${fmt(c.lo, 3)} to ${fmt(c.hi, 3)}` : '';
+  const colourOf = mode === 'cluster' ? (clusterRes?.names ? clusterRes.label : `cluster (${clusterRes?.label ?? 'not run'})`) : mode === 'region' ? 'peak region'
+    : mode === 'value' ? 'field value' : `<b>${esc(scColumn(mode.slice(4))?.label ?? '')}</b>`;
+  const bar = mode === 'region' || mode === 'cluster' ? '' : ` <span class="sc-bar" style="background:${peakGradientCss()}"></span> low to high`;
+  el.scInfo.innerHTML = `x: ${range(cx)} · y: ${range(cy)} · colour: ${colourOf}${bar}` +
+    (el.scDraw.value === 'density' ? ' · density: brighter = more points' : '') +
+    (state.doc.meta.kind === 'grid' ? ` · voxels below ${fmt(Number(el.volThresh.value), 3)} ("Show above") left out` : '');
+}
+
+/** A box brush in the scatter plot: the spine fades the peaks it leaves out; the line above says how many. */
+function onScatterBrush(b) {
+  brushes.scatter = b?.mask ?? null;
+  const shares = applyBrushFocus();
+  el.scClear.disabled = !b;
+  if (!b) { el.scBrush.innerHTML = '<span>No brush: shift-drag a box to keep the points inside it; the spine fades the peaks it leaves out.</span>'; return; }
+  const list = (shares ?? []).slice(0, 6).map((x) => `peak ${x.id} <b>${Math.round(100 * x.share)}%</b>`).join(', ');
+  el.scBrush.innerHTML = `<span>Brush: <b>${count(b.count)}</b> of ${count(b.total)} points · ` +
+    `share of each peak's region inside: ${list || 'none'}${(shares?.length ?? 0) > 6 ? ', …' : ''} · ` +
+    `peaks under ${Math.round(100 * FOCUS_SHARE)}% fade in the spine</span>`;
+}
+el.scClear?.addEventListener('click', () => scatterView?.clearBrush());
+el.scX?.addEventListener('change', () => applyScatter(true));
+el.volThresh.addEventListener('input', () => { if (state.mode === 'scatter') applyScatter(true); });
+el.scY?.addEventListener('change', () => applyScatter(true));
+el.scColor?.addEventListener('change', () => applyScatter());
+el.scDraw?.addEventListener('change', () => applyScatter());
+el.scPeakDims?.addEventListener('click', () => {
+  const sel = view.selected?.kind === 'peak' ? view.selected : null;
+  if (!sel || !prof.cols) {
+    el.scNote.textContent = 'Select a peak first (in the spine, or click a point): its two most distinctive dimensions go on the axes.';
+    el.scNote.hidden = false;
+    return;
+  }
+  if (prof.vis !== state.vis) { prof.vis = state.vis; prof.cache = new Map(); }
+  let p = prof.cache.get(sel.index);
+  if (!p) { p = peakProfile(prof.cols, state.doc, state.vis, sel.index); prof.cache.set(sel.index, p); }
+  const top = orderRows(p.rows).filter((r) => r.kind !== 'value');
+  if (top.length < 2) return;
+  el.scX.value = top[0].key;
+  el.scY.value = top[1].key;
+  el.scNote.textContent = `Peak ${sel.docId}: ${top[0].label} (d ${top[0].d.toFixed(2)}) and ${top[1].label} (d ${top[1].d.toFixed(2)}) on the axes.`;
+  el.scNote.hidden = false;
+  applyScatter(true);
+});
+
+// ---- Clustering: KMeans / DBSCAN beside the peak regions ----------------------
+// Point clouds only. Runs on the profile's normalised columns (all dimensions, [0, 1] each) or on
+// the 2D positions of the data view. The result colours the data view and the scatter plot
+// ('cluster') and is scored against the peak regions of the current threshold.
+function syncClusterForm() {
+  const db = el.clMethod.value === 'dbscan', lab = el.clMethod.value.startsWith('labels');
+  el.clKRow.hidden = db || lab; el.clEpsRow.hidden = !db; el.clMinRow.hidden = !db;
+  el.clSpace.closest('label').hidden = lab;
+}
+
+/** Known label sets of the points (coords file ``classes``: one set or a list of sets, e.g.
+ *  tumour / normal, ER status, grade); [] when there are none. A value of -1 means unknown. */
+function knownClasses() {
+  const c = prof.doc === state.doc ? prof.coords?.classes : null;
+  const sets = Array.isArray(c) ? c : c ? [c] : [];
+  return sets.filter((s) => s.values?.length === state.doc?.meta.num_points);
+}
+const labelsIndex = (value) => (value.startsWith('labels') ? Number(value.split(':')[1] ?? 0) || 0 : -1);
+
+/** Offer "Known labels" only when the dataset has them (loads the coordinates to find out). */
+async function syncLabelOption() {
+  const opt = $('clLabelsOpt');
+  if (!opt) return;
+  const doc = state.doc;
+  const reset = () => { if (el.clMethod.value.startsWith('labels')) { el.clMethod.value = 'kmeans'; syncClusterForm(); } };
+  for (const o of el.clMethod.querySelectorAll('option.labels-extra')) o.remove();
+  opt.value = 'labels:0'; opt.disabled = true; opt.textContent = 'Known labels (from the data)';
+  if (!doc || doc.meta.kind === 'grid' || !state.entry?.classes) { reset(); return; }
+  let d = profileData();
+  if (d === 'loading') { try { await prof.loading; } catch { /* none */ } d = profileData(); }
+  if (state.doc !== doc) return;
+  const sets = knownClasses();
+  if (!sets.length) { reset(); return; }
+  const text = (c) => `Known labels: ${c.name} (${c.names.join(' / ')})`;
+  opt.disabled = false; opt.textContent = text(sets[0]);
+  let after = opt;
+  sets.slice(1).forEach((c, i) => {
+    const o = document.createElement('option');
+    o.className = 'labels-extra'; o.value = `labels:${i + 1}`; o.textContent = text(c);
+    after.after(o); after = o;
+  });
+}
+el.clMethod?.addEventListener('change', syncClusterForm);
+
+function clearClusters() {
+  clusterRes = null;
+  el.clClear.disabled = true;
+  el.colorByCluster.disabled = el.scColorCluster.disabled = true;
+  if (el.colorBy.value === 'cluster') { el.colorBy.value = 'region'; dataView.setColorBy('region'); }
+  if (el.scColor.value === 'cluster') { el.scColor.value = 'region'; applyScatter(); }
+  dataView.setClusters?.(null);
+  scatterView?.setClusters?.(null);
+  el.clResult.innerHTML = '<p class="muted">Not run yet (point clouds only).</p>';
+  syncedKey = ''; syncDataSelection();
+}
+
+/** The agreement with the peak regions of the current threshold, and the table. */
+function renderClusters() {
+  const r = clusterRes, doc = state.doc, vis = state.vis;
+  if (!r || r.doc !== doc || !vis) return;
+  const peaksOf = Int32Array.from(doc.region, (g) => vis.peaks[vis.owner[g]]);
+  const { ari, table } = agreement(r.labels, peaksOf);
+  r.table = table;
+  const k = table.filter((t) => t.cluster >= 0).length, noise = table.find((t) => t.cluster < 0);
+  const rows = table.slice(0, 12).map((t) => {
+    const sw = `rgb(${clusterColor(t.cluster).map((c) => Math.round(c * 255)).join(',')})`;
+    const name = t.cluster < 0 ? (r.names ? 'unknown' : 'noise') : r.names?.[t.cluster] ? esc(r.names[t.cluster]) : `cluster ${t.cluster + 1}`;
+    return `<div class="clrow"><i style="background:${sw}"></i>${name} · ${count(t.size)} points` +
+      `<span class="muted">mostly peak ${t.peak} (${Math.round(100 * t.share)}%)</span></div>`;
+  }).join('');
+  el.clResult.innerHTML = `<p class="psum"><b>${esc(r.label)}</b>: ${k} cluster${k === 1 ? '' : 's'}` +
+    (noise ? `, ${count(noise.size)} ${r.names ? 'unknown' : 'noise points'}` : '') + ` · ${vis.peaks.length} peaks shown<br>` +
+    `agreement with the peak regions: <b>${ari.toFixed(2)}</b> (adjusted Rand index)</p>` + rows +
+    (table.length > 12 ? `<p class="muted">+${table.length - 12} more</p>` : '');
+}
+
+async function runClustering() {
+  const doc = state.doc;
+  if (!doc || doc.meta.kind === 'grid') {
+    el.clResult.innerHTML = '<p class="muted">Clustering is for point clouds (a volume\'s voxels are a grid).</p>';
+    return;
+  }
+  let d = profileData();
+  if (d === 'loading') { el.clResult.innerHTML = '<p class="muted">Loading the coordinates…</p>'; try { await prof.loading; } catch { /* below */ } d = profileData(); }
+  if (!d || d === 'loading' || !prof.cols) { el.clResult.innerHTML = '<p class="muted">No coordinates to cluster.</p>'; return; }
+  const n = doc.meta.num_points;
+  if (el.clMethod.value.startsWith('labels')) {
+    const c = knownClasses()[labelsIndex(el.clMethod.value)];
+    if (!c) { el.clResult.innerHTML = '<p class="muted">This dataset has no known labels.</p>'; return; }
+    clusterRes = { doc, labels: Int32Array.from(c.values), label: `Known labels: ${c.name}`, names: c.names, table: [] };
+    showClusters(doc);
+    return;
+  }
+  let cols, where;
+  if (el.clSpace.value === 'view' && dataView.xy) {
+    const xs = new Float32Array(n), ys = new Float32Array(n);
+    for (let i = 0; i < n; i++) { xs[i] = (dataView.xy[2 * i] + 1) / 2; ys[i] = (dataView.xy[2 * i + 1] + 1) / 2; }
+    cols = [xs, ys]; where = 'the 2D view';
+  } else {
+    cols = prof.cols.filter((c) => c.kind !== 'value').map((c) => c.v);
+    where = `${cols.length} dimension${cols.length === 1 ? '' : 's'}`;
+  }
+  const method = el.clMethod.value;
+  if (method === 'dbscan' && dbscanCost(n, cols.length) > 3e9) {
+    el.clResult.innerHTML = `<p class="muted">DBSCAN on ${where} of ${count(n)} points would take too long here; ` +
+      'choose "On: the 2D view", or KMeans.</p>';
+    return;
+  }
+  el.clRun.disabled = true;
+  el.clResult.innerHTML = '<p class="muted">Running…</p>';
+  await new Promise((r) => setTimeout(r, 30));            // let the panel show it
+  try {
+    let res, label;
+    if (method === 'dbscan') {
+      const eps = Math.max(1e-4, Number(el.clEps.value) || 0.05), minPts = Math.max(2, Math.round(Number(el.clMin.value) || 8));
+      res = dbscan(cols, eps, minPts);
+      label = `DBSCAN, radius ${eps}, ${minPts} neighbours, on ${where}`;
+    } else {
+      const k = Math.max(2, Math.min(40, Math.round(Number(el.clK.value) || 5)));
+      res = kmeans(cols, k, { seed: 1 });
+      label = `KMeans, k = ${k}, on ${where}`;
+    }
+    if (state.doc !== doc) return;
+    clusterRes = { doc, labels: res.labels, label, table: [] };
+    showClusters(doc);
+  } catch (err) {
+    console.error(err);
+    el.clResult.innerHTML = `<p class="muted">Clustering failed: ${esc(err.message ?? String(err))}</p>`;
+  } finally {
+    el.clRun.disabled = false;
+  }
+}
+
+/** Colour the views by ``clusterRes`` and show its agreement with the peaks. */
+function showClusters(doc) {
+  {
+    const labels = clusterRes.labels;
+    el.clClear.disabled = false;
+    el.colorByCluster.disabled = el.scColorCluster.disabled = false;
+    el.colorByCluster.textContent = el.scColorCluster.textContent = clusterRes.names ? 'known labels' : 'cluster';
+    dataView.setClusters?.(labels);
+    if (scatterView && sc.doc === doc) scatterView.setClusters(labels);
+    renderClusters();
+    if (el.colorBy.value !== 'cluster' && el.scColor.value !== 'cluster') {
+      el.colorBy.value = 'cluster';                         // show them right away
+      dataView.setColorBy('cluster');
+    }
+    if (state.mode === 'scatter') { el.scColor.value = 'cluster'; applyScatter(); }
+    syncedKey = ''; syncDataSelection();
+  }
+}
+el.clRun?.addEventListener('click', runClustering);
+el.clClear?.addEventListener('click', clearClusters);
+syncClusterForm();

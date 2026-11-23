@@ -34,6 +34,7 @@ const Z_CONTOUR = -0.6, Z_CONTOUR_RANGE = 0.5;   // paper-style shapes sit below
 // Height mode: a node or contour stands at HEIGHT_BASE x scale x (value - lo) / (hi - lo) above
 // the layout plane (the layout box is [-1, 1]), and the camera orbits it.
 const HEIGHT_BASE = 0.8, HEIGHT_EPS = 0.004;
+const FOCUS_FADE = 0.78;    // how far a brushed-out peak fades towards the background
 const NDDAV_HALO = 0.8;
 const SPACING_FIT = 0.35; // reference contour radius <= this x median nearest-peak distance
                           // (so neighbouring blobs do not swallow each other, e.g. in high dimensions)   // 'nddav' style: outer halo radius / median link length (at contour size 1)
@@ -151,7 +152,8 @@ export class SpineView {
     this.heightOn = false;     // value as height, the spine as a landscape (see setHeight)
     this.heightScale = 1;
     this.heightSmooth = true;  // true: small steps (smooth slopes, the default); false: one terrace per contour
-    this.heightSolid = false;  // a solid mountain: walls between the levels, colours only at the contour values
+    this.heightSolid = false;
+    this.focus = null;         // a brush elsewhere: Set of visible-peak indices kept in full colour (others fade)  // a solid mountain: walls between the levels, colours only at the contour values
     this.yaw = -Math.PI / 2;   // orbit camera: azimuth about the up (value) axis
     this.pitch = 0.95;         // and tilt from straight down (0) towards the horizon       // paper style: drop contours far below the lowest shown saddle    // lay the visible nodes out again after simplification (relayout.js)
     this.relayoutCache = new Map();
@@ -206,7 +208,8 @@ export class SpineView {
     const atHome = this.center.x === 0 && this.center.y === 0 && this.halfHeight === this.homeHalfHeight;
     this.pad = 0;
     const paper = this.#buildPaperStyle(vis);
-    if (atHome) this.fit();               // reframe for the new shapes unless the user has panned or zoomed
+    if (atHome) this.fit({ quiet: true }); // reframe for the new shapes unless the user has panned or zoomed;
+                                          // quiet: an automatic reframe is not copied to the other compare panel
     const arcs = this.#arcsActive();
     const fig1 = paper && this.style === 'fig1';
     this.linkLines.visible = !paper || arcs || fig1;  // over the contours, the arcs mark the ridges; Fig. 1 draws every link
@@ -226,6 +229,10 @@ export class SpineView {
       this.peakMesh.setColorAt(i, fig1 ? col.setRGB(0.22, 0.24, 0.3, THREE.SRGBColorSpace)
                                 : paper ? col.setRGB(rr, rg, rb, THREE.SRGBColorSpace)
                                         : col.setRGB(R, G, B, THREE.SRGBColorSpace));
+      if (this.focus && !this.focus.has(i)) {                 // brushed out: fade into the background
+        const bgc = new THREE.Color(this.style === 'fig1' ? FIG1_BG : this.colors.bg);
+        this.peakMesh.setColorAt(i, col.lerp(bgc, FOCUS_FADE));
+      }
     }
     this.peakMesh.count = nP;
     this.peakMesh.instanceMatrix.needsUpdate = true;
@@ -565,6 +572,19 @@ export class SpineView {
     return [x, y, this.#zOf(v, flatZ)];
   }
 
+  /**
+   * Keep these visible peaks (indices into ``vis.peaks``) in full colour and fade the rest, e.g.
+   * the peaks whose regions a brush in parallel coordinates or the scatter plot leaves out.
+   * Null shows every peak normally.
+   */
+  setFocus(indices) {
+    const next = indices ? new Set(indices) : null;
+    const same = (!next && !this.focus) || (next && this.focus && next.size === this.focus.size && [...next].every((i) => this.focus.has(i)));
+    if (same) return;
+    this.focus = next;
+    if (this.vis) this.setVisible(this.vis);
+  }
+
   /** Paper style: on, no contour far below the lowest shown saddle (see ``#contourFloor``). */
   setFloor(on) {
     this.floorOn = Boolean(on);
@@ -577,20 +597,24 @@ export class SpineView {
   }
 
   /**
-   * Positions for ``vis``: the exported layout, with the drawn nodes (and, when the p*
-   * arcs are on, the merged peaks and saddles they pass through) laid out again by
-   * ``relayout``. Falls back to the exported layout when that is not possible.
+   * Positions for ``vis``: the exported layout, with the drawn nodes laid out again by
+   * ``relayout`` (and, when the p* arcs are on, the merged peaks and saddles they pass
+   * through placed around them). Falls back to the exported layout when that is not possible.
    */
   #applyRelayout(vis) {
     this.peakXY = this.basePeakXY;
     this.saddleXY = this.baseSaddleXY;
     this.relayoutInfo = null;
     if (!this.relayoutOn || !this.basePeakXY) return;
+    // the drawn nodes first, on their own; the merged peaks and saddles of the p* arcs are
+    // then placed around them without moving them (so they cannot distort the structure)
     const arcs = this.showArcs && Array.isArray(vis.arcs);
-    const peaks = arcs ? [...new Set([...vis.peaks, ...(vis.ghosts ?? [])])].sort((a, b) => a - b) : vis.peaks;
-    const saddles = arcs ? [...new Set([...vis.saddles, ...vis.arcs])].sort((a, b) => a - b) : vis.saddles;
-    const key = peaks.join(',') + '|' + saddles.join(',');
-    if (!this.relayoutCache.has(key)) this.relayoutCache.set(key, relayout(this.doc, peaks, saddles));
+    const extraPeaks = arcs ? (vis.ghosts ?? []) : [];
+    const extraSaddles = arcs ? vis.arcs : [];
+    const key = vis.peaks.join(',') + '|' + vis.saddles.join(',') + '|' + extraPeaks.join(',') + '|' + extraSaddles.join(',');
+    if (!this.relayoutCache.has(key)) {
+      this.relayoutCache.set(key, relayout(this.doc, vis.peaks, vis.saddles, { extraPeaks, extraSaddles }));
+    }
     const r = this.relayoutCache.get(key);
     if (!r) return;
     const P = this.basePeakXY.slice(), S = this.baseSaddleXY.slice();
@@ -620,13 +644,29 @@ export class SpineView {
     this.dirty = true;
   }
 
-  fit() {
+  /** Frame the whole layout. ``quiet``: do not report it (an automatic reframe after the shown
+   *  graph changed, which must not move the other compare panel's camera). */
+  fit({ quiet = false } = {}) {
     const aspect = this.#aspect();
-    const reach = 1 + Math.max(0.25, (this.pad ?? 0) + 0.05);   // layout box is [-1, 1], plus the shapes
-    this.center.set(0, 0);
-    this.halfHeight = this.homeHalfHeight = Math.max(reach, reach / aspect);
+    const pad = Math.max(0.25, (this.pad ?? 0) + 0.12);          // the shapes (and highlight rings) around the nodes
+    const [ex, ey] = this.#nodeExtent();                          // the layout box is [-1, 1], or more
+    this.center.set(0, 0);                                        // (a variant's own nodes can lie outside it)
+    this.halfHeight = this.homeHalfHeight = Math.max(ey + pad, (ex + pad) / aspect);
     this.dirty = true;
-    this.#cameraChanged();
+    if (!quiet) this.#cameraChanged();
+  }
+
+  /** Largest |x| and |y| of the drawn nodes, at least 1 (the exported layout box). */
+  #nodeExtent() {
+    let ex = 1, ey = 1;
+    const take = (xy) => { if (xy) { ex = Math.max(ex, Math.abs(xy[0])); ey = Math.max(ey, Math.abs(xy[1])); } };
+    if (this.vis) {
+      for (const id of this.vis.peaks) take(this.peakXY?.[id]);
+      for (const id of this.vis.saddles) take(this.saddleXY?.[id]);
+    } else {
+      for (const xy of this.peakXY ?? []) take(xy);
+    }
+    return [ex, ey];
   }
 
   /** The visible part of the layout: centre and half height (plus the reset zoom). */
@@ -725,6 +765,15 @@ export class SpineView {
       route: this.#arcsActive()            // lobes follow the p* ridge through merged peaks
         ? (i, sid) => ridgeRoute(this.doc, vis, i, sid, this.peakXY, this.saddleXY) : null,
     });
+    if (this.focus && g.shapes) {                              // brushed-out peaks' bands fade
+      const bgl = hexToRgb(fig1 ? FIG1_BG : this.colors.bg).map(srgbToLinearApprox);
+      for (const sh of g.shapes) {
+        if (this.focus.has(sh.i)) continue;
+        for (let k = sh.start * 9; k < sh.end * 9; k += 3) {
+          for (let q = 0; q < 3; q++) g.colors[k + q] = g.colors[k + q] * (1 - FOCUS_FADE) + bgl[q] * FOCUS_FADE;
+        }
+      }
+    }
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.BufferAttribute(g.positions, 3));
     geom.setAttribute('color', new THREE.BufferAttribute(g.colors, 3));
