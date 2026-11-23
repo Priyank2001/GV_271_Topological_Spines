@@ -79,8 +79,8 @@
      "pairs_only_b": 1
     }
    ],
-   "id": "cyclic_3d",
-   "coords_file": "cyclic_3d.coords.json"
+   "coords_file": "cyclic_3d.coords.json",
+   "id": "cyclic_3d"
   },
   {
    "file": "cyclic_10d.json",
@@ -152,8 +152,8 @@
      "pairs_only_b": 28
     }
    ],
-   "id": "cyclic_10d",
-   "coords_file": "cyclic_10d.coords.json"
+   "coords_file": "cyclic_10d.coords.json",
+   "id": "cyclic_10d"
   },
   {
    "file": "ext_10d.json",
@@ -225,8 +225,21 @@
      "pairs_only_b": 179
     }
    ],
-   "id": "ext_10d",
-   "coords_file": "ext_10d.coords.json"
+   "coords_file": "ext_10d.coords.json",
+   "id": "ext_10d"
+  },
+  {
+   "file": "pbmc3k.json",
+   "label": "pbmc3k (scRNA-seq, 50D PCA)",
+   "text": "2,700 blood cells (10x PBMC 3k) in 50 PCA dimensions; the scalar is kNN density, so peaks are cell populations.",
+   "peaks": 6,
+   "saddles": 10,
+   "spine_stress": 0.25895379141846575,
+   "crossings": 9,
+   "variants": [],
+   "comparisons": [],
+   "coords_file": "pbmc3k.coords.json",
+   "id": "pbmc3k"
   },
   {
    "file": "two_peaks_2d.json",
@@ -297,8 +310,8 @@
      "pairs_only_b": 0
     }
    ],
-   "id": "two_peaks_2d",
-   "coords_file": "two_peaks_2d.coords.json"
+   "coords_file": "two_peaks_2d.coords.json",
+   "id": "two_peaks_2d"
   },
   {
    "file": "volcano_intact.json",
@@ -371,8 +384,8 @@
      "pairs_only_b": 3
     }
    ],
-   "id": "volcano_intact",
-   "coords_file": "volcano_intact.coords.json"
+   "coords_file": "volcano_intact.coords.json",
+   "id": "volcano_intact"
   },
   {
    "file": "volcano_notched.json",
@@ -445,8 +458,8 @@
      "pairs_only_b": 2
     }
    ],
-   "id": "volcano_notched",
-   "coords_file": "volcano_notched.coords.json"
+   "coords_file": "volcano_notched.coords.json",
+   "id": "volcano_notched"
   },
   {
    "file": "volcano_breached.json",
@@ -519,8 +532,8 @@
      "pairs_only_b": 0
     }
    ],
-   "id": "volcano_breached",
-   "coords_file": "volcano_breached.coords.json"
+   "coords_file": "volcano_breached.coords.json",
+   "id": "volcano_breached"
   },
   {
    "file": "fuel.json",
@@ -639,8 +652,8 @@
      "pairs_only_b": 95
     }
    ],
-   "id": "fuel",
-   "coords_file": null
+   "coords_file": null,
+   "id": "fuel"
   },
   {
    "file": "neghip.json",
@@ -759,8 +772,8 @@
      "pairs_only_b": 264
     }
    ],
-   "id": "neghip",
-   "coords_file": null
+   "coords_file": null,
+   "id": "neghip"
   },
   {
    "file": "bucky.json",
@@ -879,8 +892,8 @@
      "pairs_only_b": 1264
     }
    ],
-   "id": "bucky",
-   "coords_file": null
+   "coords_file": null,
+   "id": "bucky"
   },
   {
    "file": "silicium.json",
@@ -999,8 +1012,8 @@
      "pairs_only_b": 393
     }
    ],
-   "id": "silicium",
-   "coords_file": null
+   "coords_file": null,
+   "id": "silicium"
   }
  ]
 }

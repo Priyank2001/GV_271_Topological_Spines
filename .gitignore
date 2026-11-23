@@ -16,3 +16,6 @@ generator/datasets/
 # AnyEG sources and build output (anyeg/native/build.sh recreates them)
 third_party/
 anyeg/native/build/
+
+# Downloaded raw data (generator/make_pbmc3k_dataset.py fetches it again)
+data/pbmc3k/

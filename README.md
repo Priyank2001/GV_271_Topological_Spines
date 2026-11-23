@@ -251,6 +251,10 @@ python3 web/build_data.py --coords-only  # only the point clouds' coordinates (p
 python3 -m http.server -d web 8000     # then open http://localhost:8000/#fuel
 ```
 
+Or use `./run.sh` from the repo root: `./run.sh` only serves, `./run.sh --rebuild`
+rebuilds `web/data/` first, and `./run.sh --all` also regenerates the datasets
+(`./run.sh -h` lists every option).
+
 `web/` is plain ES modules with Three.js (r160) vendored in `web/vendor/`, so
 it needs no build step and no network. It must be served over HTTP (not opened
 as a `file://` page).
