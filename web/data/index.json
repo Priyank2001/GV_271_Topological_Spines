@@ -2773,6 +2773,19 @@
    "coords_file": "ext_10d.coords.json"
   },
   {
+   "file": "pbmc3k.json",
+   "label": "pbmc3k (scRNA-seq, 50D PCA)",
+   "text": "2,700 blood cells (10x PBMC 3k) in 50 PCA dimensions; the scalar is kNN density, so peaks are cell populations.",
+   "peaks": 6,
+   "saddles": 10,
+   "spine_stress": 0.25895379141846575,
+   "crossings": 9,
+   "variants": [],
+   "comparisons": [],
+   "coords_file": "pbmc3k.coords.json",
+   "id": "pbmc3k"
+  },
+  {
    "file": "two_peaks_2d.json",
    "label": "two_peaks_2d (2D, simplest case)",
    "text": "Two Gaussian peaks and one saddle between them: the spine is a single path, peak - saddle - peak.",

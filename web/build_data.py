@@ -98,6 +98,10 @@ ENTRIES = {
         label="ext_10d (point cloud, 10D)", dataset="ext_10d", k=20,
         initial_threshold=0.05, embed=EMBEDS,
         text="Many bumps in 10D; most saddles close loops."),
+    "pbmc3k": dict(
+        label="pbmc3k (scRNA-seq, 50D PCA)", dataset="pbmc3k", k=15,
+        initial_threshold=0.05, embed=EMBEDS,
+        text="2,700 blood cells (10x PBMC 3k) in 50 PCA dimensions; the scalar is kNN density, so peaks are cell populations."),
     "two_peaks_2d": dict(
         label="two_peaks_2d (2D, simplest case)", dataset="two_peaks_2d", k=15,
         initial_threshold=0.02, embed=["pca"],
