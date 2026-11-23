@@ -45,56 +45,92 @@ OUT = Path(__file__).resolve().parent / "data"
 EMBEDS = ["pca", "random_projection", "isomap", "tsne"]
 
 # name -> arguments of build_document, plus a label and a one-line description.
+# No ``simplify`` floor: every file keeps the full graph, so the viewer's persistence
+# slider can go all the way down to 0.
 ENTRIES = {
+    "pbmc3k_types": dict(
+        label="pbmc3k_types (2,638 blood cells with cell types, 20 PCs)", dataset="pbmc3k_types", k=15,
+        initial_threshold=0.04, embed=EMBEDS,
+        text="Blood cells (10x PBMC 3k). f = density of cells. Peaks: cell types; saddles: how two types grade into each other; persistence: how distinct a type is. Clustering -> Known labels: reference cell types."),
+    "alanine_dipeptide": dict(
+        label="alanine_dipeptide (molecule shapes from simulation, 45D)", dataset="alanine_dipeptide", k=15,
+        initial_threshold=0.08, embed=EMBEDS,
+        text="Shapes of a small peptide from molecular dynamics. Peaks: stable shapes; saddles: transitions between them; persistence: how hard a shape is to leave. Scalar (f): density, or -free energy from the backbone angles (kT). Known labels: Ramachandran regions."),
+    "bc_tumours": dict(
+        label="bc_tumours (529 TCGA tumours, 1000 genes; switch the scalar f)", dataset="bc_tumours", k=15,
+        initial_threshold=0.04, embed=EMBEDS,
+        text="TCGA breast tumours on one fixed neighbourhood (1000 genes, k = 15). Scalar (f) switches what a "
+             "peak means: density, deviation from normal, proliferation (G2M), estrogen response, hypoxia. "
+             "Clustering -> Known labels: PAM50, ER, tissue source site, plate."),
+    "bc_dsga": dict(
+        label="bc_dsga (tumours, deviation from normal, 1000D)", dataset="bc_dsga", k=15,
+        initial_threshold=0.04, embed=EMBEDS,
+        text="BC-TCGA tumours. f = how far each tumour deviates from normal breast tissue (DSGA disease component, smoothed over neighbours, scaled to 0..1). Peaks: the most deviant tumour types."),
+    "nki": dict(
+        label="nki (breast cancer genes, NKI cohort, 1001D)", dataset="nki", k=15,
+        initial_threshold=0.05, embed=EMBEDS,
+        text="NKI breast cancer cohort (as in the thesis): 337 tumours, 1000 most variable genes. f = density of samples; Clustering -> Known labels: ER status, grade, metastasis, death."),
+    "bc_tcga": dict(
+        label="bc_tcga (breast cancer genes, 1003D)", dataset="bc_tcga", k=15,
+        initial_threshold=0.05, embed=EMBEDS,
+        text="TCGA breast cancer: 529 tumour and 61 normal samples, 1000 most variable genes. f = density of samples; Clustering -> Known labels shows tumour / normal."),
+    "flower_2d": dict(
+        label="flower_2d (point cloud, 2D)", dataset="flower_2d", k=20,
+        initial_threshold=0.05, embed=EMBEDS,
+        text="A centre peak with 10 petals; strong star plus a weak ring."),
+    "flower_10d": dict(
+        label="flower_10d (point cloud, 10D)", dataset="flower_10d", k=20,
+        initial_threshold=0.05, embed=EMBEDS,
+        text="The same flower hidden in 10 dimensions."),
+    "demo_300d": dict(
+        label="demo_300d (point cloud, 300D)", dataset="demo_300d", k=20,
+        initial_threshold=0.05, embed=EMBEDS,
+        text="5 peaks in a hidden 3-D space, embedded in 300 dimensions."),
     "cyclic_3d": dict(
         label="cyclic_3d (point cloud, 3D)", dataset="cyclic_3d", k=20,
-        simplify=0.01, initial_threshold=0.04, embed=EMBEDS,
+        initial_threshold=0.04, embed=EMBEDS,
         text="Six peaks in a ring; the answer is a 6-cycle."),
     "cyclic_10d": dict(
         label="cyclic_10d (point cloud, 10D)", dataset="cyclic_10d", k=20,
-        simplify=0.005, initial_threshold=0.01, embed=EMBEDS,
+        initial_threshold=0.01, embed=EMBEDS,
         text="The same ring hidden in 10 dimensions."),
     "ext_10d": dict(
         label="ext_10d (point cloud, 10D)", dataset="ext_10d", k=20,
-        simplify=0.02, initial_threshold=0.05, embed=EMBEDS,
+        initial_threshold=0.05, embed=EMBEDS,
         text="Many bumps in 10D; most saddles close loops."),
-    "pbmc3k": dict(
-        label="pbmc3k (scRNA-seq, 50D PCA)", dataset="pbmc3k", k=15,
-        simplify=0.01, initial_threshold=0.05, embed=EMBEDS,
-        text="2,700 blood cells (10x PBMC 3k) in 50 PCA dimensions; the scalar is kNN density, so peaks are cell populations."),
     "two_peaks_2d": dict(
         label="two_peaks_2d (2D, simplest case)", dataset="two_peaks_2d", k=15,
-        simplify=0.005, initial_threshold=0.02, embed=["pca"],
+        initial_threshold=0.02, embed=["pca"],
         text="Two Gaussian peaks and one saddle between them: the spine is a single path, peak - saddle - peak."),
     "volcano_intact": dict(
         label="volcano_intact (paper Fig. 5, 2D)", dataset="volcano_intact", k=15,
-        simplify=0.005, initial_threshold=0.02, embed=["pca"],
+        initial_threshold=0.02, embed=["pca"],
         text="Crater with 6 hills on its rim; every rim saddle is a ridge, so the spine is a ring."),
     "volcano_notched": dict(
         label="volcano_notched (paper Fig. 5, 2D)", dataset="volcano_notched", k=15,
-        simplify=0.005, initial_threshold=0.02, embed=["pca"],
+        initial_threshold=0.02, embed=["pca"],
         text="One rim saddle (30°) notched but still closer to the hills than to the crater floor: "
              "the paper keeps the ring. A p_hi below 0.28 wrongly opens it."),
     "volcano_breached": dict(
         label="volcano_breached (paper Fig. 5, 2D)", dataset="volcano_breached", k=15,
-        simplify=0.005, initial_threshold=0.02, embed=["pca"],
+        initial_threshold=0.02, embed=["pca"],
         text="The rim is breached at 30°, almost down to the crater floor: the paper cuts that saddle and "
              "the ring becomes a chain. Ours still draws a ring until p_hi is set below 0.51 (try 0.3)."),
     "fuel": dict(
         label="fuel (volume 64³)", volume="fuel",
-        simplify=0.02, initial_threshold=0.1,
+        initial_threshold=0.1,
         text="A jet: one elongated structure with a few maxima."),
     "neghip": dict(
         label="neghip (volume 64³)", volume="neghip",
-        simplify=0.02, initial_threshold=0.1,
+        initial_threshold=0.1,
         text="Electron density around a protein: mirror-symmetric blobs."),
     "bucky": dict(
         label="bucky (C60 electron density, 32³, paper)", volume="bucky",
-        simplify=0.02, initial_threshold=0.2,
+        initial_threshold=0.2,
         text="Buckminster-fullerene: one peak per carbon atom (60) in a hollow cage; the paper's Bucky Ball."),
     "silicium": dict(
         label="silicium (volume 98x34x34)", volume="silicium",
-        simplify=0.05, initial_threshold=0.1,
+        initial_threshold=0.1,
         text="One peak per atom on a lattice; mostly loops."),
 }
 
@@ -116,8 +152,40 @@ def write_coords(name: str, spec: dict) -> str | None:
         stored = np.asarray(json.loads(main_file.read_text())["data"]["values"])
         if stored.shape != np.shape(ds.values) or np.abs(stored - np.asarray(ds.values)).max() > 1e-3:
             raise SystemExit(f"{name}: the dataset no longer matches {main_file.name}; rebuild it first")
-    path = write_json(coords_document(ds.points), OUT / f"{name}.coords.json")
+    # optional, from truth.json: gene / feature names, and known labels of the points
+    path = write_json(coords_document(ds.points, names=ds.truth.get("dimension_names"),
+                                      classes=ds.truth.get("point_classes")),
+                      OUT / f"{name}.coords.json")
     return path.name
+
+
+def classes_name(spec: dict) -> str | None:
+    """Name of the known labels of a point-cloud entry (truth.json ``point_classes``), or None."""
+    if "dataset" not in spec:
+        return None
+    from pipeline.data_loader import load_dataset
+    c = load_dataset(spec["dataset"]).truth.get("point_classes")
+    if not c:
+        return None
+    sets = c if isinstance(c, list) else [c]
+    return ", ".join(str(s.get("name", "class")) for s in sets)
+
+
+def scalar_menu(spec: dict) -> dict | None:
+    """The viewer's Scalar menu for an entry with extra functions (truth.json "scalars"):
+    {"main": "<id>_s<smooth>", "choices": [{"id", "label"}]}, or None."""
+    if "dataset" not in spec:
+        return None
+    from pipeline.data_loader import load_dataset
+    sc = load_dataset(spec["dataset"]).truth.get("scalars")
+    if not sc:
+        return None
+    choices = []
+    for f in sc["functions"]:
+        for s in sc.get("smooths", [0]):
+            choices.append({"id": f"{f['id']}_s{s}",
+                            "label": f["label"] + (f" (smoothed x{s})" if s else " (unsmoothed)")})
+    return {"main": f"{sc['main']['id']}_s{sc['main']['smooth']}", "choices": choices}
 
 
 def main() -> None:
@@ -142,6 +210,7 @@ def main() -> None:
         if args.coords_only:
             if name in index:
                 index[name]["coords_file"] = write_coords(name, spec)
+                index[name]["classes"] = classes_name(spec)
                 print(f"{name:11s} coords: {index[name]['coords_file'] or '(grid, none needed)'}")
             continue
         t0 = time.time()
@@ -159,7 +228,10 @@ def main() -> None:
                        "spine_stress": doc.get("spine", {}).get("stress"),
                        "crossings": doc.get("spine", {}).get("crossings"),
                        "variants": variants, "comparisons": comparisons,
-                       "coords_file": write_coords(name, spec)}
+                       "k": spec.get("k"),
+                       "coords_file": write_coords(name, spec),
+                       "classes": classes_name(spec),
+                       "scalars": scalar_menu(spec)}
         print(f"{name:11s} {len(doc['peaks']):4d} peaks {len(doc['saddles']):5d} saddles "
               f"{path.stat().st_size / 1e6:6.2f} MB  {time.time() - t0:5.1f}s")
 
