@@ -86,7 +86,8 @@ def test_registry_and_traits():
     ours, anyeg, ours14 = (VARIANTS[k].traits(src) for k in ("ours", "anyeg", "ours14"))
     assert set(ours) == set(TRAIT_LABELS)
     assert [k for k in TRAIT_LABELS if ours[k] != ours14[k]] == ["neighbourhood"]
-    assert all(ours[k] != anyeg[k] for k in TRAIT_LABELS)
+    # Both read the same data; every other design choice differs.
+    assert [k for k in TRAIT_LABELS if ours[k] == anyeg[k]] == ["input"]
     assert not VARIANTS["ours14"].applies_to(FieldSource(
         "p", "points", np.zeros(3), np.zeros(3), coords=lambda v: v, k=2))
 

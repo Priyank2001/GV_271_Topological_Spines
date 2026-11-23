@@ -25,6 +25,8 @@
      "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
      "simplifiable": true,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
       "neighbourhood": "kNN graph, k = 15",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -47,6 +49,8 @@
      "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
      "simplifiable": false,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
       "neighbourhood": "the same kNN graph as ours, k = 15 (AnyEG itself takes meshes only)",
       "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
       "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
@@ -1705,6 +1709,8 @@
      "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
      "simplifiable": true,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
       "neighbourhood": "kNN graph, k = 15",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -1727,6 +1733,8 @@
      "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
      "simplifiable": false,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
       "neighbourhood": "the same kNN graph as ours, k = 15 (AnyEG itself takes meshes only)",
       "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
       "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
@@ -2547,6 +2555,8 @@
      "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
      "simplifiable": true,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
       "neighbourhood": "kNN graph, k = 20",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -2569,6 +2579,8 @@
      "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
      "simplifiable": false,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
       "neighbourhood": "the same kNN graph as ours, k = 20 (AnyEG itself takes meshes only)",
       "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
       "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
@@ -2621,6 +2633,8 @@
      "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
      "simplifiable": true,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
       "neighbourhood": "kNN graph, k = 20",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -2643,6 +2657,8 @@
      "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
      "simplifiable": false,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
       "neighbourhood": "the same kNN graph as ours, k = 20 (AnyEG itself takes meshes only)",
       "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
       "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
@@ -2694,6 +2710,8 @@
      "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
      "simplifiable": true,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
       "neighbourhood": "kNN graph, k = 20",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -2716,6 +2734,8 @@
      "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
      "simplifiable": false,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
       "neighbourhood": "the same kNN graph as ours, k = 20 (AnyEG itself takes meshes only)",
       "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
       "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
@@ -2767,6 +2787,8 @@
      "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
      "simplifiable": true,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
       "neighbourhood": "kNN graph, k = 15",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -2789,6 +2811,8 @@
      "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
      "simplifiable": false,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
       "neighbourhood": "the same kNN graph as ours, k = 15 (AnyEG itself takes meshes only)",
       "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
       "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
@@ -2839,6 +2863,8 @@
      "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
      "simplifiable": true,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
       "neighbourhood": "kNN graph, k = 15",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -2861,6 +2887,8 @@
      "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
      "simplifiable": false,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
       "neighbourhood": "the same kNN graph as ours, k = 15 (AnyEG itself takes meshes only)",
       "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
       "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
@@ -2913,6 +2941,8 @@
      "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
      "simplifiable": true,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
       "neighbourhood": "kNN graph, k = 15",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -2935,6 +2965,8 @@
      "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
      "simplifiable": false,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
       "neighbourhood": "the same kNN graph as ours, k = 15 (AnyEG itself takes meshes only)",
       "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
       "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
@@ -2987,6 +3019,8 @@
      "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
      "simplifiable": true,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
       "neighbourhood": "kNN graph, k = 15",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -3009,6 +3043,8 @@
      "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
      "simplifiable": false,
      "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
       "neighbourhood": "the same kNN graph as ours, k = 15 (AnyEG itself takes meshes only)",
       "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
       "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
@@ -3061,6 +3097,8 @@
      "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
      "simplifiable": true,
      "traits": {
+      "input": "the grid as given",
+      "function": "f as given",
       "neighbourhood": "grid with 6 axis neighbours (a diagonal ridge can split into several maxima)",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -3083,6 +3121,8 @@
      "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
      "simplifiable": false,
      "traits": {
+      "input": "the grid as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
       "neighbourhood": "grid with 14 neighbours (TTK's triangulation)",
       "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
       "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
@@ -3108,6 +3148,8 @@
      "summary": "Our algorithm on AnyEG's (TTK's) 14-neighbour grid.",
      "simplifiable": true,
      "traits": {
+      "input": "the grid as given",
+      "function": "f as given",
       "neighbourhood": "grid with 14 neighbours (TTK's triangulation, as AnyEG)",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -3181,6 +3223,8 @@
      "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
      "simplifiable": true,
      "traits": {
+      "input": "the grid as given",
+      "function": "f as given",
       "neighbourhood": "grid with 6 axis neighbours (a diagonal ridge can split into several maxima)",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -3203,6 +3247,8 @@
      "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
      "simplifiable": false,
      "traits": {
+      "input": "the grid as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
       "neighbourhood": "grid with 14 neighbours (TTK's triangulation)",
       "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
       "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
@@ -3228,6 +3274,8 @@
      "summary": "Our algorithm on AnyEG's (TTK's) 14-neighbour grid.",
      "simplifiable": true,
      "traits": {
+      "input": "the grid as given",
+      "function": "f as given",
       "neighbourhood": "grid with 14 neighbours (TTK's triangulation, as AnyEG)",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -3301,6 +3349,8 @@
      "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
      "simplifiable": true,
      "traits": {
+      "input": "the grid as given",
+      "function": "f as given",
       "neighbourhood": "grid with 6 axis neighbours (a diagonal ridge can split into several maxima)",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -3323,6 +3373,8 @@
      "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
      "simplifiable": false,
      "traits": {
+      "input": "the grid as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
       "neighbourhood": "grid with 14 neighbours (TTK's triangulation)",
       "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
       "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
@@ -3348,6 +3400,8 @@
      "summary": "Our algorithm on AnyEG's (TTK's) 14-neighbour grid.",
      "simplifiable": true,
      "traits": {
+      "input": "the grid as given",
+      "function": "f as given",
       "neighbourhood": "grid with 14 neighbours (TTK's triangulation, as AnyEG)",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -3421,6 +3475,8 @@
      "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
      "simplifiable": true,
      "traits": {
+      "input": "the grid as given",
+      "function": "f as given",
       "neighbourhood": "grid with 6 axis neighbours (a diagonal ridge can split into several maxima)",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",
@@ -3443,6 +3499,8 @@
      "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
      "simplifiable": false,
      "traits": {
+      "input": "the grid as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
       "neighbourhood": "grid with 14 neighbours (TTK's triangulation)",
       "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
       "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
@@ -3468,6 +3526,8 @@
      "summary": "Our algorithm on AnyEG's (TTK's) 14-neighbour grid.",
      "simplifiable": true,
      "traits": {
+      "input": "the grid as given",
+      "function": "f as given",
       "neighbourhood": "grid with 14 neighbours (TTK's triangulation, as AnyEG)",
       "ties": "broken by vertex index (a strict total order)",
       "saddles": "the highest pass between every two basins that touch",

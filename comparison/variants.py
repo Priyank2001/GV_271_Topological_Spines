@@ -48,6 +48,11 @@ TRAIT_LABELS = {
 }
 
 
+def _input_trait(source: FieldSource) -> str:
+    """The ``input`` trait of a variant that uses the data unchanged."""
+    return "the grid as given" if source.kind == "grid" else "the coordinates as given"
+
+
 @dataclass
 class VariantResult:
     graph: ExtremumGraph                  # full (unsimplified) graph in our format
@@ -105,6 +110,8 @@ class OursVariant(ExtractionVariant):
         else:
             nb = f"kNN graph, k = {source.k}"
         return {
+            "input": _input_trait(source),
+            "function": "f as given",
             "neighbourhood": nb,
             "ties": "broken by vertex index (a strict total order)",
             "saddles": "the highest pass between every two basins that touch",
@@ -218,6 +225,9 @@ class AnyEGVariant(ExtractionVariant):
         nb = ("grid with 14 neighbours (TTK's triangulation)" if source.kind == "grid" else
               f"the same kNN graph as ours, k = {source.k} (AnyEG itself takes meshes only)")
         return {
+            "input": _input_trait(source),
+            "function": "the (value, index) rank of f for every comparison; f itself only for "
+                        "the arc height filter",
             "neighbourhood": nb,
             "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
             "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
