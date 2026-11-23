@@ -47,6 +47,15 @@ test('relayout fits the nodes to their own distances (toy cross)', () => {
   for (const a of arms) assert.ok(Math.abs(a - Math.SQRT2) < 0.05, `arm length ${a}`);
 });
 
+test('extra nodes are placed without moving the main ones', () => {
+  const doc = crossDoc();
+  const main = relayout(doc, [0, 1, 2, 3], [0, 1, 2]);
+  const both = relayout(doc, [0, 1, 2, 3], [0, 1, 2], { extraPeaks: [4], extraSaddles: [3] });
+  for (const id of [0, 1, 2, 3]) assert.deepEqual(both.peaks.get(id), main.peaks.get(id));
+  const [x, y] = both.peaks.get(4), c = both.peaks.get(0);
+  assert.ok(Math.abs(Math.hypot(x - c[0], y - c[1]) - Math.SQRT2) < 0.15, 'extra peak near its true distance');
+});
+
 test('relayout returns null when it cannot or need not run', () => {
   const doc = crossDoc();
   assert.equal(relayout(doc, [0, 1], []), null);                      // fewer than 3 nodes
@@ -77,7 +86,6 @@ test('fuel at 0.08: the four head peaks form a symmetric cross around the jet ti
       v.setVisible(vis);
       assert.ok(v.relayoutInfo, `${style}/${arcs}: relayout ran`);
       assert.ok(v.relayoutInfo.stressAfter < v.relayoutInfo.stressBefore, `${style}/${arcs}: stress went down`);
-      if (arcs) continue;                    // with arcs the merged peaks take part too
       const tip = v.peakXY[6];
       const ang = [18, 19, 20, 21].map((p) => Math.atan2(v.peakXY[p][1] - tip[1], v.peakXY[p][0] - tip[0]) * 180 / Math.PI).sort((a, b) => a - b);
       // two arms on each side of the jet, mirror images within 15 degrees
