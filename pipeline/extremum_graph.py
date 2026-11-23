@@ -71,6 +71,7 @@ Usage
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -236,7 +237,8 @@ class ExtremumGraph:
 # ---------------------------------------------------------------------------
 def extremum_graph(values: np.ndarray, graph: NeighborGraph,
                    min_loop_relief: float = 0.5,
-                   backend: BackendSpec = None) -> ExtremumGraph:
+                   backend: BackendSpec = None,
+                   timings: Optional[dict] = None) -> ExtremumGraph:
     """Compute the extremum graph of ``values`` sampled on ``graph``.
 
     Saddles that join two separate groups of peaks (``merge``) are always
@@ -248,14 +250,22 @@ def extremum_graph(values: np.ndarray, graph: NeighborGraph,
     (default: GPU for large graphs), ``"numpy"``, ``"torch"``, ``"cuda:N"``,
     or a ``ComputeBackend``. Every backend gives the same result. The
     union-find sweeps (steps 4-6) are sequential and always run on the CPU.
+
+    ``timings``: if a dict is given, the wall time in seconds of each stage is
+    stored in it: ``order``, ``ascent`` (maxima and regions), ``passes``
+    (saddles), ``persistence``, ``relief``, ``simplification`` (p* and
+    cancellations). Backends return NumPy arrays, so GPU work is finished
+    when each stage's clock stops.
     """
     values = np.asarray(values)
     n = graph.num_nodes
     if values.shape != (n,):
         raise ValueError(f"values must have shape ({n},), got {values.shape}")
     kernels = get_backend(backend)
+    clock = _StageClock(timings)
 
     rank = kernels.total_order(values)
+    clock.lap("order")
     up = kernels.steepest_ascent(rank, graph)
 
     # Maxima, numbered from the highest down so peak id 0 is the global maximum.
@@ -265,10 +275,14 @@ def extremum_graph(values: np.ndarray, graph: NeighborGraph,
     peak_id = np.full(n, -1, dtype=np.int64)
     peak_id[max_vertices] = np.arange(num_peaks)
     region = peak_id[up]
+    clock.lap("ascent")
 
     sad_vertex, sad_peaks, sad_support = kernels.passes(rank, region, graph, num_peaks)
+    clock.lap("passes")
     persistence = _sweep(values, max_vertices, sad_vertex, sad_peaks)
+    clock.lap("persistence")
     relief = _relief(values, rank, graph, sad_vertex, kernels)
+    clock.lap("relief")
 
     is_merge, sad_pers = persistence["is_merge"], persistence["saddle"]
     keep = is_merge | (relief >= min_loop_relief)
@@ -280,6 +294,7 @@ def extremum_graph(values: np.ndarray, graph: NeighborGraph,
     # elder-rule parent (the top of the group) gives the same persistence but
     # can be a peak that is not even adjacent (observations.md, 2026-11-10).
     parent = _cancellations(num_peaks, sad_peaks, sad_pers, is_merge)["parent"]
+    clock.lap("simplification")
 
     return ExtremumGraph(
         num_points=n,
@@ -299,6 +314,20 @@ def extremum_graph(values: np.ndarray, graph: NeighborGraph,
         region=region,
         region_size=np.bincount(region, minlength=num_peaks),
     )
+
+
+class _StageClock:
+    """Writes the time since the previous lap into ``out[name]`` (no-op without a dict)."""
+
+    def __init__(self, out: Optional[dict]):
+        self.out = out
+        self.t = time.perf_counter()
+
+    def lap(self, name: str) -> None:
+        if self.out is not None:
+            now = time.perf_counter()
+            self.out[name] = now - self.t
+            self.t = now
 
 
 def _sweep(values, max_vertices, sad_vertex, sad_peaks) -> dict:

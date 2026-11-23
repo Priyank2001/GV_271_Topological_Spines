@@ -6,6 +6,10 @@ Compare AnyEG's extremum graphs with our pipeline's on the same fields.
     python3 -m comparison --volumes fuel --variants raw rank
 
 Without the original build, only the PyTorch port of AnyEG is run.
+
+This study shows what *ties* do (raw, AnyEG's preprocessing, ranks). For the
+controlled comparison (same order, same graph, same GPU, matched and repeated
+timings, neutral yardsticks) use ``python3 -m comparison.fair``.
 """
 
 from __future__ import annotations

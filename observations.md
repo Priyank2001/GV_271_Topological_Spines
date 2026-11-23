@@ -6,7 +6,77 @@ and what is still open.
 
 ---
 
+## 2026-11-23 — A fair comparison of AnyEG and our pipeline
+
+**What we did.** `python3 -m comparison.fair` (`comparison/fair.py`,
+`comparison/reference.py`) replaces the 2026-11-11 study as the headline.
+Report: `comparison/results/fair_comparison.md`. Before, five things favoured
+one side or blurred the comparison:
+
+1. **AnyEG's arc filter got ranks.** AnyEG keeps an arc only if
+   |f(saddle) − f(maximum)| < 20,000. That keeps everything on the real values,
+   but we fed it ranks (up to 2.1 million), so it silently dropped long arcs:
+   `hydrogen_atom` 2,270 linked pairs instead of 6,811, `neghip` 1,688 arcs
+   instead of 4,048. The 2026-11-11 table below and the viewer's AnyEG files
+   under-count AnyEG. Fixed: ranks for order, real values (`heights`) for the
+   height test.
+2. **Ours also got ranks** in the rank variant, which changes its height-based
+   loop filter (fuel, 6-nbr: 435 saddles on ranks, 319 on the real values).
+   Now ours gets the real values; its tie-break gives the same order.
+3. **Different grids in the headline pair** (AnyEG on 14 neighbours, ours on
+   6). Now both run on both grids, built once and shared.
+4. **Timing.** AnyEG's "core" was kernels only, ours included CPU persistence
+   work; the original's clock included creating the CUDA context; methods
+   could land on different GPUs; one run each. Now: one GPU, warm-up + median
+   of 5, matched *detect* stage (maxima, basins, saddles, host to host).
+5. **No yardstick but each other.** Now two checks that need neither method:
+   the superlevel **merge tree** (native to ours: our saddles are its passes)
+   and **PL validity** of each saddle on the triangulation (native to AnyEG:
+   its module 4 is that test). The PL check selects exactly AnyEG's module-4
+   saddle set on random fields (`tests/test_fair_comparison.py`), and the
+   merge tree matches a brute-force sweep.
+
+**Results (14-neighbour grid, AnyEG's own setting).**
+
+* *Maxima and basins:* identical on every input and both grids.
+* *Merge tree:* ours exact everywhere. AnyEG is exact on its samples and
+  `silicium`, but kills maxima too early elsewhere: `fuel` 2/64, `neghip`
+  5/174, `nucleon` 11/64, `hydrogen_atom` 136/937, `marschner_lobb` 120/426
+  (there 120 of the 216 pairs with persistence ≥ 1 % of the range). All
+  errors are false links, none are missing merges. **Cause, confirmed:** its
+  CPU arc step also joins a saddle to the basins of its *lower* neighbours.
+  Keeping only uphill arcs (the "diagnostic" row) gives 100 % on every input.
+  AnyEG's GPU kernels are right; its arc assembly is not.
+* *PL validity:* AnyEG 100 %. Ours: every merge saddle is valid, but only
+  41–65 % of all our saddles are, because most loop-closing saddles are not
+  critical points of the PL field (36–57 % without the loop filter). Our loop
+  saddles are the weak point on our side.
+* *Speed (RTX 3090, median of 5, detect stage):* ours is 0.5–0.95× the
+  time of AnyEG's own CUDA `compute()` (which allocates and copies everything
+  on each call), but 0.85–1.8× the time of our PyTorch port of AnyEG (slowest
+  relative: `fuel` 1.8×, `hydrogen_atom` 1.6×; 0.15 s vs 0.10 s on 2.1 M
+  voxels). Detect + post: ours 0.23 s, AnyEG original 0.25 s, port 0.18 s on
+  `hydrogen_atom`, although ours does more after detection (persistence, p*).
+  All times are 7–160 ms, so the speed difference is small next to the
+  correctness differences above. On the CPU (one thread, 14-nbr) ours is 8–20× faster,
+  but AnyEG has no CPU version; that row is our port, written for a GPU.
+
+On the 6-neighbour grid AnyEG is outside its design (no two axis neighbours
+are adjacent, so its upper-link test passes almost every candidate): 20k–385k
+saddles and up to 16 s of arc tracing. Shown only to separate the grid from the
+algorithm.
+
+**Open.** (a) The viewer's AnyEG files predate fix 1; `python3 web/build_data.py`
+regenerates them. (b) Whether to make our loop saddles PL-valid (e.g. apply the
+upper-link test to loop saddles only). (c) The 6- vs 14-neighbour question
+from 2026-11-11 is unchanged.
+
+---
+
 ## 2026-11-11 — AnyEG vs our pipeline, and our pipeline on the GPU
+
+> **Correction (2026-11-23):** AnyEG's numbers with rank values below are too
+> low, because its arc filter was applied to ranks. See the entry above.
 
 **What we did.** `anyeg/` is a separate pipeline that computes extremum
 graphs the way AnyEG does (https://github.com/BuptCIAGroup/AnyEG, commit

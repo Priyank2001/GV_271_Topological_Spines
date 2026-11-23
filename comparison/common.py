@@ -16,6 +16,10 @@ Our pipeline and AnyEG describe their results differently:
 * ``region``         for every vertex, the vertex id of its maximum
 * ``maximum_pairs``  {(m1, m2)}: maxima joined through some saddle, the
                      structure the extremum graph shows (and the spine draws)
+* ``links``          (L, 3) rows (saddle, maximum, maximum): which saddle joins
+                     which maxima. A saddle that reaches k maxima gives k - 1
+                     rows (its first maximum to each other one), enough to replay
+                     the graph's merges (``comparison/reference.py``)
 """
 
 from __future__ import annotations
@@ -33,6 +37,7 @@ class CommonGraph:
     saddles: np.ndarray
     region: np.ndarray
     maximum_pairs: Set[Tuple[int, int]]
+    links: np.ndarray = field(default_factory=lambda: np.empty((0, 3), dtype=np.int64))
     seconds: Dict[str, float] = field(default_factory=dict)
     notes: Dict[str, object] = field(default_factory=dict)
 
@@ -52,12 +57,17 @@ class CommonGraph:
 def from_anyeg(graph, method: str, seconds: Dict[str, float]) -> CommonGraph:
     """Convert an ``anyeg.AnyEGGraph``."""
     linked = np.unique(graph.arc_saddle)
+    reached: Dict[int, list] = {}
+    for s, m in zip(graph.arc_saddle.tolist(), graph.arc_maximum.tolist()):
+        reached.setdefault(s, []).append(m)
+    rows = [(s, ms[0], m) for s, ms in reached.items() for m in ms[1:]]
     return CommonGraph(
         method=method,
         maxima=np.sort(graph.maxima),
         saddles=linked,
         region=graph.region,
         maximum_pairs=graph.maximum_pairs(),
+        links=np.array(rows, dtype=np.int64).reshape(-1, 3),
         seconds=seconds,
         notes={"candidates": graph.num_candidates, "upper_link_saddles": graph.num_saddles,
                "arcs": graph.num_arcs},
@@ -74,6 +84,8 @@ def from_ours(eg, method: str, seconds: Dict[str, float]) -> CommonGraph:
         saddles=np.unique(eg.saddles),
         region=peaks[eg.region],
         maximum_pairs=pairs,
+        links=np.stack([eg.saddles, peaks[eg.saddle_peaks[:, 0]], peaks[eg.saddle_peaks[:, 1]]],
+                       axis=1).astype(np.int64).reshape(-1, 3),
         seconds=seconds,
         notes={"loop_saddles": int((~eg.saddle_is_merge).sum())},
     )
