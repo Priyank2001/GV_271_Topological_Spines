@@ -33,6 +33,7 @@ class LandscapeRun:
     box: Box
     n_eval: int
     device: str
+    param_batch: int = 64
     _evaluator: Optional[LossEvaluator] = None
 
     @classmethod
@@ -54,7 +55,8 @@ class LandscapeRun:
         if self._evaluator is None:
             train, _ = cifar.load()
             data = train.subset(self.n_eval, EVAL_SEED)
-            self._evaluator = LossEvaluator(build(self.meta["arch"]), data, self.subspace, self.l2, self.device)
+            self._evaluator = LossEvaluator(build(self.meta["arch"]), data, self.subspace, self.l2, self.device,
+                                            param_batch=self.param_batch)
         return self._evaluator
 
     # ---- samples ---------------------------------------------------------------------------

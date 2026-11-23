@@ -44,8 +44,10 @@ class Trainer:
         self.train, self.test = train.to(device), test.to(device)
 
     def run(self, model: torch.nn.Module, seed: int, epochs: int, start_epoch: int = 0,
-            total_epochs: int | None = None) -> torch.nn.Module:
-        """Train ``model`` for ``epochs`` epochs; the schedule spans ``total_epochs``."""
+            total_epochs: int | None = None, on_epoch=None) -> torch.nn.Module:
+        """Train ``model`` for ``epochs`` epochs; the schedule spans ``total_epochs``.
+        ``on_epoch(epoch, model)`` is called after every epoch (1-based, counting ``start_epoch``).
+        Raises ``FloatingPointError`` if the loss stops being finite (diverged)."""
         cfg, total = self.cfg, total_epochs or epochs
         model.to(self.device).train()
         opt = torch.optim.SGD(model.parameters(), lr=cfg.lr, momentum=cfg.momentum,
@@ -54,7 +56,7 @@ class Trainer:
             opt, lambda e: 0.5 * (1 + torch.cos(torch.tensor((start_epoch + e) / total * torch.pi))).item())
         g = torch.Generator(device=self.device).manual_seed(seed)
         n = len(self.train)
-        for _ in range(epochs):
+        for e in range(epochs):
             perm = torch.randperm(n, generator=g, device=self.device)
             for i in range(0, n, cfg.batch_size):
                 idx = perm[i:i + cfg.batch_size]
@@ -62,10 +64,15 @@ class Trainer:
                 if cfg.augment:
                     x = cifar.augment(x, g)
                 loss = F.cross_entropy(model(x), self.train.y[idx])
+                if not torch.isfinite(loss):
+                    raise FloatingPointError("training loss is not finite (diverged)")
                 opt.zero_grad(set_to_none=True)
                 loss.backward()
                 opt.step()
             sched.step()
+            if on_epoch is not None:
+                on_epoch(start_epoch + e + 1, model)
+                model.train()
         return model.eval()
 
     @torch.no_grad()

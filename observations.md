@@ -6,6 +6,38 @@ and what is still open.
 
 ---
 
+## 2026-11-24 — Loss landscapes, step 4: is a better model's landscape simpler? Not topologically
+
+**What we did.** `python3 -m landscape.family train|sample|sample-subspaces|analyse`
+(`landscape/family.py`, figure `landscape/plot_family.py`). 23 SmallCNNs (+ seeds 2–3 for B),
+one factor changed at a time: training stage (epochs 1–30), width (8–64), learning rate
+(0.005–0.15; lr 0.15 diverged for one seed). Report: `comparison/results/loss_landscape_family.md`.
+- **A, the papers' setting** (Geniesse et al. 2024, Landscaper): the box a ∈ [−1, 1]⁴ of four
+  filter-normalised random directions around one model; 16,384 Sobol samples, kNN k = 30; plus the
+  2-D slice on a 65² PL grid.
+- **B, several solutions**: the 3-D subspace through four seeds of each configuration (11 configs),
+  as in steps 1–3, with dense-path barrier bounds and gradient-descent checks of the minima.
+
+**What we saw.**
+- A: every one of the 23 landscapes is a single basin (1 minimum, 0 saddles, 4-D and 2-D, any τ ≥ 0.01;
+  k = 30/50 agree, k = 15 adds an artefact now and then). Topology cannot rank these models. The only
+  varying quantity is the mean loss over the box, and it goes opposite ways: it rises with training
+  (2.9 → 17.4) and falls with width (37.9 → 11.1); overall ρ = +0.54 with test accuracy.
+- B: every configuration has exactly four real minima (one per seed, each in its own basin). The graph
+  showed 5–6 minima and 5–9 loops at epochs 1–4 (ρ = −0.78 with accuracy), but gradient descent from
+  every graph minimum and every model ends at four points: the extras are kNN fragments of one shallow
+  basin. Barriers rise with accuracy (ρ = +0.95), but only because the minima sink (model loss
+  ρ = −0.97); the top of the lowest path stays at 1.9–2.4 ≈ chance-level loss (ρ = +0.25). The curved
+  lowest path saves 48% of the straight-line barrier at epoch 1 and 14% at epoch 30.
+
+**Pitfalls.** Early checkpoints are not minima, so "the model's basin" is no ground truth there; count
+minima by descent end points. Without permutation alignment, independent seeds never share a basin.
+
+**Open.** Permutation alignment (barriers after matching neurons, Entezari et al.); Hessian
+directions; settings where the papers saw non-trivial landscapes (PINNs, UNets).
+
+---
+
 ## 2026-11-24 — Loss landscapes, step 3: 2-D slices vs the full subspace
 
 **What we did.** `python3 -m landscape.slices --run <run>` (`landscape/slices.py`, figures by

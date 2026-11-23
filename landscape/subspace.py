@@ -107,13 +107,17 @@ class Subspace:
 
     @classmethod
     def li_plane(cls, state: Dict[str, torch.Tensor], seed: int) -> "Subspace":
-        """The usual loss-landscape picture (Li et al. 2018): theta + a d1 + b d2 around one model, with two
-        filter-normalised random directions d1, d2 (each filter of d_i has the norm of the model's filter,
-        biases 0). The basis is NOT orthonormal (``coords`` does not apply); (a, b) in [-1, 1]^2 is the
-        customary range."""
+        return cls.filter_normalised(state, 2, seed)
+
+    @classmethod
+    def filter_normalised(cls, state: Dict[str, torch.Tensor], n: int, seed: int) -> "Subspace":
+        """The usual loss-landscape picture (Li et al. 2018): theta + sum_i a_i d_i around one model, with ``n``
+        filter-normalised random directions d_i (each filter of d_i has the norm of the model's filter,
+        biases 0). The basis is NOT orthonormal (``coords`` does not apply); a in [-1, 1]^n is the
+        customary range. ``li_plane`` is the case n = 2."""
         g = torch.Generator().manual_seed(seed)
         dirs = []
-        for _ in range(2):
+        for _ in range(n):
             parts = []
             for v in state.values():
                 r = torch.randn(v.shape, generator=g, dtype=torch.float64)
@@ -124,4 +128,4 @@ class Subspace:
                     r.zero_()
                 parts.append(r.reshape(-1))
             dirs.append(torch.cat(parts))
-        return cls(flatten(state), torch.stack(dirs).float(), ParamLayout.of(state), np.zeros((1, 2)))
+        return cls(flatten(state), torch.stack(dirs).float(), ParamLayout.of(state), np.zeros((1, n)))

@@ -140,3 +140,18 @@ def test_li_plane_is_filter_normalised_and_centred_on_the_model():
             assert torch.allclose(d[name].flatten(1).norm(dim=1), v.flatten(1).norm(dim=1), rtol=1e-4)
         else:
             assert torch.count_nonzero(d[name]) == 0
+
+
+# ---- family measures ----------------------------------------------------------------------------
+def test_family_measures_on_two_wells():
+    """f = -log L with two wells: the centre one (deep, at the origin) and a shallow one at (0.6, 0)."""
+    from landscape.family import measures
+    n = 61
+    u = np.linspace(-1, 1, n)
+    x = np.stack(np.meshgrid(u, u, indexing="ij"), -1).reshape(-1, 2)
+    loss = 1.0 - 0.8 * np.exp(-np.sum(x ** 2, 1) / 0.05) - 0.4 * np.exp(-np.sum((x - [0.6, 0]) ** 2, 1) / 0.02)
+    m = measures(-np.log(loss), x, freudenthal_grid_graph((n, n)), int(np.argmin(np.linalg.norm(x, axis=1))))
+    assert m["minima@0.01"] == 2 and m["minima@0.1"] == 2
+    assert m["centre_is_global"] and 0.3 < m["basin_frac"] < 1
+    assert m["saddles@0.01"] == 1 and m["escape"] > 0.1
+    assert 0.2 < m["smd"] < 0.6
