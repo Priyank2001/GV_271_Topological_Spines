@@ -114,3 +114,29 @@ def test_box_and_samplers():
     assert np.allclose(g[1], [box.lo[0], box.lo[1] + box.size[1] / 3])      # C order: last axis fastest
     for s in (uniform(box, 64, 0), sobol(box, 64, 0)):
         assert s.shape == (64, 2) and (s >= box.lo).all() and (s <= box.hi).all()
+
+
+# ---- slices -------------------------------------------------------------------------------------
+def test_triple_planes_contain_their_models():
+    from landscape.slices import triple_planes
+    anchors = np.random.default_rng(0).normal(size=(5, 4))
+    planes = triple_planes(anchors)
+    assert len(planes) == 10
+    for p in planes:
+        assert np.allclose(p.basis @ p.basis.T, np.eye(2), atol=1e-10)
+        for m in p.models:                                   # each model is on its plane, inside its box
+            u = (anchors[m] - p.origin) @ p.basis.T
+            assert np.allclose(p.to_subspace(u), anchors[m])
+            assert (u >= p.box.lo).all() and (u <= p.box.hi).all()
+
+
+def test_li_plane_is_filter_normalised_and_centred_on_the_model():
+    state = _models(1)[0]
+    sub = Subspace.li_plane(state, seed=3)
+    assert torch.allclose(sub.params(torch.zeros(1, 2))[0], flatten(state))
+    d = sub.layout.unflatten(sub.basis[0])
+    for name, v in state.items():
+        if v.dim() > 1:
+            assert torch.allclose(d[name].flatten(1).norm(dim=1), v.flatten(1).norm(dim=1), rtol=1e-4)
+        else:
+            assert torch.count_nonzero(d[name]) == 0

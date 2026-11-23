@@ -104,3 +104,24 @@ class Subspace:
         basis = torch.cat([basis, torch.stack(new)]) if new else basis
         anchors = np.concatenate([self.anchors, np.zeros((len(self.anchors), n))], 1)
         return Subspace(self.origin, basis.float(), self.layout, anchors)
+
+    @classmethod
+    def li_plane(cls, state: Dict[str, torch.Tensor], seed: int) -> "Subspace":
+        """The usual loss-landscape picture (Li et al. 2018): theta + a d1 + b d2 around one model, with two
+        filter-normalised random directions d1, d2 (each filter of d_i has the norm of the model's filter,
+        biases 0). The basis is NOT orthonormal (``coords`` does not apply); (a, b) in [-1, 1]^2 is the
+        customary range."""
+        g = torch.Generator().manual_seed(seed)
+        dirs = []
+        for _ in range(2):
+            parts = []
+            for v in state.values():
+                r = torch.randn(v.shape, generator=g, dtype=torch.float64)
+                if v.dim() > 1:
+                    shape = (-1,) + (1,) * (v.dim() - 1)
+                    r *= (v.double().flatten(1).norm(dim=1) / r.flatten(1).norm(dim=1).clamp_min(1e-12)).view(shape)
+                else:
+                    r.zero_()
+                parts.append(r.reshape(-1))
+            dirs.append(torch.cat(parts))
+        return cls(flatten(state), torch.stack(dirs).float(), ParamLayout.of(state), np.zeros((1, 2)))

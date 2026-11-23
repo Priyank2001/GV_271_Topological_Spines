@@ -6,6 +6,38 @@ and what is still open.
 
 ---
 
+## 2026-11-24 — Loss landscapes, step 3: 2-D slices vs the full subspace
+
+**What we did.** `python3 -m landscape.slices --run <run>` (`landscape/slices.py`, figures by
+`landscape/plot_slices.py`). Slices: every plane through three trained models (the usual
+mode-connectivity picture) and Li et al.'s plane of two filter-normalised random directions
+around each model, 65×65 Freudenthal grids. Full view: the 49³ PL grid (d = 3, step 2) or
+the kNN graph (k = 30) of 65,536 Sobol samples (d = 5, two new 6-model sets `cnn_m6_e30`,
+`cnn_m6_e30_spawn2`). Reports: `comparison/results/loss_landscape_slices_<run>.md`.
+
+**What we saw.**
+- Minima: no plane shows a false, displaced or split minimum (48 planes). The cost of slicing is
+  what is missing: a plane through three models shows exactly those three minima (3 of 4 in 3-D,
+  3 of 6 in 5-D), and Li et al.'s random plane shows one bowl around its model (16 planes),
+  although the other models' minima are about as far away as the plane reaches (‖θ‖ ≈ 26,
+  models 20–36 apart).
+- Barriers, high-barrier landscape (independent runs): every plane overstates the true barrier by
+  at least 1.2–4.8% in 3-D (6 of 6 pairs, against a dense-evaluated path of the full graph, a
+  method-free upper bound); in 5-D by at least 1.4–8.7% for 8 of 15 pairs, while for the other 7
+  the best plane is as low as our path (so no claim either way). Low-barrier landscape (spawned
+  runs): slices and the full view agree within ±0.7%.
+- Connections: the full 5-D graphs have 15 loops (6 minima) / 10 loops (spawned, all 15 pairs
+  linked); a plane shows at most a triangle of three links.
+
+**Pitfalls found (full view in 5-D at N = 65k).** (1) k = 15 gives 12 minima for 6 models; k = 30
+and 50 give 7. (2) The 7th (persistence 0.007, k-robust) is still an artefact: gradient descent
+from it ends 0.015 from model 2. (3) The kNN barrier is optimistic: the loss along its own path
+is 5.6% (median) higher, because samples are ~9 per axis. (4) The sampled minimum sits
+0.06–0.14 (unit box) from the model, so slice minima must be compared with the model's
+position, not the best sample (first version wrongly called 18 slice minima "displaced").
+
+---
+
 ## 2026-11-24 — Loss landscapes (CIFAR-10): the kNN extremum graph matches a dense PL grid
 
 **What we did.** New package `landscape/` (Option A, steps 1–2). Two sets of four small

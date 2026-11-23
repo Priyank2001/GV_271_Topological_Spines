@@ -58,14 +58,14 @@ class LandscapeRun:
         return self._evaluator
 
     # ---- samples ---------------------------------------------------------------------------
-    def _cached(self, key: str, make_points) -> dict:
+    def _cached(self, key: str, make_points, evaluator: Optional[LossEvaluator] = None) -> dict:
         f = self.path / "samples" / f"{key}_eval{self.n_eval}.npz"
         if f.exists():
             z = np.load(f)
             return {k: z[k] for k in z.files}
         x = make_points()
         print(f"{self.name}: evaluating {len(x):,} points ({key})")
-        out = {"x": x, **self.evaluator.chunked(x)}
+        out = {"x": x, **(evaluator or self.evaluator).chunked(x)}
         f.parent.mkdir(parents=True, exist_ok=True)
         np.savez(f, **out)
         return out
@@ -83,6 +83,26 @@ class LandscapeRun:
 
     def scattered(self, sampler: str, n: int, seed: int) -> dict:
         return self._cached(f"{sampler}{n}_s{seed}", lambda: SAMPLERS[sampler](self.box, n, seed))
+
+    def plane(self, plane, n: int) -> dict:
+        """Loss on an n x n grid of a 2-D plane of the subspace (``slices.Plane``); ``u`` = plane coordinates."""
+        out = self._cached(f"plane_{plane.name}_{n}", lambda: plane.to_subspace(grid(plane.box, (n, n))))
+        out["u"] = grid(plane.box, (n, n))
+        return out
+
+    def states(self) -> list:
+        return [torch.load(self.path / m["file"], map_location="cpu", weights_only=True)["state_dict"]
+                for m in self.meta["models"]]
+
+    def li_plane(self, model: int, n: int, seed: int = 0, extent: float = 1.0) -> dict:
+        """Loss on an n x n grid of Li et al.'s random-direction plane around ``model`` ((a, b) in
+        [-extent, extent]^2). These points are mostly outside the subspace."""
+        sub = Subspace.li_plane(self.states()[model], seed=seed + 100 * model)
+        box = Box(np.array([-extent, -extent]), np.array([extent, extent]))
+        out = self._cached(f"li_m{model}_s{seed}_e{extent:g}_{n}", lambda: grid(box, (n, n)),
+                           evaluator=self.evaluator.with_subspace(sub))
+        out["u"] = out["x"]
+        return out
 
     def anchors(self) -> dict:
         """The trained models themselves (the known minima)."""

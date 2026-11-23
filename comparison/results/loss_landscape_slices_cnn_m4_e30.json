@@ -1,0 +1,617 @@
+{
+ "run": "cnn_m4_e30",
+ "dim": 3,
+ "full": {
+  "kind": "grid (49^3)",
+  "minima": 4,
+  "saddles": 6,
+  "loops": 3,
+  "links": [
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    3
+   ],
+   [
+    1,
+    2
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    2,
+    3
+   ]
+  ],
+  "minimum_losses": [
+   0.4088590847418369,
+   0.4217981102756003,
+   0.42274611736639583,
+   0.42718421252350414
+  ],
+  "barriers": [
+   [
+    null,
+    2.35773437713528,
+    2.3336655884409256,
+    2.35773437713528
+   ],
+   [
+    2.35773437713528,
+    null,
+    2.35773437713528,
+    2.2209194121995606
+   ],
+   [
+    2.3336655884409256,
+    2.35773437713528,
+    null,
+    2.35773437713528
+   ],
+   [
+    2.35773437713528,
+    2.2209194121995606,
+    2.35773437713528,
+    null
+   ]
+  ]
+ },
+ "checks": {
+  "model_basins": [
+   1,
+   3,
+   2,
+   0
+  ],
+  "distinct": 4,
+  "pairs": [
+   {
+    "pair": [
+     0,
+     1
+    ],
+    "straight": 2.545312783184241,
+    "full": 2.2209194121995606,
+    "holds": true
+   },
+   {
+    "pair": [
+     0,
+     2
+    ],
+    "straight": 2.569443149957207,
+    "full": 2.35773437713528,
+    "holds": true
+   },
+   {
+    "pair": [
+     0,
+     3
+    ],
+    "straight": 2.6512176121208335,
+    "full": 2.35773437713528,
+    "holds": true
+   },
+   {
+    "pair": [
+     1,
+     2
+    ],
+    "straight": 2.6013400515705896,
+    "full": 2.35773437713528,
+    "holds": true
+   },
+   {
+    "pair": [
+     1,
+     3
+    ],
+    "straight": 2.53417751317627,
+    "full": 2.35773437713528,
+    "holds": true
+   },
+   {
+    "pair": [
+     2,
+     3
+    ],
+    "straight": 2.496156274465922,
+    "full": 2.3336655884409256,
+    "holds": true
+   }
+  ]
+ },
+ "slices": [
+  {
+   "slice": "models012",
+   "models": [
+    0,
+    1,
+    2
+   ],
+   "minima": 3,
+   "saddles": 3,
+   "loops": 1,
+   "loss_min": 0.42171600334233617,
+   "loss_max": 27.430895561327862,
+   "minimum_losses": [
+    0.42171600334233617,
+    0.42223125713240645,
+    0.4271718953058054
+   ],
+   "placement": [
+    {
+     "basin": 1,
+     "distance": 0.015165149222123728,
+     "true": true,
+     "loss_excess": -0.0001946593198591806
+    },
+    {
+     "basin": 2,
+     "distance": 0.006502260954395631,
+     "true": true,
+     "loss_excess": -0.001217894648440132
+    },
+    {
+     "basin": 3,
+     "distance": 2.7755575615628914e-17,
+     "true": true,
+     "loss_excess": -2.8833503995739918e-05
+    }
+   ],
+   "true": 3,
+   "displaced": 0,
+   "split_basins": 0,
+   "shown_basins": [
+    1,
+    2,
+    3
+   ],
+   "missed": 1,
+   "pairs": [
+    {
+     "basins": [
+      1,
+      2
+     ],
+     "slice_barrier": 2.5230502480011796,
+     "full_barrier": 2.35773437713528,
+     "excess": 0.07011641025769966
+    },
+    {
+     "basins": [
+      1,
+      3
+     ],
+     "slice_barrier": 2.247448062807801,
+     "full_barrier": 2.2209194121995606,
+     "excess": 0.011944895642101105
+    },
+    {
+     "basins": [
+      2,
+      3
+     ],
+     "slice_barrier": 2.5230502480011796,
+     "full_barrier": 2.35773437713528,
+     "excess": 0.07011641025769966
+    }
+   ],
+   "barrier_excess_max": 0.07011641025769966,
+   "barrier_excess_median": 0.07011641025769966
+  },
+  {
+   "slice": "models013",
+   "models": [
+    0,
+    1,
+    3
+   ],
+   "minima": 3,
+   "saddles": 3,
+   "loops": 1,
+   "loss_min": 0.4091699145833201,
+   "loss_max": 37.70555877826746,
+   "minimum_losses": [
+    0.4091699145833202,
+    0.42184399963513963,
+    0.4271718953058054
+   ],
+   "placement": [
+    {
+     "basin": 0,
+     "distance": 0.013255765172723227,
+     "true": true,
+     "loss_excess": 0.0007602370916608425
+    },
+    {
+     "basin": 1,
+     "distance": 1.2412670766236366e-16,
+     "true": true,
+     "loss_excess": 0.00010879460675949915
+    },
+    {
+     "basin": 3,
+     "distance": 8.326672684688674e-17,
+     "true": true,
+     "loss_excess": -2.8833503995739918e-05
+    }
+   ],
+   "true": 3,
+   "displaced": 0,
+   "split_basins": 0,
+   "shown_basins": [
+    0,
+    1,
+    3
+   ],
+   "missed": 1,
+   "pairs": [
+    {
+     "basins": [
+      0,
+      1
+     ],
+     "slice_barrier": 2.5201598519870294,
+     "full_barrier": 2.35773437713528,
+     "excess": 0.06889048928789898
+    },
+    {
+     "basins": [
+      0,
+      3
+     ],
+     "slice_barrier": 2.5201598519870294,
+     "full_barrier": 2.35773437713528,
+     "excess": 0.06889048928789898
+    },
+    {
+     "basins": [
+      1,
+      3
+     ],
+     "slice_barrier": 2.4018561818204534,
+     "full_barrier": 2.2209194121995606,
+     "excess": 0.08146930889387649
+    }
+   ],
+   "barrier_excess_max": 0.08146930889387649,
+   "barrier_excess_median": 0.06889048928789898
+  },
+  {
+   "slice": "models023",
+   "models": [
+    0,
+    2,
+    3
+   ],
+   "minima": 3,
+   "saddles": 3,
+   "loops": 1,
+   "loss_min": 0.4091638028170609,
+   "loss_max": 51.24055254475858,
+   "minimum_losses": [
+    0.40916380281706083,
+    0.42184399963513963,
+    0.4226433314254842
+   ],
+   "placement": [
+    {
+     "basin": 0,
+     "distance": 0.004804579963623631,
+     "true": true,
+     "loss_excess": 0.0007452887476289138
+    },
+    {
+     "basin": 1,
+     "distance": 0.0,
+     "true": true,
+     "loss_excess": 0.00010879460675949915
+    },
+    {
+     "basin": 2,
+     "distance": 5.551115123125783e-17,
+     "true": true,
+     "loss_excess": -0.00024313869882930383
+    }
+   ],
+   "true": 3,
+   "displaced": 0,
+   "split_basins": 0,
+   "shown_basins": [
+    0,
+    1,
+    2
+   ],
+   "missed": 1,
+   "pairs": [
+    {
+     "basins": [
+      0,
+      1
+     ],
+     "slice_barrier": 2.444190052532101,
+     "full_barrier": 2.35773437713528,
+     "excess": 0.03666896332141856
+    },
+    {
+     "basins": [
+      0,
+      2
+     ],
+     "slice_barrier": 2.37741663333169,
+     "full_barrier": 2.3336655884409256,
+     "excess": 0.01874777821958351
+    },
+    {
+     "basins": [
+      1,
+      2
+     ],
+     "slice_barrier": 2.444190052532101,
+     "full_barrier": 2.35773437713528,
+     "excess": 0.03666896332141856
+    }
+   ],
+   "barrier_excess_max": 0.03666896332141856,
+   "barrier_excess_median": 0.03666896332141856
+  },
+  {
+   "slice": "models123",
+   "models": [
+    1,
+    2,
+    3
+   ],
+   "minima": 3,
+   "saddles": 3,
+   "loops": 1,
+   "loss_min": 0.4086838837562975,
+   "loss_max": 46.08795901537803,
+   "minimum_losses": [
+    0.4086838837562975,
+    0.4226433314254842,
+    0.4271718953058054
+   ],
+   "placement": [
+    {
+     "basin": 0,
+     "distance": 0.007854964428881667,
+     "true": true,
+     "loss_excess": -0.00042851190563619745
+    },
+    {
+     "basin": 2,
+     "distance": 5.551115123125783e-17,
+     "true": true,
+     "loss_excess": -0.00024313869882930383
+    },
+    {
+     "basin": 3,
+     "distance": 5.551115123125783e-17,
+     "true": true,
+     "loss_excess": -2.8833503995739918e-05
+    }
+   ],
+   "true": 3,
+   "displaced": 0,
+   "split_basins": 0,
+   "shown_basins": [
+    0,
+    2,
+    3
+   ],
+   "missed": 1,
+   "pairs": [
+    {
+     "basins": [
+      0,
+      2
+     ],
+     "slice_barrier": 2.4013314132722203,
+     "full_barrier": 2.3336655884409256,
+     "excess": 0.02899551039637216
+    },
+    {
+     "basins": [
+      0,
+      3
+     ],
+     "slice_barrier": 2.479324736280705,
+     "full_barrier": 2.35773437713528,
+     "excess": 0.05157084713383231
+    },
+    {
+     "basins": [
+      2,
+      3
+     ],
+     "slice_barrier": 2.479324736280705,
+     "full_barrier": 2.35773437713528,
+     "excess": 0.05157084713383231
+    }
+   ],
+   "barrier_excess_max": 0.05157084713383231,
+   "barrier_excess_median": 0.05157084713383231
+  },
+  {
+   "slice": "li_model0",
+   "models": [
+    0
+   ],
+   "minima": 1,
+   "saddles": 0,
+   "loops": 0,
+   "loss_min": 0.42184400072849915,
+   "loss_max": 46.47982719991165,
+   "minimum_losses": [
+    0.4218440007284991
+   ],
+   "true": null,
+   "displaced": null,
+   "split_basins": null,
+   "missed": null
+  },
+  {
+   "slice": "li_model1",
+   "models": [
+    1
+   ],
+   "minima": 1,
+   "saddles": 0,
+   "loops": 0,
+   "loss_min": 0.4270587529274975,
+   "loss_max": 31.732895578939115,
+   "minimum_losses": [
+    0.4270587529274975
+   ],
+   "true": null,
+   "displaced": null,
+   "split_basins": null,
+   "missed": null
+  },
+  {
+   "slice": "li_model2",
+   "models": [
+    2
+   ],
+   "minima": 1,
+   "saddles": 0,
+   "loops": 0,
+   "loss_min": 0.42264332532903537,
+   "loss_max": 37.73787093378971,
+   "minimum_losses": [
+    0.42264332532903554
+   ],
+   "true": null,
+   "displaced": null,
+   "split_basins": null,
+   "missed": null
+  },
+  {
+   "slice": "li_model3",
+   "models": [
+    3
+   ],
+   "minima": 1,
+   "saddles": 0,
+   "loops": 0,
+   "loss_min": 0.4088590906855797,
+   "loss_max": 33.71952685298057,
+   "minimum_losses": [
+    0.4088590906855798
+   ],
+   "true": null,
+   "displaced": null,
+   "split_basins": null,
+   "missed": null
+  }
+ ],
+ "certified": {
+  "0-1": {
+   "models": [
+    0,
+    1
+   ],
+   "basins": [
+    1,
+    3
+   ],
+   "path_vertices": 71,
+   "certified": 2.22091941219956,
+   "graph_estimate": 2.2209194121995606
+  },
+  "0-2": {
+   "models": [
+    0,
+    2
+   ],
+   "basins": [
+    1,
+    2
+   ],
+   "path_vertices": 66,
+   "certified": 2.3657568766719312,
+   "graph_estimate": 2.35773437713528
+  },
+  "0-3": {
+   "models": [
+    0,
+    3
+   ],
+   "basins": [
+    1,
+    0
+   ],
+   "path_vertices": 120,
+   "certified": 2.3657568766719312,
+   "graph_estimate": 2.35773437713528
+  },
+  "1-2": {
+   "models": [
+    1,
+    2
+   ],
+   "basins": [
+    3,
+    2
+   ],
+   "path_vertices": 116,
+   "certified": 2.3657568766719312,
+   "graph_estimate": 2.35773437713528
+  },
+  "1-3": {
+   "models": [
+    1,
+    3
+   ],
+   "basins": [
+    3,
+    0
+   ],
+   "path_vertices": 170,
+   "certified": 2.3657568766719312,
+   "graph_estimate": 2.35773437713528
+  },
+  "2-3": {
+   "models": [
+    2,
+    3
+   ],
+   "basins": [
+    2,
+    0
+   ],
+   "path_vertices": 61,
+   "certified": 2.334028165692658,
+   "graph_estimate": 2.3336655884409256
+  }
+ },
+ "extra_minima": [],
+ "robustness": [],
+ "best_slice_excess": {
+  "0-1": 0.03666896332141856,
+  "0-2": 0.01874777821958351,
+  "0-3": 0.05157084713383231,
+  "1-2": 0.03666896332141856,
+  "1-3": 0.011944895642101105,
+  "2-3": 0.05157084713383231
+ },
+ "pairs_never_in_a_slice": 0,
+ "settings": {
+  "n_full": 49,
+  "k": 15,
+  "n_slice": 65,
+  "tau": 0.005,
+  "radius": 0.1
+ }
+}

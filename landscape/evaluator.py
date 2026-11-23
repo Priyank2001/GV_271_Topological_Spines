@@ -40,6 +40,11 @@ class LossEvaluator:
 
         self._logits = vmap(logits, in_dims=(0, None))
 
+    def with_subspace(self, subspace: Subspace) -> "LossEvaluator":
+        """The same network, images and L2 term on another subspace (e.g. a random-direction plane)."""
+        return LossEvaluator(self.model, self.data, subspace, self.l2, self.device,
+                             self.param_batch, self.image_batch)
+
     @torch.no_grad()
     def __call__(self, x: np.ndarray) -> dict:
         """(B, d) subspace coordinates -> {"loss": (B,), "ce": (B,), "acc": (B,)} as float64 arrays."""
