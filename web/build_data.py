@@ -52,6 +52,10 @@ ENTRIES = {
         label="pbmc3k_types (2,638 blood cells with cell types, 20 PCs)", dataset="pbmc3k_types", k=15,
         initial_threshold=0.04, embed=EMBEDS,
         text="Blood cells (10x PBMC 3k). f = density of cells. Peaks: cell types; saddles: how two types grade into each other; persistence: how distinct a type is. Clustering -> Known labels: reference cell types."),
+    "domainnet": dict(
+        label="domainnet (CLIP image embeddings, 10 classes x 6 domains, 512D)", dataset="domainnet", k=15,
+        initial_threshold=0.04, embed=EMBEDS,
+        text="DomainNet images (clipart, infograph, painting, quickdraw, real, sketch) as zero-shot CLIP ViT-B/32 features. f = density. Do peaks follow the class or the drawing style? Clustering -> Known labels: class, domain, CLIP right/wrong. Scalar: density or CLIP confidence."),
     "alanine_dipeptide": dict(
         label="alanine_dipeptide (molecule shapes from simulation, 45D)", dataset="alanine_dipeptide", k=15,
         initial_threshold=0.08, embed=EMBEDS,

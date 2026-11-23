@@ -1695,6 +1695,701 @@
    "id": "pbmc3k_types"
   },
   {
+   "file": "domainnet.json",
+   "label": "domainnet (CLIP image embeddings, 10 classes x 6 domains, 512D)",
+   "text": "DomainNet images (clipart, infograph, painting, quickdraw, real, sketch) as zero-shot CLIP ViT-B/32 features. f = density. Do peaks follow the class or the drawing style? Clustering -> Known labels: class, domain, CLIP right/wrong. Scalar: density or CLIP confidence.",
+   "peaks": 46,
+   "saddles": 349,
+   "spine_stress": 0.37196150550883106,
+   "crossings": 16504,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "domainnet.json",
+     "peaks": 46,
+     "saddles": 349,
+     "notes": {
+      "maxima": 46,
+      "saddles": 349,
+      "loop_saddles": 304
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
+      "neighbourhood": "the same kNN graph as ours, k = 15 (AnyEG itself takes meshes only)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "domainnet.anyeg.json",
+     "peaks": 46,
+     "saddles": 4106,
+     "notes": {
+      "maxima": 46,
+      "saddles": 1191,
+      "saddles_reaching_3plus": 1023,
+      "pieces": 1,
+      "raw_maxima": 55,
+      "preprocess_maxima": 55
+     }
+    },
+    {
+     "id": "ours_gabriel",
+     "label": "Ours, relaxed Gabriel graph",
+     "summary": "Our pipeline on the relaxed Gabriel graph, NDDAV's default neighbourhood.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
+      "neighbourhood": "relaxed Gabriel graph (from the 30 nearest candidates)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "domainnet.ours_gabriel.json",
+     "peaks": 35,
+     "saddles": 349,
+     "notes": {
+      "maxima": 35,
+      "saddles": 349,
+      "loop_saddles": 315,
+      "edges": 133756,
+      "mean_degree": 46.4
+     }
+    },
+    {
+     "id": "ours_std",
+     "label": "Ours, standardised input",
+     "summary": "Our pipeline after scaling every coordinate to mean 0 and spread 1.",
+     "simplifiable": true,
+     "traits": {
+      "input": "every coordinate standardised (mean 0, standard deviation 1)",
+      "function": "f as given",
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "domainnet.ours_std.json",
+     "peaks": 44,
+     "saddles": 299,
+     "notes": {
+      "maxima": 44,
+      "saddles": 299,
+      "loop_saddles": 256,
+      "edges": 70475,
+      "mean_degree": 24.5
+     }
+    },
+    {
+     "id": "ours_k10",
+     "label": "Ours, f = density (unsmoothed), k = 10",
+     "summary": "Same points and kNN graph (k = 10); f = density, unsmoothed. -log mean distance to the 15 nearest images (512-D CLIP space).",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "density, unsmoothed",
+      "neighbourhood": "kNN graph, k = 10",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "domainnet.ours_k10.json",
+     "peaks": 62,
+     "saddles": 409,
+     "notes": {
+      "maxima": 62,
+      "saddles": 409,
+      "loop_saddles": 348,
+      "edges": 46620,
+      "mean_degree": 16.2
+     }
+    },
+    {
+     "id": "ours_k30",
+     "label": "Ours, f = density (unsmoothed), k = 30",
+     "summary": "Same points and kNN graph (k = 30); f = density, unsmoothed. -log mean distance to the 15 nearest images (512-D CLIP space).",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "density, unsmoothed",
+      "neighbourhood": "kNN graph, k = 30",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "domainnet.ours_k30.json",
+     "peaks": 35,
+     "saddles": 349,
+     "notes": {
+      "maxima": 35,
+      "saddles": 349,
+      "loop_saddles": 315,
+      "edges": 135023,
+      "mean_degree": 46.9
+     }
+    },
+    {
+     "id": "ours_f_confidence_s0",
+     "label": "Ours, f = CLIP zero-shot confidence (unsmoothed), k = 15",
+     "summary": "Same points and kNN graph (k = 15); f = CLIP zero-shot confidence, unsmoothed. Max softmax probability over all 345 DomainNet class prompts (logit scale 100).",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "CLIP zero-shot confidence, unsmoothed",
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "domainnet.ours_f_confidence_s0.json",
+     "peaks": 146,
+     "saddles": 1893,
+     "notes": {
+      "maxima": 146,
+      "saddles": 1893,
+      "loop_saddles": 1748,
+      "edges": 69084,
+      "mean_degree": 24.0
+     }
+    },
+    {
+     "id": "ours_f_confidence_s0_k10",
+     "label": "Ours, f = CLIP zero-shot confidence (unsmoothed), k = 10",
+     "summary": "Same points and kNN graph (k = 10); f = CLIP zero-shot confidence, unsmoothed. Max softmax probability over all 345 DomainNet class prompts (logit scale 100).",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "CLIP zero-shot confidence, unsmoothed",
+      "neighbourhood": "kNN graph, k = 10",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "domainnet.ours_f_confidence_s0_k10.json",
+     "peaks": 204,
+     "saddles": 2041,
+     "notes": {
+      "maxima": 204,
+      "saddles": 2041,
+      "loop_saddles": 1838,
+      "edges": 46620,
+      "mean_degree": 16.2
+     }
+    },
+    {
+     "id": "ours_f_confidence_s0_k30",
+     "label": "Ours, f = CLIP zero-shot confidence (unsmoothed), k = 30",
+     "summary": "Same points and kNN graph (k = 30); f = CLIP zero-shot confidence, unsmoothed. Max softmax probability over all 345 DomainNet class prompts (logit scale 100).",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "CLIP zero-shot confidence, unsmoothed",
+      "neighbourhood": "kNN graph, k = 30",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "domainnet.ours_f_confidence_s0_k30.json",
+     "peaks": 77,
+     "saddles": 1141,
+     "notes": {
+      "maxima": 77,
+      "saddles": 1141,
+      "loop_saddles": 1065,
+      "edges": 135023,
+      "mean_degree": 46.9
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.19526143790849673,
+     "pair_jaccard": 0.458005249343832,
+     "pairs_only_a": 0,
+     "pairs_only_b": 413
+    },
+    {
+     "a": "ours",
+     "b": "ours_gabriel",
+     "maxima_jaccard": 0.7608695652173914,
+     "maxima_only_a": 11,
+     "maxima_only_b": 0,
+     "region_agreement": 0.7483949331945168,
+     "saddle_jaccard": 0.21476510067114093,
+     "pair_jaccard": 0.4572025052192067,
+     "pairs_only_a": 130,
+     "pairs_only_b": 130
+    },
+    {
+     "a": "ours",
+     "b": "ours_std",
+     "maxima_jaccard": 0.8,
+     "maxima_only_a": 6,
+     "maxima_only_b": 4,
+     "region_agreement": 0.823355891028978,
+     "saddle_jaccard": 0.34300791556728233,
+     "pair_jaccard": 0.48623853211009177,
+     "pairs_only_a": 137,
+     "pairs_only_b": 87
+    },
+    {
+     "a": "ours",
+     "b": "ours_k10",
+     "maxima_jaccard": 0.7419354838709677,
+     "maxima_only_a": 0,
+     "maxima_only_b": 16,
+     "region_agreement": 0.7485684539302446,
+     "saddle_jaccard": 0.3039647577092511,
+     "pair_jaccard": 0.38321167883211676,
+     "pairs_only_a": 139,
+     "pairs_only_b": 199
+    },
+    {
+     "a": "ours",
+     "b": "ours_k30",
+     "maxima_jaccard": 0.7608695652173914,
+     "maxima_only_a": 11,
+     "maxima_only_b": 0,
+     "region_agreement": 0.7482214124587888,
+     "saddle_jaccard": 0.2111111111111111,
+     "pair_jaccard": 0.4572025052192067,
+     "pairs_only_a": 130,
+     "pairs_only_b": 130
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_confidence_s0",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 46,
+     "maxima_only_b": 146,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.08814589665653495,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 349,
+     "pairs_only_b": 1893
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_confidence_s0_k10",
+     "maxima_jaccard": 0.004016064257028112,
+     "maxima_only_a": 45,
+     "maxima_only_b": 203,
+     "region_agreement": 0.00034704147145583897,
+     "saddle_jaccard": 0.08922198429693076,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 349,
+     "pairs_only_b": 2041
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_confidence_s0_k30",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 46,
+     "maxima_only_b": 77,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.06588735387885228,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 349,
+     "pairs_only_b": 1141
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_gabriel",
+     "maxima_jaccard": 0.7608695652173914,
+     "maxima_only_a": 11,
+     "maxima_only_b": 0,
+     "region_agreement": 0.7483949331945168,
+     "saddle_jaccard": 0.11178707224334601,
+     "pair_jaccard": 0.4354005167958656,
+     "pairs_only_a": 425,
+     "pairs_only_b": 12
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_std",
+     "maxima_jaccard": 0.8,
+     "maxima_only_a": 6,
+     "maxima_only_b": 4,
+     "region_agreement": 0.823355891028978,
+     "saddle_jaccard": 0.13064133016627077,
+     "pair_jaccard": 0.327909887359199,
+     "pairs_only_a": 500,
+     "pairs_only_b": 37
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_k10",
+     "maxima_jaccard": 0.7419354838709677,
+     "maxima_only_a": 0,
+     "maxima_only_b": 16,
+     "region_agreement": 0.7485684539302446,
+     "saddle_jaccard": 0.1667953667953668,
+     "pair_jaccard": 0.2604951560818084,
+     "pairs_only_a": 520,
+     "pairs_only_b": 167
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_k30",
+     "maxima_jaccard": 0.7608695652173914,
+     "maxima_only_a": 11,
+     "maxima_only_b": 0,
+     "region_agreement": 0.7482214124587888,
+     "saddle_jaccard": 0.11161731207289294,
+     "pair_jaccard": 0.4354005167958656,
+     "pairs_only_a": 425,
+     "pairs_only_b": 12
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_confidence_s0",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 46,
+     "maxima_only_b": 146,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.20936213991769548,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 762,
+     "pairs_only_b": 1893
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_confidence_s0_k10",
+     "maxima_jaccard": 0.004016064257028112,
+     "maxima_only_a": 45,
+     "maxima_only_b": 203,
+     "region_agreement": 0.00034704147145583897,
+     "saddle_jaccard": 0.1997055937193327,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 762,
+     "pairs_only_b": 2041
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_confidence_s0_k30",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 46,
+     "maxima_only_b": 77,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.13997627520759193,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 762,
+     "pairs_only_b": 1141
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_std",
+     "maxima_jaccard": 0.7954545454545454,
+     "maxima_only_a": 0,
+     "maxima_only_b": 9,
+     "region_agreement": 0.7461391636300538,
+     "saddle_jaccard": 0.1813953488372093,
+     "pair_jaccard": 0.42731277533039647,
+     "pairs_only_a": 155,
+     "pairs_only_b": 105
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_k10",
+     "maxima_jaccard": 0.5645161290322581,
+     "maxima_only_a": 0,
+     "maxima_only_b": 27,
+     "region_agreement": 0.620683671698768,
+     "saddle_jaccard": 0.12571428571428572,
+     "pair_jaccard": 0.24058919803600654,
+     "pairs_only_a": 202,
+     "pairs_only_b": 262
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_k30",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.9970501474926253,
+     "saddle_jaccard": 0.9781818181818182,
+     "pair_jaccard": 0.9942857142857143,
+     "pairs_only_a": 1,
+     "pairs_only_b": 1
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_confidence_s0",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 35,
+     "maxima_only_b": 146,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.07674943566591422,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 349,
+     "pairs_only_b": 1893
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_confidence_s0_k10",
+     "maxima_jaccard": 0.004201680672268907,
+     "maxima_only_a": 34,
+     "maxima_only_b": 203,
+     "region_agreement": 0.00034704147145583897,
+     "saddle_jaccard": 0.07243319268635724,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 349,
+     "pairs_only_b": 2041
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_confidence_s0_k30",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 35,
+     "maxima_only_b": 77,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.07510729613733906,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 349,
+     "pairs_only_b": 1141
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_k10",
+     "maxima_jaccard": 0.7096774193548387,
+     "maxima_only_a": 0,
+     "maxima_only_b": 18,
+     "region_agreement": 0.6973798368905084,
+     "saddle_jaccard": 0.26303854875283444,
+     "pair_jaccard": 0.33584905660377357,
+     "pairs_only_a": 121,
+     "pairs_only_b": 231
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_k30",
+     "maxima_jaccard": 0.7954545454545454,
+     "maxima_only_a": 9,
+     "maxima_only_b": 0,
+     "region_agreement": 0.7450980392156863,
+     "saddle_jaccard": 0.17782909930715934,
+     "pair_jaccard": 0.42417582417582417,
+     "pairs_only_a": 106,
+     "pairs_only_b": 156
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_confidence_s0",
+     "maxima_jaccard": 0.005291005291005291,
+     "maxima_only_a": 43,
+     "maxima_only_b": 145,
+     "region_agreement": 0.00034704147145583897,
+     "saddle_jaccard": 0.07378939277478862,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 299,
+     "pairs_only_b": 1893
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_confidence_s0_k10",
+     "maxima_jaccard": 0.008130081300813009,
+     "maxima_only_a": 42,
+     "maxima_only_b": 202,
+     "region_agreement": 0.0006940829429116779,
+     "saddle_jaccard": 0.07420749279538905,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 299,
+     "pairs_only_b": 2041
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_confidence_s0_k30",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 44,
+     "maxima_only_b": 77,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.06490649064906491,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 299,
+     "pairs_only_b": 1141
+    },
+    {
+     "a": "ours_k10",
+     "b": "ours_k30",
+     "maxima_jaccard": 0.5645161290322581,
+     "maxima_only_a": 27,
+     "maxima_only_b": 0,
+     "region_agreement": 0.6198160680201285,
+     "saddle_jaccard": 0.12310606060606061,
+     "pair_jaccard": 0.24058919803600654,
+     "pairs_only_a": 262,
+     "pairs_only_b": 202
+    },
+    {
+     "a": "ours_k10",
+     "b": "ours_f_confidence_s0",
+     "maxima_jaccard": 0.004830917874396135,
+     "maxima_only_a": 61,
+     "maxima_only_b": 145,
+     "region_agreement": 0.0006940829429116779,
+     "saddle_jaccard": 0.0930576070901034,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 409,
+     "pairs_only_b": 1893
+    },
+    {
+     "a": "ours_k10",
+     "b": "ours_f_confidence_s0_k10",
+     "maxima_jaccard": 0.007575757575757576,
+     "maxima_only_a": 60,
+     "maxima_only_b": 202,
+     "region_agreement": 0.0012146451500954364,
+     "saddle_jaccard": 0.10301331464611072,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 409,
+     "pairs_only_b": 2041
+    },
+    {
+     "a": "ours_k10",
+     "b": "ours_f_confidence_s0_k30",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 62,
+     "maxima_only_b": 77,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.082389289392379,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 409,
+     "pairs_only_b": 1141
+    },
+    {
+     "a": "ours_k30",
+     "b": "ours_f_confidence_s0",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 35,
+     "maxima_only_b": 146,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.07663410969196092,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 349,
+     "pairs_only_b": 1893
+    },
+    {
+     "a": "ours_k30",
+     "b": "ours_f_confidence_s0_k10",
+     "maxima_jaccard": 0.004201680672268907,
+     "maxima_only_a": 34,
+     "maxima_only_b": 203,
+     "region_agreement": 0.00034704147145583897,
+     "saddle_jaccard": 0.07308503162333099,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 349,
+     "pairs_only_b": 2041
+    },
+    {
+     "a": "ours_k30",
+     "b": "ours_f_confidence_s0_k30",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 35,
+     "maxima_only_b": 77,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.07379679144385026,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 349,
+     "pairs_only_b": 1141
+    },
+    {
+     "a": "ours_f_confidence_s0",
+     "b": "ours_f_confidence_s0_k10",
+     "maxima_jaccard": 0.7156862745098039,
+     "maxima_only_a": 0,
+     "maxima_only_b": 58,
+     "region_agreement": 0.6267568974492452,
+     "saddle_jaccard": 0.40840140023337224,
+     "pair_jaccard": 0.3697771587743733,
+     "pairs_only_a": 831,
+     "pairs_only_b": 979
+    },
+    {
+     "a": "ours_f_confidence_s0",
+     "b": "ours_f_confidence_s0_k30",
+     "maxima_jaccard": 0.5273972602739726,
+     "maxima_only_a": 69,
+     "maxima_only_b": 0,
+     "region_agreement": 0.4541037653999653,
+     "saddle_jaccard": 0.2498347653668209,
+     "pair_jaccard": 0.2726510067114094,
+     "pairs_only_a": 1243,
+     "pairs_only_b": 491
+    },
+    {
+     "a": "ours_f_confidence_s0_k10",
+     "b": "ours_f_confidence_s0_k30",
+     "maxima_jaccard": 0.37745098039215685,
+     "maxima_only_a": 127,
+     "maxima_only_b": 0,
+     "region_agreement": 0.33610966510498,
+     "saddle_jaccard": 0.19867149758454106,
+     "pair_jaccard": 0.16685001833516686,
+     "pairs_only_a": 1586,
+     "pairs_only_b": 686
+    }
+   ],
+   "k": 15,
+   "coords_file": "domainnet.coords.json",
+   "classes": "Class, Domain, CLIP zero-shot",
+   "scalars": {
+    "main": "density_s0",
+    "choices": [
+     {
+      "id": "density_s0",
+      "label": "density (unsmoothed)"
+     },
+     {
+      "id": "confidence_s0",
+      "label": "CLIP zero-shot confidence (unsmoothed)"
+     }
+    ]
+   },
+   "id": "domainnet"
+  },
+  {
    "file": "alanine_dipeptide.json",
    "label": "alanine_dipeptide (molecule shapes from simulation, 45D)",
    "text": "Shapes of a small peptide from molecular dynamics. Peaks: stable shapes; saddles: transitions between them; persistence: how hard a shape is to leave. Scalar (f): density, or -free energy from the backbone angles (kT). Known labels: Ramachandran regions.",

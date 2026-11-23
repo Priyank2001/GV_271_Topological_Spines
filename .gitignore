@@ -19,3 +19,6 @@ anyeg/native/build/
 
 # Downloaded raw data (generator/make_pbmc3k_dataset.py fetches it again)
 data/pbmc3k/
+
+# DomainNet metadata cache (scripts/make_domainnet.py rebuilds it from the Ramen runs)
+data/domainnet/
