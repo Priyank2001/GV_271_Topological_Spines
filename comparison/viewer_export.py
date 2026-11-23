@@ -83,6 +83,13 @@ def variant_document(variant: ExtractionVariant, result: VariantResult, source: 
         graph, coords=source.coords, meta=meta, include_region=True,
         full_peak_persistence=result.graph.peak_persistence if variant.simplifiable else None,
         spine=layout, saddle_extra=result.saddle_extra)
+    own = np.asarray(result.graph.values, dtype=np.float64)
+    if own.shape == np.shape(source.values) and np.abs(own - source.values).max() > 1e-9:
+        # another function on the same points: the viewer needs these values (contours,
+        # colours, the data view); the embeddings still come from the main file
+        lo, hi = float(own.min()), float(own.max())
+        doc["meta"]["value_range"] = [lo, hi]
+        doc["data"] = {"values": [round(float(x), 6) for x in own]}
     check_export(doc)
     return doc
 
@@ -128,7 +135,22 @@ def export_variants(source: FieldSource, main_doc: dict, main_file: str,
 
     comparisons = []
     for a, b in combinations(results, 2):
+        if len(results) > 30 and MAIN_VARIANT not in (a, b) and not _related(a, b):
+            continue                      # many variants: only pairs that differ in one choice
         agree = compare(results[a].common, results[b].common)
         comparisons.append({"a": a, "b": b, **{k: v for k, v in agree.as_dict().items()
                                                  if k not in ("a", "b")}})
     return entries, comparisons
+
+
+def _related(a: str, b: str) -> bool:
+    """Two scalar-family ids that share the function and smoothing, or the k."""
+    import re
+    def parts(v):
+        m = re.fullmatch(r"ours_f_(\w+?_s\d+)(?:_k(\d+))?", v)
+        if m:
+            return m.group(1), m.group(2) or ""
+        m = re.fullmatch(r"ours_k(\d+)", v)
+        return ("main", m.group(1)) if m else (v, "")
+    (fa, ka), (fb, kb) = parts(a), parts(b)
+    return fa == fb or ka == kb
