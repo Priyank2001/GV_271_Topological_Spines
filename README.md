@@ -424,6 +424,28 @@ thresholds, and 6 p_lo/p_hi pairs each) and run the spine view against a fake re
 matrices, link buffers, picking, selection, pan and zoom). Nothing tests the
 actual WebGL drawing; look at it in a browser.
 
+## Loss landscapes (`landscape/`)
+
+Neural-network loss landscapes as high-dimensional scalar fields: small CIFAR-10 CNNs, their training
+objective in the affine subspace through several trained models (or around one model), f = −log loss so the
+minima are peaks. CIFAR-10 is read from the python pickles (`CIFAR10_ROOT`); trained models and cached loss
+samples go to `data/loss_landscape/` (ignored by git). Findings: `observations.md` (2026-11-24).
+
+```bash
+python3 -m landscape.train --models 4 --epochs 30 [--spawn-epoch 2]   # models -> data/loss_landscape/<run>/
+python3 -m landscape.accuracy --run cnn_m4_e30     # step 2: scattered kNN graph vs a dense PL grid
+python3 -m landscape.slices --run cnn_m6_e30       # step 3: 2-D slices vs the full subspace
+python3 -m landscape.family train --group stage --seed 0; python3 -m landscape.family sample; \
+python3 -m landscape.family sample-subspaces; python3 -m landscape.family analyse   # step 4: topology vs quality
+python3 -m landscape.make_dataset --run cnn_m4_e30 --n 32768   # step 5: dataset for the viewer
+python3 web/build_data.py loss_cnn_m4_e30
+```
+
+Viewer entries `loss_cnn_m4_e30`, `loss_cnn_m4_e30_spawn2` (3-D, k = 15) and `loss_cnn_m6_e30`,
+`loss_cnn_m6_e30_spawn2` (5-D, 65,536 samples, k = 30). Known labels: the trained model nearest to each
+sample; second scalar: accuracy on the evaluation images. The Scatter mode (axes = subspace coordinates) is
+the useful data view; a PCA of a uniformly sampled box shows little.
+
 ## References
 
 1. C. Correa, P. Lindstrom, P.-T. Bremer. *Topological Spines: A

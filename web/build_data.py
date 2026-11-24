@@ -102,6 +102,26 @@ ENTRIES = {
         label="pbmc3k (scRNA-seq, 50D PCA)", dataset="pbmc3k", k=15,
         initial_threshold=0.05, embed=EMBEDS,
         text="2,700 blood cells (10x PBMC 3k) in 50 PCA dimensions; the scalar is kNN density, so peaks are cell populations."),
+    "loss_cnn_m4_e30": dict(
+        label="loss_cnn_m4_e30 (CIFAR-10 loss landscape, 4 independent CNNs, 3D)", dataset="loss_cnn_m4_e30", k=15,
+        initial_threshold=0.02, embed=["pca"],
+        text="Training loss of 4 independently trained CNNs in the 3-D subspace through their weights (32,768 samples). "
+             "Four deep minima, one per model, joined at about chance-level loss (2.2-2.4). Peaks are the MINIMA of the training loss (f = -log loss, scaled 0..1); saddles: the lowest passes between them (barriers); Clustering -> Known labels colours each sample by the trained model it is closest to, to compare with the peak regions. Scalar: switch to accuracy on the evaluation images. Data view: use Scatter (axes u1, u2 = subspace axes) or Parallel; a PCA of a uniformly sampled box shows little."),
+    "loss_cnn_m4_e30_spawn2": dict(
+        label="loss_cnn_m4_e30_spawn2 (CIFAR-10 loss landscape, 4 CNNs from one parent, 3D)", dataset="loss_cnn_m4_e30_spawn2",
+        k=15, initial_threshold=0.01, embed=["pca"],
+        text="4 CNNs trained on from one 2-epoch parent: four shallow minima joined by low saddles (loss 0.44 vs minima "
+             "0.40-0.42). Peaks are the MINIMA of the training loss (f = -log loss, scaled 0..1); saddles: the lowest passes between them (barriers); Clustering -> Known labels colours each sample by the trained model it is closest to, to compare with the peak regions. Scalar: switch to accuracy on the evaluation images. Data view: use Scatter (axes u1, u2 = subspace axes) or Parallel; a PCA of a uniformly sampled box shows little."),
+    "loss_cnn_m6_e30": dict(
+        label="loss_cnn_m6_e30 (CIFAR-10 loss landscape, 6 independent CNNs, 5D)", dataset="loss_cnn_m6_e30", k=30,
+        initial_threshold=0.02, embed=EMBEDS,
+        text="6 independent CNNs, 5-D subspace (65,536 samples, k = 30). Six minima; a 7th weak peak (persistence 0.007, "
+             "hidden at the start) is a sampling artefact: gradient descent from it ends at model 2. Peaks are the MINIMA of the training loss (f = -log loss, scaled 0..1); saddles: the lowest passes between them (barriers); Clustering -> Known labels colours each sample by the trained model it is closest to, to compare with the peak regions. Scalar: switch to accuracy on the evaluation images. Data view: use Scatter (axes u1, u2 = subspace axes) or Parallel; a PCA of a uniformly sampled box shows little."),
+    "loss_cnn_m6_e30_spawn2": dict(
+        label="loss_cnn_m6_e30_spawn2 (CIFAR-10 loss landscape, 6 CNNs from one parent, 5D)", dataset="loss_cnn_m6_e30_spawn2",
+        k=30, initial_threshold=0.005, embed=EMBEDS,
+        text="6 CNNs from one parent, 5-D subspace (65,536 samples, k = 30): six shallow minima, every pair linked "
+             "(15 saddles). Peaks are the MINIMA of the training loss (f = -log loss, scaled 0..1); saddles: the lowest passes between them (barriers); Clustering -> Known labels colours each sample by the trained model it is closest to, to compare with the peak regions. Scalar: switch to accuracy on the evaluation images. Data view: use Scatter (axes u1, u2 = subspace axes) or Parallel; a PCA of a uniformly sampled box shows little."),
     "two_peaks_2d": dict(
         label="two_peaks_2d (2D, simplest case)", dataset="two_peaks_2d", k=15,
         initial_threshold=0.02, embed=["pca"],

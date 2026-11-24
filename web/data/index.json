@@ -4644,6 +4644,2778 @@
    "id": "pbmc3k"
   },
   {
+   "file": "loss_cnn_m4_e30.json",
+   "label": "loss_cnn_m4_e30 (CIFAR-10 loss landscape, 4 independent CNNs, 3D)",
+   "text": "Training loss of 4 independently trained CNNs in the 3-D subspace through their weights (32,768 samples). Four deep minima, one per model, joined at about chance-level loss (2.2-2.4). Peaks are the MINIMA of the training loss (f = -log loss, scaled 0..1); saddles: the lowest passes between them (barriers); Clustering -> Known labels colours each sample by the trained model it is closest to, to compare with the peak regions. Scalar: switch to accuracy on the evaluation images. Data view: use Scatter (axes u1, u2 = subspace axes) or Parallel; a PCA of a uniformly sampled box shows little.",
+   "peaks": 5,
+   "saddles": 10,
+   "spine_stress": 0.13347349652283766,
+   "crossings": 5,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30.json",
+     "peaks": 5,
+     "saddles": 10,
+     "notes": {
+      "maxima": 5,
+      "saddles": 10,
+      "loop_saddles": 6
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
+      "neighbourhood": "the same kNN graph as ours, k = 15 (AnyEG itself takes meshes only)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "loss_cnn_m4_e30.anyeg.json",
+     "peaks": 5,
+     "saddles": 193,
+     "notes": {
+      "maxima": 5,
+      "saddles": 154,
+      "saddles_reaching_3plus": 36,
+      "pieces": 1
+     }
+    },
+    {
+     "id": "ours_gabriel",
+     "label": "Ours, relaxed Gabriel graph",
+     "summary": "Our pipeline on the relaxed Gabriel graph, NDDAV's default neighbourhood.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
+      "neighbourhood": "relaxed Gabriel graph (from the 30 nearest candidates)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30.ours_gabriel.json",
+     "peaks": 7,
+     "saddles": 16,
+     "notes": {
+      "maxima": 7,
+      "saddles": 16,
+      "loop_saddles": 10,
+      "edges": 153064,
+      "mean_degree": 9.3
+     }
+    },
+    {
+     "id": "ours_std",
+     "label": "Ours, standardised input",
+     "summary": "Our pipeline after scaling every coordinate to mean 0 and spread 1.",
+     "simplifiable": true,
+     "traits": {
+      "input": "every coordinate standardised (mean 0, standard deviation 1)",
+      "function": "f as given",
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30.ours_std.json",
+     "peaks": 6,
+     "saddles": 15,
+     "notes": {
+      "maxima": 6,
+      "saddles": 15,
+      "loop_saddles": 10,
+      "edges": 267552,
+      "mean_degree": 16.3
+     }
+    },
+    {
+     "id": "ours_k8",
+     "label": "Ours, f = -log training loss (unsmoothed), k = 8",
+     "summary": "Same points and kNN graph (k = 8); f = -log training loss, unsmoothed. The main function, unscaled.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "-log training loss, unsmoothed",
+      "neighbourhood": "kNN graph, k = 8",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30.ours_k8.json",
+     "peaks": 21,
+     "saddles": 48,
+     "notes": {
+      "maxima": 21,
+      "saddles": 48,
+      "loop_saddles": 28,
+      "edges": 146869,
+      "mean_degree": 9.0
+     }
+    },
+    {
+     "id": "ours_k30",
+     "label": "Ours, f = -log training loss (unsmoothed), k = 30",
+     "summary": "Same points and kNN graph (k = 30); f = -log training loss, unsmoothed. The main function, unscaled.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "-log training loss, unsmoothed",
+      "neighbourhood": "kNN graph, k = 30",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30.ours_k30.json",
+     "peaks": 5,
+     "saddles": 10,
+     "notes": {
+      "maxima": 5,
+      "saddles": 10,
+      "loop_saddles": 6,
+      "edges": 526986,
+      "mean_degree": 32.2
+     }
+    },
+    {
+     "id": "ours_f_acc_s0",
+     "label": "Ours, f = accuracy on the evaluation images (unsmoothed), k = 15",
+     "summary": "Same points and kNN graph (k = 15); f = accuracy on the evaluation images, unsmoothed. Fraction of the 2000 evaluation images classified right.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "accuracy on the evaluation images, unsmoothed",
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30.ours_f_acc_s0.json",
+     "peaks": 18,
+     "saddles": 62,
+     "notes": {
+      "maxima": 18,
+      "saddles": 62,
+      "loop_saddles": 45,
+      "edges": 267212,
+      "mean_degree": 16.3
+     }
+    },
+    {
+     "id": "ours_f_acc_s0_k8",
+     "label": "Ours, f = accuracy on the evaluation images (unsmoothed), k = 8",
+     "summary": "Same points and kNN graph (k = 8); f = accuracy on the evaluation images, unsmoothed. Fraction of the 2000 evaluation images classified right.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "accuracy on the evaluation images, unsmoothed",
+      "neighbourhood": "kNN graph, k = 8",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30.ours_f_acc_s0_k8.json",
+     "peaks": 56,
+     "saddles": 180,
+     "notes": {
+      "maxima": 56,
+      "saddles": 180,
+      "loop_saddles": 125,
+      "edges": 146869,
+      "mean_degree": 9.0
+     }
+    },
+    {
+     "id": "ours_f_acc_s0_k30",
+     "label": "Ours, f = accuracy on the evaluation images (unsmoothed), k = 30",
+     "summary": "Same points and kNN graph (k = 30); f = accuracy on the evaluation images, unsmoothed. Fraction of the 2000 evaluation images classified right.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "accuracy on the evaluation images, unsmoothed",
+      "neighbourhood": "kNN graph, k = 30",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30.ours_f_acc_s0_k30.json",
+     "peaks": 9,
+     "saddles": 25,
+     "notes": {
+      "maxima": 9,
+      "saddles": 25,
+      "loop_saddles": 17,
+      "edges": 526986,
+      "mean_degree": 32.2
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.05806451612903226,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_gabriel",
+     "maxima_jaccard": 0.7142857142857143,
+     "maxima_only_a": 0,
+     "maxima_only_b": 2,
+     "region_agreement": 0.88848876953125,
+     "saddle_jaccard": 0.04,
+     "pair_jaccard": 0.625,
+     "pairs_only_a": 0,
+     "pairs_only_b": 6
+    },
+    {
+     "a": "ours",
+     "b": "ours_std",
+     "maxima_jaccard": 0.8333333333333334,
+     "maxima_only_a": 0,
+     "maxima_only_b": 1,
+     "region_agreement": 0.920654296875,
+     "saddle_jaccard": 0.25,
+     "pair_jaccard": 0.6666666666666666,
+     "pairs_only_a": 0,
+     "pairs_only_b": 5
+    },
+    {
+     "a": "ours",
+     "b": "ours_k8",
+     "maxima_jaccard": 0.23809523809523808,
+     "maxima_only_a": 0,
+     "maxima_only_b": 16,
+     "region_agreement": 0.860015869140625,
+     "saddle_jaccard": 0.11538461538461539,
+     "pair_jaccard": 0.20833333333333334,
+     "pairs_only_a": 0,
+     "pairs_only_b": 38
+    },
+    {
+     "a": "ours",
+     "b": "ours_k30",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.957733154296875,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.045454545454545456,
+     "maxima_only_a": 4,
+     "maxima_only_b": 17,
+     "region_agreement": 0.144561767578125,
+     "saddle_jaccard": 0.016129032258064516,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 10,
+     "pairs_only_b": 62
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.016666666666666666,
+     "maxima_only_a": 4,
+     "maxima_only_b": 55,
+     "region_agreement": 0.07952880859375,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 10,
+     "pairs_only_b": 180
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.07692307692307693,
+     "maxima_only_a": 4,
+     "maxima_only_b": 8,
+     "region_agreement": 0.14495849609375,
+     "saddle_jaccard": 0.030303030303030304,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 10,
+     "pairs_only_b": 25
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_gabriel",
+     "maxima_jaccard": 0.7142857142857143,
+     "maxima_only_a": 0,
+     "maxima_only_b": 2,
+     "region_agreement": 0.88848876953125,
+     "saddle_jaccard": 0.005917159763313609,
+     "pair_jaccard": 0.625,
+     "pairs_only_a": 0,
+     "pairs_only_b": 6
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_std",
+     "maxima_jaccard": 0.8333333333333334,
+     "maxima_only_a": 0,
+     "maxima_only_b": 1,
+     "region_agreement": 0.920654296875,
+     "saddle_jaccard": 0.03048780487804878,
+     "pair_jaccard": 0.6666666666666666,
+     "pairs_only_a": 0,
+     "pairs_only_b": 5
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_k8",
+     "maxima_jaccard": 0.23809523809523808,
+     "maxima_only_a": 0,
+     "maxima_only_b": 16,
+     "region_agreement": 0.860015869140625,
+     "saddle_jaccard": 0.041237113402061855,
+     "pair_jaccard": 0.20833333333333334,
+     "pairs_only_a": 0,
+     "pairs_only_b": 38
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_k30",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.957733154296875,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.045454545454545456,
+     "maxima_only_a": 4,
+     "maxima_only_b": 17,
+     "region_agreement": 0.144561767578125,
+     "saddle_jaccard": 0.00975609756097561,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 10,
+     "pairs_only_b": 62
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.016666666666666666,
+     "maxima_only_a": 4,
+     "maxima_only_b": 55,
+     "region_agreement": 0.07952880859375,
+     "saddle_jaccard": 0.012578616352201259,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 10,
+     "pairs_only_b": 180
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.07692307692307693,
+     "maxima_only_a": 4,
+     "maxima_only_b": 8,
+     "region_agreement": 0.14495849609375,
+     "saddle_jaccard": 0.011363636363636364,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 10,
+     "pairs_only_b": 25
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_std",
+     "maxima_jaccard": 0.625,
+     "maxima_only_a": 2,
+     "maxima_only_b": 1,
+     "region_agreement": 0.83612060546875,
+     "saddle_jaccard": 0.03333333333333333,
+     "pair_jaccard": 0.47619047619047616,
+     "pairs_only_a": 6,
+     "pairs_only_b": 5
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_k8",
+     "maxima_jaccard": 0.21739130434782608,
+     "maxima_only_a": 2,
+     "maxima_only_b": 16,
+     "region_agreement": 0.798858642578125,
+     "saddle_jaccard": 0.03225806451612903,
+     "pair_jaccard": 0.18518518518518517,
+     "pairs_only_a": 6,
+     "pairs_only_b": 38
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_k30",
+     "maxima_jaccard": 0.7142857142857143,
+     "maxima_only_a": 2,
+     "maxima_only_b": 0,
+     "region_agreement": 0.88897705078125,
+     "saddle_jaccard": 0.04,
+     "pair_jaccard": 0.625,
+     "pairs_only_a": 6,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.041666666666666664,
+     "maxima_only_a": 6,
+     "maxima_only_b": 17,
+     "region_agreement": 0.144989013671875,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 16,
+     "pairs_only_b": 62
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.016129032258064516,
+     "maxima_only_a": 6,
+     "maxima_only_b": 55,
+     "region_agreement": 0.0806884765625,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 16,
+     "pairs_only_b": 180
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.06666666666666667,
+     "maxima_only_a": 6,
+     "maxima_only_b": 8,
+     "region_agreement": 0.145721435546875,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 16,
+     "pairs_only_b": 25
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_k8",
+     "maxima_jaccard": 0.2857142857142857,
+     "maxima_only_a": 0,
+     "maxima_only_b": 15,
+     "region_agreement": 0.896240234375,
+     "saddle_jaccard": 0.05,
+     "pair_jaccard": 0.3125,
+     "pairs_only_a": 0,
+     "pairs_only_b": 33
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_k30",
+     "maxima_jaccard": 0.8333333333333334,
+     "maxima_only_a": 1,
+     "maxima_only_b": 0,
+     "region_agreement": 0.9049072265625,
+     "saddle_jaccard": 0.13636363636363635,
+     "pair_jaccard": 0.6666666666666666,
+     "pairs_only_a": 5,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.043478260869565216,
+     "maxima_only_a": 5,
+     "maxima_only_b": 17,
+     "region_agreement": 0.08837890625,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 15,
+     "pairs_only_b": 62
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.03333333333333333,
+     "maxima_only_a": 4,
+     "maxima_only_b": 54,
+     "region_agreement": 0.10498046875,
+     "saddle_jaccard": 0.005494505494505495,
+     "pair_jaccard": 0.005154639175257732,
+     "pairs_only_a": 14,
+     "pairs_only_b": 179
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.07142857142857142,
+     "maxima_only_a": 5,
+     "maxima_only_b": 8,
+     "region_agreement": 0.0887451171875,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 15,
+     "pairs_only_b": 25
+    },
+    {
+     "a": "ours_k8",
+     "b": "ours_k30",
+     "maxima_jaccard": 0.23809523809523808,
+     "maxima_only_a": 16,
+     "maxima_only_b": 0,
+     "region_agreement": 0.860321044921875,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.20833333333333334,
+     "pairs_only_a": 38,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_k8",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.02631578947368421,
+     "maxima_only_a": 20,
+     "maxima_only_b": 17,
+     "region_agreement": 0.08636474609375,
+     "saddle_jaccard": 0.01,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 48,
+     "pairs_only_b": 62
+    },
+    {
+     "a": "ours_k8",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.08450704225352113,
+     "maxima_only_a": 15,
+     "maxima_only_b": 50,
+     "region_agreement": 0.1168212890625,
+     "saddle_jaccard": 0.018867924528301886,
+     "pair_jaccard": 0.013333333333333334,
+     "pairs_only_a": 45,
+     "pairs_only_b": 177
+    },
+    {
+     "a": "ours_k8",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.034482758620689655,
+     "maxima_only_a": 20,
+     "maxima_only_b": 8,
+     "region_agreement": 0.0870361328125,
+     "saddle_jaccard": 0.014084507042253521,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 48,
+     "pairs_only_b": 25
+    },
+    {
+     "a": "ours_k30",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.045454545454545456,
+     "maxima_only_a": 4,
+     "maxima_only_b": 17,
+     "region_agreement": 0.146087646484375,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 10,
+     "pairs_only_b": 62
+    },
+    {
+     "a": "ours_k30",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.016666666666666666,
+     "maxima_only_a": 4,
+     "maxima_only_b": 55,
+     "region_agreement": 0.080322265625,
+     "saddle_jaccard": 0.005649717514124294,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 10,
+     "pairs_only_b": 180
+    },
+    {
+     "a": "ours_k30",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.07692307692307693,
+     "maxima_only_a": 4,
+     "maxima_only_b": 8,
+     "region_agreement": 0.1468505859375,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 10,
+     "pairs_only_b": 25
+    },
+    {
+     "a": "ours_f_acc_s0",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.32142857142857145,
+     "maxima_only_a": 0,
+     "maxima_only_b": 38,
+     "region_agreement": 0.767791748046875,
+     "saddle_jaccard": 0.1218274111675127,
+     "pair_jaccard": 0.1921182266009852,
+     "pairs_only_a": 23,
+     "pairs_only_b": 141
+    },
+    {
+     "a": "ours_f_acc_s0",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.5,
+     "maxima_only_a": 9,
+     "maxima_only_b": 0,
+     "region_agreement": 0.93017578125,
+     "saddle_jaccard": 0.0547945205479452,
+     "pair_jaccard": 0.38095238095238093,
+     "pairs_only_a": 38,
+     "pairs_only_b": 1
+    },
+    {
+     "a": "ours_f_acc_s0_k8",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.16071428571428573,
+     "maxima_only_a": 47,
+     "maxima_only_b": 0,
+     "region_agreement": 0.76544189453125,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.08465608465608465,
+     "pairs_only_a": 164,
+     "pairs_only_b": 9
+    }
+   ],
+   "k": 15,
+   "coords_file": "loss_cnn_m4_e30.coords.json",
+   "classes": "Nearest trained model",
+   "scalars": {
+    "main": "neg_log_loss_s0",
+    "choices": [
+     {
+      "id": "neg_log_loss_s0",
+      "label": "-log training loss (unsmoothed)"
+     },
+     {
+      "id": "acc_s0",
+      "label": "accuracy on the evaluation images (unsmoothed)"
+     }
+    ]
+   },
+   "id": "loss_cnn_m4_e30"
+  },
+  {
+   "file": "loss_cnn_m4_e30_spawn2.json",
+   "label": "loss_cnn_m4_e30_spawn2 (CIFAR-10 loss landscape, 4 CNNs from one parent, 3D)",
+   "text": "4 CNNs trained on from one 2-epoch parent: four shallow minima joined by low saddles (loss 0.44 vs minima 0.40-0.42). Peaks are the MINIMA of the training loss (f = -log loss, scaled 0..1); saddles: the lowest passes between them (barriers); Clustering -> Known labels colours each sample by the trained model it is closest to, to compare with the peak regions. Scalar: switch to accuracy on the evaluation images. Data view: use Scatter (axes u1, u2 = subspace axes) or Parallel; a PCA of a uniformly sampled box shows little.",
+   "peaks": 4,
+   "saddles": 6,
+   "spine_stress": 0.20320168692958976,
+   "crossings": 1,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30_spawn2.json",
+     "peaks": 4,
+     "saddles": 6,
+     "notes": {
+      "maxima": 4,
+      "saddles": 6,
+      "loop_saddles": 3
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
+      "neighbourhood": "the same kNN graph as ours, k = 15 (AnyEG itself takes meshes only)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "loss_cnn_m4_e30_spawn2.anyeg.json",
+     "peaks": 4,
+     "saddles": 137,
+     "notes": {
+      "maxima": 4,
+      "saddles": 126,
+      "saddles_reaching_3plus": 11,
+      "pieces": 1
+     }
+    },
+    {
+     "id": "ours_gabriel",
+     "label": "Ours, relaxed Gabriel graph",
+     "summary": "Our pipeline on the relaxed Gabriel graph, NDDAV's default neighbourhood.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
+      "neighbourhood": "relaxed Gabriel graph (from the 30 nearest candidates)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30_spawn2.ours_gabriel.json",
+     "peaks": 5,
+     "saddles": 8,
+     "notes": {
+      "maxima": 5,
+      "saddles": 8,
+      "loop_saddles": 4,
+      "edges": 153196,
+      "mean_degree": 9.4
+     }
+    },
+    {
+     "id": "ours_std",
+     "label": "Ours, standardised input",
+     "summary": "Our pipeline after scaling every coordinate to mean 0 and spread 1.",
+     "simplifiable": true,
+     "traits": {
+      "input": "every coordinate standardised (mean 0, standard deviation 1)",
+      "function": "f as given",
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30_spawn2.ours_std.json",
+     "peaks": 4,
+     "saddles": 6,
+     "notes": {
+      "maxima": 4,
+      "saddles": 6,
+      "loop_saddles": 3,
+      "edges": 267552,
+      "mean_degree": 16.3
+     }
+    },
+    {
+     "id": "ours_k8",
+     "label": "Ours, f = -log training loss (unsmoothed), k = 8",
+     "summary": "Same points and kNN graph (k = 8); f = -log training loss, unsmoothed. The main function, unscaled.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "-log training loss, unsmoothed",
+      "neighbourhood": "kNN graph, k = 8",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30_spawn2.ours_k8.json",
+     "peaks": 17,
+     "saddles": 35,
+     "notes": {
+      "maxima": 17,
+      "saddles": 35,
+      "loop_saddles": 19,
+      "edges": 146870,
+      "mean_degree": 9.0
+     }
+    },
+    {
+     "id": "ours_k30",
+     "label": "Ours, f = -log training loss (unsmoothed), k = 30",
+     "summary": "Same points and kNN graph (k = 30); f = -log training loss, unsmoothed. The main function, unscaled.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "-log training loss, unsmoothed",
+      "neighbourhood": "kNN graph, k = 30",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30_spawn2.ours_k30.json",
+     "peaks": 4,
+     "saddles": 6,
+     "notes": {
+      "maxima": 4,
+      "saddles": 6,
+      "loop_saddles": 3,
+      "edges": 526887,
+      "mean_degree": 32.2
+     }
+    },
+    {
+     "id": "ours_f_acc_s0",
+     "label": "Ours, f = accuracy on the evaluation images (unsmoothed), k = 15",
+     "summary": "Same points and kNN graph (k = 15); f = accuracy on the evaluation images, unsmoothed. Fraction of the 2000 evaluation images classified right.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "accuracy on the evaluation images, unsmoothed",
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30_spawn2.ours_f_acc_s0.json",
+     "peaks": 108,
+     "saddles": 581,
+     "notes": {
+      "maxima": 108,
+      "saddles": 581,
+      "loop_saddles": 474,
+      "edges": 267172,
+      "mean_degree": 16.3
+     }
+    },
+    {
+     "id": "ours_f_acc_s0_k8",
+     "label": "Ours, f = accuracy on the evaluation images (unsmoothed), k = 8",
+     "summary": "Same points and kNN graph (k = 8); f = accuracy on the evaluation images, unsmoothed. Fraction of the 2000 evaluation images classified right.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "accuracy on the evaluation images, unsmoothed",
+      "neighbourhood": "kNN graph, k = 8",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30_spawn2.ours_f_acc_s0_k8.json",
+     "peaks": 362,
+     "saddles": 1967,
+     "notes": {
+      "maxima": 362,
+      "saddles": 1967,
+      "loop_saddles": 1606,
+      "edges": 146870,
+      "mean_degree": 9.0
+     }
+    },
+    {
+     "id": "ours_f_acc_s0_k30",
+     "label": "Ours, f = accuracy on the evaluation images (unsmoothed), k = 30",
+     "summary": "Same points and kNN graph (k = 30); f = accuracy on the evaluation images, unsmoothed. Fraction of the 2000 evaluation images classified right.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "accuracy on the evaluation images, unsmoothed",
+      "neighbourhood": "kNN graph, k = 30",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m4_e30_spawn2.ours_f_acc_s0_k30.json",
+     "peaks": 39,
+     "saddles": 182,
+     "notes": {
+      "maxima": 39,
+      "saddles": 182,
+      "loop_saddles": 144,
+      "edges": 526887,
+      "mean_degree": 32.2
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.047619047619047616,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_gabriel",
+     "maxima_jaccard": 0.8,
+     "maxima_only_a": 0,
+     "maxima_only_b": 1,
+     "region_agreement": 0.935546875,
+     "saddle_jaccard": 0.16666666666666666,
+     "pair_jaccard": 0.75,
+     "pairs_only_a": 0,
+     "pairs_only_b": 2
+    },
+    {
+     "a": "ours",
+     "b": "ours_std",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.959442138671875,
+     "saddle_jaccard": 0.7142857142857143,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_k8",
+     "maxima_jaccard": 0.23529411764705882,
+     "maxima_only_a": 0,
+     "maxima_only_b": 13,
+     "region_agreement": 0.792266845703125,
+     "saddle_jaccard": 0.02564102564102564,
+     "pair_jaccard": 0.17142857142857143,
+     "pairs_only_a": 0,
+     "pairs_only_b": 29
+    },
+    {
+     "a": "ours",
+     "b": "ours_k30",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.944427490234375,
+     "saddle_jaccard": 0.2,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 4,
+     "maxima_only_b": 108,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 6,
+     "pairs_only_b": 581
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.0027397260273972603,
+     "maxima_only_a": 3,
+     "maxima_only_b": 361,
+     "region_agreement": 0.009552001953125,
+     "saddle_jaccard": 0.000555247084952804,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 6,
+     "pairs_only_b": 1967
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 4,
+     "maxima_only_b": 39,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 6,
+     "pairs_only_b": 182
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_gabriel",
+     "maxima_jaccard": 0.8,
+     "maxima_only_a": 0,
+     "maxima_only_b": 1,
+     "region_agreement": 0.935546875,
+     "saddle_jaccard": 0.022900763358778626,
+     "pair_jaccard": 0.75,
+     "pairs_only_a": 0,
+     "pairs_only_b": 2
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_std",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.959442138671875,
+     "saddle_jaccard": 0.03937007874015748,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_k8",
+     "maxima_jaccard": 0.23529411764705882,
+     "maxima_only_a": 0,
+     "maxima_only_b": 13,
+     "region_agreement": 0.792266845703125,
+     "saddle_jaccard": 0.012658227848101266,
+     "pair_jaccard": 0.17142857142857143,
+     "pairs_only_a": 0,
+     "pairs_only_b": 29
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_k30",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.944427490234375,
+     "saddle_jaccard": 0.015384615384615385,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 4,
+     "maxima_only_b": 108,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.00916030534351145,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 6,
+     "pairs_only_b": 581
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.0027397260273972603,
+     "maxima_only_a": 3,
+     "maxima_only_b": 361,
+     "region_agreement": 0.009552001953125,
+     "saddle_jaccard": 0.006809848088004191,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 6,
+     "pairs_only_b": 1967
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 4,
+     "maxima_only_b": 39,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.006711409395973154,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 6,
+     "pairs_only_b": 182
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_std",
+     "maxima_jaccard": 0.8,
+     "maxima_only_a": 1,
+     "maxima_only_b": 0,
+     "region_agreement": 0.930633544921875,
+     "saddle_jaccard": 0.2727272727272727,
+     "pair_jaccard": 0.75,
+     "pairs_only_a": 2,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_k8",
+     "maxima_jaccard": 0.2222222222222222,
+     "maxima_only_a": 1,
+     "maxima_only_b": 13,
+     "region_agreement": 0.79071044921875,
+     "saddle_jaccard": 0.13513513513513514,
+     "pair_jaccard": 0.16216216216216217,
+     "pairs_only_a": 2,
+     "pairs_only_b": 29
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_k30",
+     "maxima_jaccard": 0.8,
+     "maxima_only_a": 1,
+     "maxima_only_b": 0,
+     "region_agreement": 0.9359130859375,
+     "saddle_jaccard": 0.07692307692307693,
+     "pair_jaccard": 0.75,
+     "pairs_only_a": 2,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 5,
+     "maxima_only_b": 108,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.0018450184501845018,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 8,
+     "pairs_only_b": 581
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.00273224043715847,
+     "maxima_only_a": 4,
+     "maxima_only_b": 361,
+     "region_agreement": 0.00946044921875,
+     "saddle_jaccard": 0.0011098779134295228,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 8,
+     "pairs_only_b": 1967
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 5,
+     "maxima_only_b": 39,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 8,
+     "pairs_only_b": 182
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_k8",
+     "maxima_jaccard": 0.23529411764705882,
+     "maxima_only_a": 0,
+     "maxima_only_b": 13,
+     "region_agreement": 0.786529541015625,
+     "saddle_jaccard": 0.05263157894736842,
+     "pair_jaccard": 0.17142857142857143,
+     "pairs_only_a": 0,
+     "pairs_only_b": 29
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_k30",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.94219970703125,
+     "saddle_jaccard": 0.09090909090909091,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 4,
+     "maxima_only_b": 108,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 6,
+     "pairs_only_b": 581
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.0027397260273972603,
+     "maxima_only_a": 3,
+     "maxima_only_b": 361,
+     "region_agreement": 0.00946044921875,
+     "saddle_jaccard": 0.0011111111111111111,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 6,
+     "pairs_only_b": 1967
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 4,
+     "maxima_only_b": 39,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 6,
+     "pairs_only_b": 182
+    },
+    {
+     "a": "ours_k8",
+     "b": "ours_k30",
+     "maxima_jaccard": 0.23529411764705882,
+     "maxima_only_a": 13,
+     "maxima_only_b": 0,
+     "region_agreement": 0.79254150390625,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.17142857142857143,
+     "pairs_only_a": 29,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_k8",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 17,
+     "maxima_only_b": 108,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.003527336860670194,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 35,
+     "pairs_only_b": 581
+    },
+    {
+     "a": "ours_k8",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.0026455026455026454,
+     "maxima_only_a": 16,
+     "maxima_only_b": 361,
+     "region_agreement": 0.009002685546875,
+     "saddle_jaccard": 0.003289473684210526,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 35,
+     "pairs_only_b": 1967
+    },
+    {
+     "a": "ours_k8",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 17,
+     "maxima_only_b": 39,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 35,
+     "pairs_only_b": 182
+    },
+    {
+     "a": "ours_k30",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 4,
+     "maxima_only_b": 108,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.001851851851851852,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 6,
+     "pairs_only_b": 581
+    },
+    {
+     "a": "ours_k30",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.0027397260273972603,
+     "maxima_only_a": 3,
+     "maxima_only_b": 361,
+     "region_agreement": 0.0096435546875,
+     "saddle_jaccard": 0.000555247084952804,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 6,
+     "pairs_only_b": 1967
+    },
+    {
+     "a": "ours_k30",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.0,
+     "maxima_only_a": 4,
+     "maxima_only_b": 39,
+     "region_agreement": 0.0,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.0,
+     "pairs_only_a": 6,
+     "pairs_only_b": 182
+    },
+    {
+     "a": "ours_f_acc_s0",
+     "b": "ours_f_acc_s0_k8",
+     "maxima_jaccard": 0.2983425414364641,
+     "maxima_only_a": 0,
+     "maxima_only_b": 254,
+     "region_agreement": 0.368255615234375,
+     "saddle_jaccard": 0.09590973201692525,
+     "pair_jaccard": 0.12693498452012383,
+     "pairs_only_a": 294,
+     "pairs_only_b": 1680
+    },
+    {
+     "a": "ours_f_acc_s0",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.3611111111111111,
+     "maxima_only_a": 69,
+     "maxima_only_b": 0,
+     "region_agreement": 0.490234375,
+     "saddle_jaccard": 0.0693815987933635,
+     "pair_jaccard": 0.18847352024922118,
+     "pairs_only_a": 460,
+     "pairs_only_b": 61
+    },
+    {
+     "a": "ours_f_acc_s0_k8",
+     "b": "ours_f_acc_s0_k30",
+     "maxima_jaccard": 0.10773480662983426,
+     "maxima_only_a": 323,
+     "maxima_only_b": 0,
+     "region_agreement": 0.25714111328125,
+     "saddle_jaccard": 0.02390852390852391,
+     "pair_jaccard": 0.031190019193857964,
+     "pairs_only_a": 1902,
+     "pairs_only_b": 117
+    }
+   ],
+   "k": 15,
+   "coords_file": "loss_cnn_m4_e30_spawn2.coords.json",
+   "classes": "Nearest trained model",
+   "scalars": {
+    "main": "neg_log_loss_s0",
+    "choices": [
+     {
+      "id": "neg_log_loss_s0",
+      "label": "-log training loss (unsmoothed)"
+     },
+     {
+      "id": "acc_s0",
+      "label": "accuracy on the evaluation images (unsmoothed)"
+     }
+    ]
+   },
+   "id": "loss_cnn_m4_e30_spawn2"
+  },
+  {
+   "file": "loss_cnn_m6_e30.json",
+   "label": "loss_cnn_m6_e30 (CIFAR-10 loss landscape, 6 independent CNNs, 5D)",
+   "text": "6 independent CNNs, 5-D subspace (65,536 samples, k = 30). Six minima; a 7th weak peak (persistence 0.007, hidden at the start) is a sampling artefact: gradient descent from it ends at model 2. Peaks are the MINIMA of the training loss (f = -log loss, scaled 0..1); saddles: the lowest passes between them (barriers); Clustering -> Known labels colours each sample by the trained model it is closest to, to compare with the peak regions. Scalar: switch to accuracy on the evaluation images. Data view: use Scatter (axes u1, u2 = subspace axes) or Parallel; a PCA of a uniformly sampled box shows little.",
+   "peaks": 7,
+   "saddles": 21,
+   "spine_stress": 0.29135037955921234,
+   "crossings": 32,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
+      "neighbourhood": "kNN graph, k = 30",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30.json",
+     "peaks": 7,
+     "saddles": 21,
+     "notes": {
+      "maxima": 7,
+      "saddles": 21,
+      "loop_saddles": 15
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
+      "neighbourhood": "the same kNN graph as ours, k = 30 (AnyEG itself takes meshes only)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "loss_cnn_m6_e30.anyeg.json",
+     "peaks": 7,
+     "saddles": 1705,
+     "notes": {
+      "maxima": 7,
+      "saddles": 879,
+      "saddles_reaching_3plus": 530,
+      "pieces": 1
+     }
+    },
+    {
+     "id": "ours_gabriel",
+     "label": "Ours, relaxed Gabriel graph",
+     "summary": "Our pipeline on the relaxed Gabriel graph, NDDAV's default neighbourhood.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
+      "neighbourhood": "relaxed Gabriel graph (from the 30 nearest candidates)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30.ours_gabriel.json",
+     "peaks": 7,
+     "saddles": 21,
+     "notes": {
+      "maxima": 7,
+      "saddles": 21,
+      "loop_saddles": 15,
+      "edges": 792976,
+      "mean_degree": 24.2
+     }
+    },
+    {
+     "id": "ours_std",
+     "label": "Ours, standardised input",
+     "summary": "Our pipeline after scaling every coordinate to mean 0 and spread 1.",
+     "simplifiable": true,
+     "traits": {
+      "input": "every coordinate standardised (mean 0, standard deviation 1)",
+      "function": "f as given",
+      "neighbourhood": "kNN graph, k = 30",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30.ours_std.json",
+     "peaks": 7,
+     "saddles": 21,
+     "notes": {
+      "maxima": 7,
+      "saddles": 21,
+      "loop_saddles": 15,
+      "edges": 1110764,
+      "mean_degree": 33.9
+     }
+    },
+    {
+     "id": "ours_k15",
+     "label": "Ours, f = -log training loss (unsmoothed), k = 15",
+     "summary": "Same points and kNN graph (k = 15); f = -log training loss, unsmoothed. The main function, unscaled.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "-log training loss, unsmoothed",
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30.ours_k15.json",
+     "peaks": 15,
+     "saddles": 98,
+     "notes": {
+      "maxima": 15,
+      "saddles": 98,
+      "loop_saddles": 84,
+      "edges": 561798,
+      "mean_degree": 17.1
+     }
+    },
+    {
+     "id": "ours_k50",
+     "label": "Ours, f = -log training loss (unsmoothed), k = 50",
+     "summary": "Same points and kNN graph (k = 50); f = -log training loss, unsmoothed. The main function, unscaled.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "-log training loss, unsmoothed",
+      "neighbourhood": "kNN graph, k = 50",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30.ours_k50.json",
+     "peaks": 7,
+     "saddles": 21,
+     "notes": {
+      "maxima": 7,
+      "saddles": 21,
+      "loop_saddles": 15,
+      "edges": 1850846,
+      "mean_degree": 56.5
+     }
+    },
+    {
+     "id": "ours_f_acc_s0",
+     "label": "Ours, f = accuracy on the evaluation images (unsmoothed), k = 30",
+     "summary": "Same points and kNN graph (k = 30); f = accuracy on the evaluation images, unsmoothed. Fraction of the 2000 evaluation images classified right.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "accuracy on the evaluation images, unsmoothed",
+      "neighbourhood": "kNN graph, k = 30",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30.ours_f_acc_s0.json",
+     "peaks": 12,
+     "saddles": 38,
+     "notes": {
+      "maxima": 12,
+      "saddles": 38,
+      "loop_saddles": 27,
+      "edges": 1109673,
+      "mean_degree": 33.9
+     }
+    },
+    {
+     "id": "ours_f_acc_s0_k15",
+     "label": "Ours, f = accuracy on the evaluation images (unsmoothed), k = 15",
+     "summary": "Same points and kNN graph (k = 15); f = accuracy on the evaluation images, unsmoothed. Fraction of the 2000 evaluation images classified right.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "accuracy on the evaluation images, unsmoothed",
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30.ours_f_acc_s0_k15.json",
+     "peaks": 30,
+     "saddles": 149,
+     "notes": {
+      "maxima": 30,
+      "saddles": 149,
+      "loop_saddles": 120,
+      "edges": 561798,
+      "mean_degree": 17.1
+     }
+    },
+    {
+     "id": "ours_f_acc_s0_k50",
+     "label": "Ours, f = accuracy on the evaluation images (unsmoothed), k = 50",
+     "summary": "Same points and kNN graph (k = 50); f = accuracy on the evaluation images, unsmoothed. Fraction of the 2000 evaluation images classified right.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "accuracy on the evaluation images, unsmoothed",
+      "neighbourhood": "kNN graph, k = 50",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30.ours_f_acc_s0_k50.json",
+     "peaks": 8,
+     "saddles": 22,
+     "notes": {
+      "maxima": 8,
+      "saddles": 22,
+      "loop_saddles": 15,
+      "edges": 1850846,
+      "mean_degree": 56.5
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.02040816326530612,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_gabriel",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.8291778564453125,
+     "saddle_jaccard": 0.4482758620689655,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_std",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.8573150634765625,
+     "saddle_jaccard": 0.5,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_k15",
+     "maxima_jaccard": 0.4666666666666667,
+     "maxima_only_a": 0,
+     "maxima_only_b": 8,
+     "region_agreement": 0.5158843994140625,
+     "saddle_jaccard": 0.07476635514018691,
+     "pair_jaccard": 0.21428571428571427,
+     "pairs_only_a": 0,
+     "pairs_only_b": 77
+    },
+    {
+     "a": "ours",
+     "b": "ours_k50",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.800872802734375,
+     "saddle_jaccard": 0.23529411764705882,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.46153846153846156,
+     "maxima_only_a": 1,
+     "maxima_only_b": 6,
+     "region_agreement": 0.7562103271484375,
+     "saddle_jaccard": 0.1,
+     "pair_jaccard": 0.3409090909090909,
+     "pairs_only_a": 6,
+     "pairs_only_b": 23
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.1935483870967742,
+     "maxima_only_a": 1,
+     "maxima_only_b": 24,
+     "region_agreement": 0.5154266357421875,
+     "saddle_jaccard": 0.01875,
+     "pair_jaccard": 0.0967741935483871,
+     "pairs_only_a": 6,
+     "pairs_only_b": 134
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.6666666666666666,
+     "maxima_only_a": 1,
+     "maxima_only_b": 2,
+     "region_agreement": 0.7881927490234375,
+     "saddle_jaccard": 0.023809523809523808,
+     "pair_jaccard": 0.5357142857142857,
+     "pairs_only_a": 6,
+     "pairs_only_b": 7
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_gabriel",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.8291778564453125,
+     "saddle_jaccard": 0.01925254813137033,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_std",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.8573150634765625,
+     "saddle_jaccard": 0.01925254813137033,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_k15",
+     "maxima_jaccard": 0.4666666666666667,
+     "maxima_only_a": 0,
+     "maxima_only_b": 8,
+     "region_agreement": 0.5158843994140625,
+     "saddle_jaccard": 0.019916142557651992,
+     "pair_jaccard": 0.21428571428571427,
+     "pairs_only_a": 0,
+     "pairs_only_b": 77
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_k50",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.800872802734375,
+     "saddle_jaccard": 0.011235955056179775,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.46153846153846156,
+     "maxima_only_a": 1,
+     "maxima_only_b": 6,
+     "region_agreement": 0.7562103271484375,
+     "saddle_jaccard": 0.00772626931567329,
+     "pair_jaccard": 0.3409090909090909,
+     "pairs_only_a": 6,
+     "pairs_only_b": 23
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.1935483870967742,
+     "maxima_only_a": 1,
+     "maxima_only_b": 24,
+     "region_agreement": 0.5154266357421875,
+     "saddle_jaccard": 0.006903353057199211,
+     "pair_jaccard": 0.0967741935483871,
+     "pairs_only_a": 6,
+     "pairs_only_b": 134
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.6666666666666666,
+     "maxima_only_a": 1,
+     "maxima_only_b": 2,
+     "region_agreement": 0.7881927490234375,
+     "saddle_jaccard": 0.0033407572383073497,
+     "pair_jaccard": 0.5357142857142857,
+     "pairs_only_a": 6,
+     "pairs_only_b": 7
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_std",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.8015289306640625,
+     "saddle_jaccard": 0.5,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_k15",
+     "maxima_jaccard": 0.4666666666666667,
+     "maxima_only_a": 0,
+     "maxima_only_b": 8,
+     "region_agreement": 0.51116943359375,
+     "saddle_jaccard": 0.08490566037735849,
+     "pair_jaccard": 0.21428571428571427,
+     "pairs_only_a": 0,
+     "pairs_only_b": 77
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_k50",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.773345947265625,
+     "saddle_jaccard": 0.16666666666666666,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.46153846153846156,
+     "maxima_only_a": 1,
+     "maxima_only_b": 6,
+     "region_agreement": 0.73687744140625,
+     "saddle_jaccard": 0.0784313725490196,
+     "pair_jaccard": 0.3409090909090909,
+     "pairs_only_a": 6,
+     "pairs_only_b": 23
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.1935483870967742,
+     "maxima_only_a": 1,
+     "maxima_only_b": 24,
+     "region_agreement": 0.507476806640625,
+     "saddle_jaccard": 0.025157232704402517,
+     "pair_jaccard": 0.0967741935483871,
+     "pairs_only_a": 6,
+     "pairs_only_b": 134
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.6666666666666666,
+     "maxima_only_a": 1,
+     "maxima_only_b": 2,
+     "region_agreement": 0.76177978515625,
+     "saddle_jaccard": 0.023809523809523808,
+     "pair_jaccard": 0.5357142857142857,
+     "pairs_only_a": 6,
+     "pairs_only_b": 7
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_k15",
+     "maxima_jaccard": 0.4666666666666667,
+     "maxima_only_a": 0,
+     "maxima_only_b": 8,
+     "region_agreement": 0.509490966796875,
+     "saddle_jaccard": 0.07476635514018691,
+     "pair_jaccard": 0.21428571428571427,
+     "pairs_only_a": 0,
+     "pairs_only_b": 77
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_k50",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.8047943115234375,
+     "saddle_jaccard": 0.2,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.46153846153846156,
+     "maxima_only_a": 1,
+     "maxima_only_b": 6,
+     "region_agreement": 0.7647857666015625,
+     "saddle_jaccard": 0.057692307692307696,
+     "pair_jaccard": 0.3409090909090909,
+     "pairs_only_a": 6,
+     "pairs_only_b": 23
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.1935483870967742,
+     "maxima_only_a": 1,
+     "maxima_only_b": 24,
+     "region_agreement": 0.5214080810546875,
+     "saddle_jaccard": 0.01875,
+     "pair_jaccard": 0.0967741935483871,
+     "pairs_only_a": 6,
+     "pairs_only_b": 134
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.6666666666666666,
+     "maxima_only_a": 1,
+     "maxima_only_b": 2,
+     "region_agreement": 0.808685302734375,
+     "saddle_jaccard": 0.023809523809523808,
+     "pair_jaccard": 0.5357142857142857,
+     "pairs_only_a": 6,
+     "pairs_only_b": 7
+    },
+    {
+     "a": "ours_k15",
+     "b": "ours_k50",
+     "maxima_jaccard": 0.4666666666666667,
+     "maxima_only_a": 8,
+     "maxima_only_b": 0,
+     "region_agreement": 0.5172271728515625,
+     "saddle_jaccard": 0.026785714285714284,
+     "pair_jaccard": 0.21428571428571427,
+     "pairs_only_a": 77,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_k15",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.2857142857142857,
+     "maxima_only_a": 9,
+     "maxima_only_b": 6,
+     "region_agreement": 0.471466064453125,
+     "saddle_jaccard": 0.024,
+     "pair_jaccard": 0.12396694214876033,
+     "pairs_only_a": 83,
+     "pairs_only_b": 23
+    },
+    {
+     "a": "ours_k15",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.25,
+     "maxima_only_a": 6,
+     "maxima_only_b": 21,
+     "region_agreement": 0.5860595703125,
+     "saddle_jaccard": 0.03508771929824561,
+     "pair_jaccard": 0.1596244131455399,
+     "pairs_only_a": 64,
+     "pairs_only_b": 115
+    },
+    {
+     "a": "ours_k15",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.35294117647058826,
+     "maxima_only_a": 9,
+     "maxima_only_b": 2,
+     "region_agreement": 0.499481201171875,
+     "saddle_jaccard": 0.008695652173913044,
+     "pair_jaccard": 0.14285714285714285,
+     "pairs_only_a": 83,
+     "pairs_only_b": 7
+    },
+    {
+     "a": "ours_k50",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.46153846153846156,
+     "maxima_only_a": 1,
+     "maxima_only_b": 6,
+     "region_agreement": 0.762115478515625,
+     "saddle_jaccard": 0.03773584905660377,
+     "pair_jaccard": 0.3409090909090909,
+     "pairs_only_a": 6,
+     "pairs_only_b": 23
+    },
+    {
+     "a": "ours_k50",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.1935483870967742,
+     "maxima_only_a": 1,
+     "maxima_only_b": 24,
+     "region_agreement": 0.5229644775390625,
+     "saddle_jaccard": 0.012422360248447204,
+     "pair_jaccard": 0.0967741935483871,
+     "pairs_only_a": 6,
+     "pairs_only_b": 134
+    },
+    {
+     "a": "ours_k50",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.6666666666666666,
+     "maxima_only_a": 1,
+     "maxima_only_b": 2,
+     "region_agreement": 0.797027587890625,
+     "saddle_jaccard": 0.075,
+     "pair_jaccard": 0.5357142857142857,
+     "pairs_only_a": 6,
+     "pairs_only_b": 7
+    },
+    {
+     "a": "ours_f_acc_s0",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.4,
+     "maxima_only_a": 0,
+     "maxima_only_b": 18,
+     "region_agreement": 0.6276702880859375,
+     "saddle_jaccard": 0.07975460122699386,
+     "pair_jaccard": 0.21428571428571427,
+     "pairs_only_a": 5,
+     "pairs_only_b": 116
+    },
+    {
+     "a": "ours_f_acc_s0",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.6666666666666666,
+     "maxima_only_a": 4,
+     "maxima_only_b": 0,
+     "region_agreement": 0.864013671875,
+     "saddle_jaccard": 0.2727272727272727,
+     "pair_jaccard": 0.5,
+     "pairs_only_a": 18,
+     "pairs_only_b": 2
+    },
+    {
+     "a": "ours_f_acc_s0_k15",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.26666666666666666,
+     "maxima_only_a": 22,
+     "maxima_only_b": 0,
+     "region_agreement": 0.5914764404296875,
+     "saddle_jaccard": 0.031446540880503145,
+     "pair_jaccard": 0.13245033112582782,
+     "pairs_only_a": 129,
+     "pairs_only_b": 2
+    }
+   ],
+   "k": 30,
+   "coords_file": "loss_cnn_m6_e30.coords.json",
+   "classes": "Nearest trained model",
+   "scalars": {
+    "main": "neg_log_loss_s0",
+    "choices": [
+     {
+      "id": "neg_log_loss_s0",
+      "label": "-log training loss (unsmoothed)"
+     },
+     {
+      "id": "acc_s0",
+      "label": "accuracy on the evaluation images (unsmoothed)"
+     }
+    ]
+   },
+   "id": "loss_cnn_m6_e30"
+  },
+  {
+   "file": "loss_cnn_m6_e30_spawn2.json",
+   "label": "loss_cnn_m6_e30_spawn2 (CIFAR-10 loss landscape, 6 CNNs from one parent, 5D)",
+   "text": "6 CNNs from one parent, 5-D subspace (65,536 samples, k = 30): six shallow minima, every pair linked (15 saddles). Peaks are the MINIMA of the training loss (f = -log loss, scaled 0..1); saddles: the lowest passes between them (barriers); Clustering -> Known labels colours each sample by the trained model it is closest to, to compare with the peak regions. Scalar: switch to accuracy on the evaluation images. Data view: use Scatter (axes u1, u2 = subspace axes) or Parallel; a PCA of a uniformly sampled box shows little.",
+   "peaks": 7,
+   "saddles": 21,
+   "spine_stress": 0.25380209534260273,
+   "crossings": 44,
+   "variants": [
+    {
+     "id": "ours",
+     "label": "Ours",
+     "summary": "Our pipeline: steepest ascent, the highest pass between touching basins, then persistence simplification.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
+      "neighbourhood": "kNN graph, k = 30",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30_spawn2.json",
+     "peaks": 7,
+     "saddles": 21,
+     "notes": {
+      "maxima": 7,
+      "saddles": 21,
+      "loop_saddles": 15
+     }
+    },
+    {
+     "id": "anyeg",
+     "label": "AnyEG",
+     "summary": "AnyEG (BuptCIAGroup): steepest ascent on the GPU, true saddles by an upper-link test, arcs to every neighbouring basin; no simplification.",
+     "simplifiable": false,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "the (value, index) rank of f for every comparison; f itself only for the arc height filter",
+      "neighbourhood": "the same kNN graph as ours, k = 30 (AnyEG itself takes meshes only)",
+      "ties": "AnyEG breaks none; here values are replaced by their (value, index) rank first",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "a saddle gets an arc to every basin among its neighbours, also through lower neighbours, so it can join three or more maxima",
+      "loops": "no filter: every saddle is kept",
+      "simplification": "none: every maximum and saddle is shown, the slider does not apply"
+     },
+     "file": "loss_cnn_m6_e30_spawn2.anyeg.json",
+     "peaks": 7,
+     "saddles": 1290,
+     "notes": {
+      "maxima": 7,
+      "saddles": 735,
+      "saddles_reaching_3plus": 412,
+      "pieces": 1
+     }
+    },
+    {
+     "id": "ours_gabriel",
+     "label": "Ours, relaxed Gabriel graph",
+     "summary": "Our pipeline on the relaxed Gabriel graph, NDDAV's default neighbourhood.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "f as given",
+      "neighbourhood": "relaxed Gabriel graph (from the 30 nearest candidates)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30_spawn2.ours_gabriel.json",
+     "peaks": 8,
+     "saddles": 28,
+     "notes": {
+      "maxima": 8,
+      "saddles": 28,
+      "loop_saddles": 21,
+      "edges": 791935,
+      "mean_degree": 24.2
+     }
+    },
+    {
+     "id": "ours_std",
+     "label": "Ours, standardised input",
+     "summary": "Our pipeline after scaling every coordinate to mean 0 and spread 1.",
+     "simplifiable": true,
+     "traits": {
+      "input": "every coordinate standardised (mean 0, standard deviation 1)",
+      "function": "f as given",
+      "neighbourhood": "kNN graph, k = 30",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30_spawn2.ours_std.json",
+     "peaks": 8,
+     "saddles": 28,
+     "notes": {
+      "maxima": 8,
+      "saddles": 28,
+      "loop_saddles": 21,
+      "edges": 1110764,
+      "mean_degree": 33.9
+     }
+    },
+    {
+     "id": "ours_k15",
+     "label": "Ours, f = -log training loss (unsmoothed), k = 15",
+     "summary": "Same points and kNN graph (k = 15); f = -log training loss, unsmoothed. The main function, unscaled.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "-log training loss, unsmoothed",
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30_spawn2.ours_k15.json",
+     "peaks": 13,
+     "saddles": 61,
+     "notes": {
+      "maxima": 13,
+      "saddles": 61,
+      "loop_saddles": 49,
+      "edges": 561858,
+      "mean_degree": 17.1
+     }
+    },
+    {
+     "id": "ours_k50",
+     "label": "Ours, f = -log training loss (unsmoothed), k = 50",
+     "summary": "Same points and kNN graph (k = 50); f = -log training loss, unsmoothed. The main function, unscaled.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "-log training loss, unsmoothed",
+      "neighbourhood": "kNN graph, k = 50",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30_spawn2.ours_k50.json",
+     "peaks": 6,
+     "saddles": 15,
+     "notes": {
+      "maxima": 6,
+      "saddles": 15,
+      "loop_saddles": 10,
+      "edges": 1850814,
+      "mean_degree": 56.5
+     }
+    },
+    {
+     "id": "ours_f_acc_s0",
+     "label": "Ours, f = accuracy on the evaluation images (unsmoothed), k = 30",
+     "summary": "Same points and kNN graph (k = 30); f = accuracy on the evaluation images, unsmoothed. Fraction of the 2000 evaluation images classified right.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "accuracy on the evaluation images, unsmoothed",
+      "neighbourhood": "kNN graph, k = 30",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30_spawn2.ours_f_acc_s0.json",
+     "peaks": 23,
+     "saddles": 171,
+     "notes": {
+      "maxima": 23,
+      "saddles": 171,
+      "loop_saddles": 149,
+      "edges": 1109877,
+      "mean_degree": 33.9
+     }
+    },
+    {
+     "id": "ours_f_acc_s0_k15",
+     "label": "Ours, f = accuracy on the evaluation images (unsmoothed), k = 15",
+     "summary": "Same points and kNN graph (k = 15); f = accuracy on the evaluation images, unsmoothed. Fraction of the 2000 evaluation images classified right.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "accuracy on the evaluation images, unsmoothed",
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30_spawn2.ours_f_acc_s0_k15.json",
+     "peaks": 84,
+     "saddles": 1021,
+     "notes": {
+      "maxima": 84,
+      "saddles": 1021,
+      "loop_saddles": 938,
+      "edges": 561858,
+      "mean_degree": 17.1
+     }
+    },
+    {
+     "id": "ours_f_acc_s0_k50",
+     "label": "Ours, f = accuracy on the evaluation images (unsmoothed), k = 50",
+     "summary": "Same points and kNN graph (k = 50); f = accuracy on the evaluation images, unsmoothed. Fraction of the 2000 evaluation images classified right.",
+     "simplifiable": true,
+     "traits": {
+      "input": "the coordinates as given",
+      "function": "accuracy on the evaluation images, unsmoothed",
+      "neighbourhood": "kNN graph, k = 50",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "the highest pass between every two basins that touch",
+      "links": "each saddle joins exactly two maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "loss_cnn_m6_e30_spawn2.ours_f_acc_s0_k50.json",
+     "peaks": 11,
+     "saddles": 52,
+     "notes": {
+      "maxima": 11,
+      "saddles": 52,
+      "loop_saddles": 42,
+      "edges": 1850814,
+      "mean_degree": 56.5
+     }
+    }
+   ],
+   "comparisons": [
+    {
+     "a": "ours",
+     "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.025780189959294438,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_gabriel",
+     "maxima_jaccard": 0.875,
+     "maxima_only_a": 0,
+     "maxima_only_b": 1,
+     "region_agreement": 0.78826904296875,
+     "saddle_jaccard": 0.48484848484848486,
+     "pair_jaccard": 0.75,
+     "pairs_only_a": 0,
+     "pairs_only_b": 7
+    },
+    {
+     "a": "ours",
+     "b": "ours_std",
+     "maxima_jaccard": 0.875,
+     "maxima_only_a": 0,
+     "maxima_only_b": 1,
+     "region_agreement": 0.796905517578125,
+     "saddle_jaccard": 0.5806451612903226,
+     "pair_jaccard": 0.75,
+     "pairs_only_a": 0,
+     "pairs_only_b": 7
+    },
+    {
+     "a": "ours",
+     "b": "ours_k15",
+     "maxima_jaccard": 0.5384615384615384,
+     "maxima_only_a": 0,
+     "maxima_only_b": 6,
+     "region_agreement": 0.6622467041015625,
+     "saddle_jaccard": 0.15492957746478872,
+     "pair_jaccard": 0.3442622950819672,
+     "pairs_only_a": 0,
+     "pairs_only_b": 40
+    },
+    {
+     "a": "ours",
+     "b": "ours_k50",
+     "maxima_jaccard": 0.8571428571428571,
+     "maxima_only_a": 1,
+     "maxima_only_b": 0,
+     "region_agreement": 0.793121337890625,
+     "saddle_jaccard": 0.3333333333333333,
+     "pair_jaccard": 0.7142857142857143,
+     "pairs_only_a": 6,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.07142857142857142,
+     "maxima_only_a": 5,
+     "maxima_only_b": 21,
+     "region_agreement": 0.271087646484375,
+     "saddle_jaccard": 0.005555555555555556,
+     "pair_jaccard": 0.005235602094240838,
+     "pairs_only_a": 20,
+     "pairs_only_b": 170
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.02247191011235955,
+     "maxima_only_a": 5,
+     "maxima_only_b": 82,
+     "region_agreement": 0.2305908203125,
+     "saddle_jaccard": 0.00881057268722467,
+     "pair_jaccard": 0.0009606147934678194,
+     "pairs_only_a": 20,
+     "pairs_only_b": 1020
+    },
+    {
+     "a": "ours",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.125,
+     "maxima_only_a": 5,
+     "maxima_only_b": 9,
+     "region_agreement": 0.297637939453125,
+     "saddle_jaccard": 0.014492753623188406,
+     "pair_jaccard": 0.013888888888888888,
+     "pairs_only_a": 20,
+     "pairs_only_b": 51
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_gabriel",
+     "maxima_jaccard": 0.875,
+     "maxima_only_a": 0,
+     "maxima_only_b": 1,
+     "region_agreement": 0.78826904296875,
+     "saddle_jaccard": 0.022788203753351208,
+     "pair_jaccard": 0.75,
+     "pairs_only_a": 0,
+     "pairs_only_b": 7
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_std",
+     "maxima_jaccard": 0.875,
+     "maxima_only_a": 0,
+     "maxima_only_b": 1,
+     "region_agreement": 0.796905517578125,
+     "saddle_jaccard": 0.026917900403768506,
+     "pair_jaccard": 0.75,
+     "pairs_only_a": 0,
+     "pairs_only_b": 7
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_k15",
+     "maxima_jaccard": 0.5384615384615384,
+     "maxima_only_a": 0,
+     "maxima_only_b": 6,
+     "region_agreement": 0.6622467041015625,
+     "saddle_jaccard": 0.021822849807445442,
+     "pair_jaccard": 0.3442622950819672,
+     "pairs_only_a": 0,
+     "pairs_only_b": 40
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_k50",
+     "maxima_jaccard": 0.8571428571428571,
+     "maxima_only_a": 1,
+     "maxima_only_b": 0,
+     "region_agreement": 0.793121337890625,
+     "saddle_jaccard": 0.013513513513513514,
+     "pair_jaccard": 0.7142857142857143,
+     "pairs_only_a": 6,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.07142857142857142,
+     "maxima_only_a": 5,
+     "maxima_only_b": 21,
+     "region_agreement": 0.271087646484375,
+     "saddle_jaccard": 0.01473922902494331,
+     "pair_jaccard": 0.005235602094240838,
+     "pairs_only_a": 20,
+     "pairs_only_b": 170
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.02247191011235955,
+     "maxima_only_a": 5,
+     "maxima_only_b": 82,
+     "region_agreement": 0.2305908203125,
+     "saddle_jaccard": 0.021303258145363407,
+     "pair_jaccard": 0.0009606147934678194,
+     "pairs_only_a": 20,
+     "pairs_only_b": 1020
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.125,
+     "maxima_only_a": 5,
+     "maxima_only_b": 9,
+     "region_agreement": 0.297637939453125,
+     "saddle_jaccard": 0.007712082262210797,
+     "pair_jaccard": 0.013888888888888888,
+     "pairs_only_a": 20,
+     "pairs_only_b": 51
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_std",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 0.7768096923828125,
+     "saddle_jaccard": 0.4358974358974359,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_k15",
+     "maxima_jaccard": 0.6153846153846154,
+     "maxima_only_a": 0,
+     "maxima_only_b": 5,
+     "region_agreement": 0.6788482666015625,
+     "saddle_jaccard": 0.20270270270270271,
+     "pair_jaccard": 0.45901639344262296,
+     "pairs_only_a": 0,
+     "pairs_only_b": 33
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_k50",
+     "maxima_jaccard": 0.75,
+     "maxima_only_a": 2,
+     "maxima_only_b": 0,
+     "region_agreement": 0.722900390625,
+     "saddle_jaccard": 0.19444444444444445,
+     "pair_jaccard": 0.5357142857142857,
+     "pairs_only_a": 13,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.06896551724137931,
+     "maxima_only_a": 6,
+     "maxima_only_b": 21,
+     "region_agreement": 0.2526702880859375,
+     "saddle_jaccard": 0.0273224043715847,
+     "pair_jaccard": 0.005050505050505051,
+     "pairs_only_a": 27,
+     "pairs_only_b": 170
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.022222222222222223,
+     "maxima_only_a": 6,
+     "maxima_only_b": 82,
+     "region_agreement": 0.2223052978515625,
+     "saddle_jaccard": 0.01095290251916758,
+     "pair_jaccard": 0.0009541984732824427,
+     "pairs_only_a": 27,
+     "pairs_only_b": 1020
+    },
+    {
+     "a": "ours_gabriel",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.11764705882352941,
+     "maxima_only_a": 6,
+     "maxima_only_b": 9,
+     "region_agreement": 0.2867584228515625,
+     "saddle_jaccard": 0.04054054054054054,
+     "pair_jaccard": 0.012658227848101266,
+     "pairs_only_a": 27,
+     "pairs_only_b": 51
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_k15",
+     "maxima_jaccard": 0.6153846153846154,
+     "maxima_only_a": 0,
+     "maxima_only_b": 5,
+     "region_agreement": 0.689971923828125,
+     "saddle_jaccard": 0.17105263157894737,
+     "pair_jaccard": 0.45901639344262296,
+     "pairs_only_a": 0,
+     "pairs_only_b": 33
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_k50",
+     "maxima_jaccard": 0.75,
+     "maxima_only_a": 2,
+     "maxima_only_b": 0,
+     "region_agreement": 0.7502593994140625,
+     "saddle_jaccard": 0.22857142857142856,
+     "pair_jaccard": 0.5357142857142857,
+     "pairs_only_a": 13,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.06896551724137931,
+     "maxima_only_a": 6,
+     "maxima_only_b": 21,
+     "region_agreement": 0.269622802734375,
+     "saddle_jaccard": 0.010752688172043012,
+     "pair_jaccard": 0.005050505050505051,
+     "pairs_only_a": 27,
+     "pairs_only_b": 170
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.022222222222222223,
+     "maxima_only_a": 6,
+     "maxima_only_b": 82,
+     "region_agreement": 0.239593505859375,
+     "saddle_jaccard": 0.008743169398907104,
+     "pair_jaccard": 0.0009541984732824427,
+     "pairs_only_a": 27,
+     "pairs_only_b": 1020
+    },
+    {
+     "a": "ours_std",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.11764705882352941,
+     "maxima_only_a": 6,
+     "maxima_only_b": 9,
+     "region_agreement": 0.3086700439453125,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.012658227848101266,
+     "pairs_only_a": 27,
+     "pairs_only_b": 51
+    },
+    {
+     "a": "ours_k15",
+     "b": "ours_k50",
+     "maxima_jaccard": 0.46153846153846156,
+     "maxima_only_a": 7,
+     "maxima_only_b": 0,
+     "region_agreement": 0.6493072509765625,
+     "saddle_jaccard": 0.07042253521126761,
+     "pair_jaccard": 0.2459016393442623,
+     "pairs_only_a": 46,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_k15",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.058823529411764705,
+     "maxima_only_a": 11,
+     "maxima_only_b": 21,
+     "region_agreement": 0.2495880126953125,
+     "saddle_jaccard": 0.018433179723502304,
+     "pair_jaccard": 0.004329004329004329,
+     "pairs_only_a": 60,
+     "pairs_only_b": 170
+    },
+    {
+     "a": "ours_k15",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.021052631578947368,
+     "maxima_only_a": 11,
+     "maxima_only_b": 82,
+     "region_agreement": 0.2338714599609375,
+     "saddle_jaccard": 0.012711864406779662,
+     "pair_jaccard": 0.0009250693802035153,
+     "pairs_only_a": 60,
+     "pairs_only_b": 1020
+    },
+    {
+     "a": "ours_k15",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.09090909090909091,
+     "maxima_only_a": 11,
+     "maxima_only_b": 9,
+     "region_agreement": 0.2862701416015625,
+     "saddle_jaccard": 0.028037383177570093,
+     "pair_jaccard": 0.008928571428571428,
+     "pairs_only_a": 60,
+     "pairs_only_b": 51
+    },
+    {
+     "a": "ours_k50",
+     "b": "ours_f_acc_s0",
+     "maxima_jaccard": 0.07407407407407407,
+     "maxima_only_a": 4,
+     "maxima_only_b": 21,
+     "region_agreement": 0.266265869140625,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.005405405405405406,
+     "pairs_only_a": 14,
+     "pairs_only_b": 170
+    },
+    {
+     "a": "ours_k50",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.022727272727272728,
+     "maxima_only_a": 4,
+     "maxima_only_b": 82,
+     "region_agreement": 0.2324676513671875,
+     "saddle_jaccard": 0.004415011037527594,
+     "pair_jaccard": 0.000966183574879227,
+     "pairs_only_a": 14,
+     "pairs_only_b": 1020
+    },
+    {
+     "a": "ours_k50",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.13333333333333333,
+     "maxima_only_a": 4,
+     "maxima_only_b": 9,
+     "region_agreement": 0.32208251953125,
+     "saddle_jaccard": 0.0,
+     "pair_jaccard": 0.015151515151515152,
+     "pairs_only_a": 14,
+     "pairs_only_b": 51
+    },
+    {
+     "a": "ours_f_acc_s0",
+     "b": "ours_f_acc_s0_k15",
+     "maxima_jaccard": 0.27380952380952384,
+     "maxima_only_a": 0,
+     "maxima_only_b": 61,
+     "region_agreement": 0.490447998046875,
+     "saddle_jaccard": 0.05079681274900399,
+     "pair_jaccard": 0.14505283381364073,
+     "pairs_only_a": 20,
+     "pairs_only_b": 870
+    },
+    {
+     "a": "ours_f_acc_s0",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.4782608695652174,
+     "maxima_only_a": 12,
+     "maxima_only_b": 0,
+     "region_agreement": 0.5694580078125,
+     "saddle_jaccard": 0.11764705882352941,
+     "pair_jaccard": 0.30409356725146197,
+     "pairs_only_a": 119,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours_f_acc_s0_k15",
+     "b": "ours_f_acc_s0_k50",
+     "maxima_jaccard": 0.13095238095238096,
+     "maxima_only_a": 73,
+     "maxima_only_b": 0,
+     "region_agreement": 0.4118499755859375,
+     "saddle_jaccard": 0.016146393972012917,
+     "pair_jaccard": 0.0478515625,
+     "pairs_only_a": 972,
+     "pairs_only_b": 3
+    }
+   ],
+   "k": 30,
+   "coords_file": "loss_cnn_m6_e30_spawn2.coords.json",
+   "classes": "Nearest trained model",
+   "scalars": {
+    "main": "neg_log_loss_s0",
+    "choices": [
+     {
+      "id": "neg_log_loss_s0",
+      "label": "-log training loss (unsmoothed)"
+     },
+     {
+      "id": "acc_s0",
+      "label": "accuracy on the evaluation images (unsmoothed)"
+     }
+    ]
+   },
+   "id": "loss_cnn_m6_e30_spawn2"
+  },
+  {
    "file": "two_peaks_2d.json",
    "label": "two_peaks_2d (2D, simplest case)",
    "text": "Two Gaussian peaks and one saddle between them: the spine is a single path, peak - saddle - peak.",

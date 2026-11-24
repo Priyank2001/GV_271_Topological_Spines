@@ -6,6 +6,20 @@ and what is still open.
 
 ---
 
+## 2026-11-24 — Loss landscapes, step 5: viewer entries
+
+Four entries (`web/build_data.py`): `loss_cnn_m4_e30`, `loss_cnn_m4_e30_spawn2` (3-D, 32,768 Sobol samples,
+k = 15) and `loss_cnn_m6_e30`, `loss_cnn_m6_e30_spawn2` (5-D, 65,536, k = 30), written by
+`python3 -m landscape.make_dataset`. Initial persistence thresholds sit below the weakest model minimum
+(0.27 / 0.024 / 0.20 / 0.011) and above everything else, which hides the 5-D artefact of step 3 (0.007).
+Checked in headless Chromium (software WebGL): spines show 4 minima + 6 saddles (3-D) and 6 + 15 (5-D),
+no console errors; compare mode: ours 6 vs AnyEG 7 peaks (AnyEG has no persistence, so it keeps the
+artefact), 100% of points agree. The default PCA data view of a uniformly filled box is uninformative;
+the Scatter mode on the subspace axes shows the peak regions tiling the box. The viewer cannot mark
+ground-truth extrema (the trained models) yet.
+
+---
+
 ## 2026-11-24 — Loss landscapes, step 4: is a better model's landscape simpler? Not topologically
 
 **What we did.** `python3 -m landscape.family train|sample|sample-subspaces|analyse`
