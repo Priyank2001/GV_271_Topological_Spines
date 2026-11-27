@@ -11,6 +11,7 @@ Each script builds one dataset in `generator/datasets/` (ignored by git); then
 | `bc_tumours` | `python3 scripts/make_bc_tumours.py [folder]` | BC-TCGA, plus `comparison/bc_data/` (PAM50, ER, survival; Hallmark gene sets) |
 | `pbmc3k_types` | `python3 scripts/add_pbmc3k.py` | `data/pbmc3k_types/pbmc3k_counts.npz` (10x PBMC 3k counts + reference clusters) |
 | `alanine_dipeptide` | `python3 scripts/add_alanine_dipeptide.py` | `data/alanine_dipeptide/alanine_dipeptide_md.npz`, made by `scripts/alanine_dipeptide_md.py` (OpenMM) |
+| `communities_crime` | `python3 scripts/add_communities_crime.py [communities.data or .zip]` | UCI Communities and Crime (id 183); downloads to `data/communities_crime/` if absent. 100 census attributes (22 mostly-missing police attributes dropped), f = `ViolentCrimesPerPop`; labels: Census region, state |
 
 The `add_*` scripts were written to patch an older tree; on this branch their code changes are already
 in place, so they only build the dataset (and print "already has ..."). Results:

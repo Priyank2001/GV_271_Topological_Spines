@@ -48,6 +48,10 @@ EMBEDS = ["pca", "random_projection", "isomap", "tsne"]
 # No ``simplify`` floor: every file keeps the full graph, so the viewer's persistence
 # slider can go all the way down to 0.
 ENTRIES = {
+    "communities_crime": dict(
+        label="communities_crime (1,994 US communities, violent crime, 100D)", dataset="communities_crime", k=15,
+        initial_threshold=0.25, embed=EMBEDS,
+        text="UCI Communities and Crime: 1,994 US communities described by 100 census attributes (income, family, housing, immigration, ...). f = violent crimes per capita. Peaks: community profiles with high violent crime; saddles: how two such profiles connect. Clustering -> Known labels: Census region, state."),
     "pbmc3k_types": dict(
         label="pbmc3k_types (2,638 blood cells with cell types, 20 PCs)", dataset="pbmc3k_types", k=15,
         initial_threshold=0.04, embed=EMBEDS,
