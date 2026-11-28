@@ -179,17 +179,9 @@ def _uphill_only(g, order: np.ndarray):
     AnyEG joins a saddle to the basin of *every* neighbour, also lower ones;
     the maximum such a lower neighbour ascends to need not be connected to the
     saddle above the saddle's height. Used only to show where AnyEG's merge-tree
-    errors come from.
+    errors come from. The work is ``AnyEGGraph.uphill_only``.
     """
-    from dataclasses import replace
-
-    start = g.arc_vertices[g.arc_ptr[:-1] + 1]
-    keep = order[start] > order[g.arc_saddle]
-    lengths = np.diff(g.arc_ptr)[keep]
-    verts = np.concatenate([g.arc(i) for i in np.flatnonzero(keep)]) if keep.any() \
-        else g.arc_vertices[:0]
-    return replace(g, arc_saddle=g.arc_saddle[keep], arc_maximum=g.arc_maximum[keep],
-                   arc_ptr=np.r_[0, np.cumsum(lengths)], arc_vertices=verts)
+    return g.uphill_only(order)
 
 
 class OursContender(Contender):

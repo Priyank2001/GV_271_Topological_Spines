@@ -8,7 +8,9 @@ package reproduces it without TTK or VTK:
   from its source by ``anyeg/native/build.sh``);
 * ``anyeg.kernels.TorchKernels`` is a PyTorch port of the same four GPU
   modules, checked to give identical output;
-* ``anyeg.assembly`` ports AnyEG's CPU post-processing (arcs, ``.vtp`` output).
+* ``anyeg.assembly`` ports AnyEG's CPU post-processing (arcs, ``.vtp`` output);
+* ``anyeg.persistence`` adds what AnyEG lacks: persistence and saturated
+  persistence of its graph (``compute_persistence``).
 
 It does not import anything from ``pipeline/`` (our own method); the
 ``comparison`` package puts the two side by side.
@@ -22,12 +24,13 @@ from .graph import AnyEGGraph
 from .kernels import ExtremumGraphKernels, KernelOutput, OriginalCudaKernels, TorchKernels, make_kernels
 from .neighborhood import (AxisGridNeighborhood, FreudenthalGridNeighborhood, KnnNeighborhood,
                            NeighborhoodBuilder, NeighborTable)
+from .persistence import AnyEGPersistence, compute_persistence
 from .pipeline import AnyEGPipeline
 from .vtk_io import PolyLines, read_vti, read_vtp, write_vti, write_vtp
 
 __all__ = [
-    "AnyEGGraph", "AnyEGPipeline", "ArcAssembler", "AssemblyOptions", "AxisGridNeighborhood",
+    "AnyEGGraph", "AnyEGPersistence", "AnyEGPipeline", "ArcAssembler", "AssemblyOptions", "AxisGridNeighborhood",
     "ExtremumGraphKernels", "FreudenthalGridNeighborhood", "KernelOutput", "KnnNeighborhood",
     "NeighborhoodBuilder", "NeighborTable", "OriginalCudaKernels", "PolyLines", "ScalarField",
-    "TorchKernels", "make_kernels", "read_vti", "read_vtp", "write_vti", "write_vtp",
+    "TorchKernels", "compute_persistence", "make_kernels", "read_vti", "read_vtp", "write_vti", "write_vtp",
 ]

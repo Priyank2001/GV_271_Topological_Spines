@@ -13,7 +13,7 @@ ending with the maximum.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, Set, Tuple
 
 import numpy as np
@@ -75,6 +75,25 @@ class AnyEGGraph:
 
     def arc(self, i: int) -> np.ndarray:
         return self.arc_vertices[self.arc_ptr[i]:self.arc_ptr[i + 1]]
+
+    def uphill_only(self, order: np.ndarray) -> "AnyEGGraph":
+        """The graph without the arcs whose first step from the saddle goes down.
+
+        Not AnyEG's behaviour. AnyEG joins a saddle to the basin of *every*
+        neighbour, lower ones too, and the maximum a lower neighbour ascends
+        to need not be connected to the saddle above the saddle's height
+        (the fair comparison's false links). ``order``: the values' total
+        order (higher = larger), e.g. the ranks AnyEG was run on.
+        """
+        order = np.asarray(order)
+        start = self.arc_vertices[self.arc_ptr[:-1] + 1]
+        keep = order[start] > order[self.arc_saddle]
+        lengths = np.diff(self.arc_ptr)[keep]
+        verts = (np.concatenate([self.arc(i) for i in np.flatnonzero(keep)]) if keep.any()
+                 else self.arc_vertices[:0])
+        return replace(self, arc_saddle=self.arc_saddle[keep], arc_maximum=self.arc_maximum[keep],
+                       arc_ptr=np.r_[0, np.cumsum(lengths)].astype(self.arc_ptr.dtype),
+                       arc_vertices=verts, seconds=dict(self.seconds))
 
     # -- the .vtp output ----------------------------------------------------------
     def to_polylines(self, field: ScalarField) -> PolyLines:
