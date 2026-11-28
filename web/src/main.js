@@ -882,8 +882,11 @@ function renderInfo(node, side = 'A') {
   } else {
     const s = doc.saddles[node.docId];
     const [a, b] = vis.saddleEnds[node.index].map((i) => vis.peaks[i]);
-    const joins = s.reaches && s.reaches.length > 2
-      ? `peaks ${s.reaches.join(', ')} (${s.reaches.length} maxima)` : `peak ${a} and peak ${b}`;
+    // One saddle that joins k maxima is stored as k - 1 entries at the same vertex.
+    const reach = s.reaches ?? [...new Set(vis.saddles.flatMap((id, j) => (doc.saddles[id].vertex === s.vertex
+      ? vis.saddleEnds[j].map((i) => vis.peaks[i]) : [])))].sort((x, y) => x - y);
+    const joins = reach.length > 2
+      ? `peaks ${reach.join(', ')} (${reach.length} maxima)` : `peak ${a} and peak ${b}`;
     el.info.innerHTML = `<div class="title">Saddle ${node.docId}${tag}</div><table>` +
       row('value', fmt(s.value)) +
       row('joins', joins) +

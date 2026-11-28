@@ -17,7 +17,7 @@ pytest.importorskip("torch")
 from comparison.sources import FieldSource  # noqa: E402
 from comparison.variants import (TRAIT_LABELS, VARIANTS, AnyEGVariant, OursVariant,  # noqa: E402
                                  anyeg_to_extremum_graph)
-from comparison.viewer_export import PositionRegistry, export_variants  # noqa: E402
+from comparison.viewer_export import PositionRegistry, add_variant, export_variants  # noqa: E402
 from pipeline.export_json import check_export, extremum_graph_to_dict  # noqa: E402
 from pipeline.extremum_graph import extremum_graph  # noqa: E402
 from pipeline.neighbor_graph import grid_graph  # noqa: E402
@@ -128,9 +128,9 @@ def test_export_variants_writes_every_variant_in_one_frame():
     written = {}
     entries, comparisons = export_variants(src, main, "bumps.json",
                                            write=lambda d, f: written.__setitem__(f, d), log=lambda *_: None)
-    assert [e["id"] for e in entries] == ["ours", "anyeg", "ours14"]
-    assert set(written) == {"bumps.anyeg.json", "bumps.ours14.json"}
-    assert len(comparisons) == 3
+    assert [e["id"] for e in entries] == ["ours", "anyeg", "ours14", "ours_ul"]
+    assert set(written) == {"bumps.anyeg.json", "bumps.ours14.json", "bumps.ours_ul.json"}
+    assert len(comparisons) == 6
     assert main["meta"]["variant"]["id"] == "ours" and main["meta"]["all_maxima"]
 
     reg = PositionRegistry.from_document(main)
@@ -144,3 +144,25 @@ def test_export_variants_writes_every_variant_in_one_frame():
     assert anyeg["meta"]["variant"]["simplifiable"] is False and anyeg["meta"]["simplify_threshold"] is None
     ag = next(c for c in comparisons if {c["a"], c["b"]} == {"anyeg", "ours14"})
     assert ag["maxima_jaccard"] == 1.0 and ag["region_agreement"] == 1.0
+
+    # same grid and order: the upper-link variant has the same maxima and basins as ours14
+    ul = next(c for c in comparisons if {c["a"], c["b"]} == {"ours14", "ours_ul"})
+    assert ul["maxima_jaccard"] == 1.0 and ul["region_agreement"] == 1.0
+
+
+def test_add_variant_keeps_the_existing_files_and_frame():
+    src = bumpy_grid(levels=30)
+    main = main_document(src)
+    written = {}
+    entries, _ = export_variants(src, main, "bumps.json", write=lambda d, f: written.__setitem__(f, d),
+                                 log=lambda *_: None)
+    others = [written[e["file"]] for e in entries if e["id"] not in ("ours", "ours_ul")]
+    added = {}
+    entry, comparisons = add_variant(src, VARIANTS["ours_ul"], main, "bumps.json", others,
+                                     write=lambda d, f: added.__setitem__(f, d), log=lambda *_: None)
+    assert list(added) == ["bumps.ours_ul.json"] and entry["file"] == "bumps.ours_ul.json"
+    assert {c["a"] for c in comparisons} == {"ours", "anyeg", "ours14"}
+    assert all(c["b"] == "ours_ul" for c in comparisons)
+    full = written["bumps.ours_ul.json"]                 # the same document as a full rebuild
+    assert added["bumps.ours_ul.json"]["saddles"] == full["saddles"]
+    assert added["bumps.ours_ul.json"]["spine"]["saddles"] == full["spine"]["saddles"]

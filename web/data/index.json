@@ -505,6 +505,30 @@
       "edges": 44310,
       "mean_degree": 44.4
      }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "crime.ours_ul.json",
+     "peaks": 13,
+     "saddles": 27,
+     "notes": {
+      "maxima": 13,
+      "saddles": 25,
+      "loop_saddles": 15,
+      "saddle_entries": 27,
+      "saddles_reaching_3plus": 2
+     }
     }
    ],
    "comparisons": [
@@ -2559,6 +2583,30 @@
      "pair_jaccard": 0.0,
      "pairs_only_a": 5,
      "pairs_only_b": 9
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.4222222222222222,
+     "pair_jaccard": 0.6585365853658537,
+     "pairs_only_a": 14,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.05399568034557235,
+     "pair_jaccard": 0.48214285714285715,
+     "pairs_only_a": 29,
+     "pairs_only_b": 0
     }
    ],
    "k": 15,
@@ -3083,6 +3131,30 @@
       "loop_saddles": 4,
       "edges": 19964,
       "mean_degree": 38.8
+     }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "concrete.ours_ul.json",
+     "peaks": 6,
+     "saddles": 10,
+     "notes": {
+      "maxima": 6,
+      "saddles": 10,
+      "loop_saddles": 5,
+      "saddle_entries": 10,
+      "saddles_reaching_3plus": 0
      }
     }
    ],
@@ -5138,6 +5210,30 @@
      "pair_jaccard": 0.8,
      "pairs_only_a": 2,
      "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.8181818181818182,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.1,
+     "pair_jaccard": 0.8333333333333334,
+     "pairs_only_a": 2,
+     "pairs_only_b": 0
     }
    ],
    "k": 15,
@@ -5452,6 +5548,30 @@
       "loop_saddles": 418,
       "edges": 103188,
       "mean_degree": 41.3
+     }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "alanine_dipeptide.ours_ul.json",
+     "peaks": 46,
+     "saddles": 131,
+     "notes": {
+      "maxima": 46,
+      "saddles": 123,
+      "loop_saddles": 86,
+      "saddle_entries": 131,
+      "saddles_reaching_3plus": 8
      }
     }
    ],
@@ -6115,6 +6235,30 @@
      "pair_jaccard": 0.4780023781212842,
      "pairs_only_a": 367,
      "pairs_only_b": 72
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.49238578680203043,
+     "pair_jaccard": 0.7158469945355191,
+     "pairs_only_a": 52,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.132829373650108,
+     "pair_jaccard": 0.5346938775510204,
+     "pairs_only_a": 114,
+     "pairs_only_b": 0
     }
    ],
    "k": 15,
@@ -6551,6 +6695,30 @@
       "loop_saddles": 9,
       "edges": 100093,
       "mean_degree": 75.9
+     }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "pbmc3k_types.ours_ul.json",
+     "peaks": 35,
+     "saddles": 92,
+     "notes": {
+      "maxima": 35,
+      "saddles": 85,
+      "loop_saddles": 58,
+      "saddle_entries": 92,
+      "saddles_reaching_3plus": 7
      }
     }
    ],
@@ -7994,6 +8162,30 @@
      "pair_jaccard": 0.32432432432432434,
      "pairs_only_a": 20,
      "pairs_only_b": 5
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.5263157894736842,
+     "pair_jaccard": 0.6618705035971223,
+     "pairs_only_a": 47,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.13016845329249618,
+     "pair_jaccard": 0.4052863436123348,
+     "pairs_only_a": 135,
+     "pairs_only_b": 0
     }
    ],
    "k": 15,
@@ -9120,6 +9312,30 @@
       "loop_saddles": 1,
       "edges": 12623,
       "mean_degree": 47.7
+     }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "bc_tumours.ours_ul.json",
+     "peaks": 7,
+     "saddles": 10,
+     "notes": {
+      "maxima": 7,
+      "saddles": 10,
+      "loop_saddles": 4,
+      "saddle_entries": 10,
+      "saddles_reaching_3plus": 0
      }
     }
    ],
@@ -12723,6 +12939,30 @@
      "pair_jaccard": 0.5,
      "pairs_only_a": 3,
      "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.4375,
+     "pair_jaccard": 0.6666666666666666,
+     "pairs_only_a": 5,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.17543859649122806,
+     "pair_jaccard": 0.5882352941176471,
+     "pairs_only_a": 7,
+     "pairs_only_b": 0
     }
    ],
    "k": 15,
@@ -13191,6 +13431,30 @@
       "loop_saddles": 10,
       "edges": 20606,
       "mean_degree": 77.9
+     }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "bc_dsga.ours_ul.json",
+     "peaks": 11,
+     "saddles": 31,
+     "notes": {
+      "maxima": 11,
+      "saddles": 29,
+      "loop_saddles": 21,
+      "saddle_entries": 31,
+      "saddles_reaching_3plus": 2
      }
     }
    ],
@@ -14634,6 +14898,30 @@
      "pair_jaccard": 0.7142857142857143,
      "pairs_only_a": 6,
      "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.5609756097560976,
+     "pair_jaccard": 0.7045454545454546,
+     "pairs_only_a": 13,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.19727891156462585,
+     "pair_jaccard": 0.6739130434782609,
+     "pairs_only_a": 15,
+     "pairs_only_b": 0
     }
    ],
    "k": 15,
@@ -15057,6 +15345,30 @@
       "loop_saddles": 0,
       "edges": 13830,
       "mean_degree": 82.1
+     }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "nki.ours_ul.json",
+     "peaks": 3,
+     "saddles": 3,
+     "notes": {
+      "maxima": 3,
+      "saddles": 3,
+      "loop_saddles": 1,
+      "saddle_entries": 3,
+      "saddles_reaching_3plus": 0
      }
     }
    ],
@@ -16500,6 +16812,30 @@
      "pair_jaccard": 1.0,
      "pairs_only_a": 0,
      "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 1.0,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.23076923076923078,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
     }
    ],
    "k": 15,
@@ -16689,6 +17025,30 @@
       "loop_saddles": 9,
       "edges": 7145,
       "mean_degree": 24.2
+     }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "bc_tcga.ours_ul.json",
+     "peaks": 7,
+     "saddles": 10,
+     "notes": {
+      "maxima": 7,
+      "saddles": 10,
+      "loop_saddles": 4,
+      "saddle_entries": 10,
+      "saddles_reaching_3plus": 0
      }
     }
    ],
@@ -16944,6 +17304,30 @@
      "pair_jaccard": 0.0,
      "pairs_only_a": 13,
      "pairs_only_b": 15
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.6923076923076923,
+     "pair_jaccard": 0.7692307692307693,
+     "pairs_only_a": 3,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.1694915254237288,
+     "pair_jaccard": 0.5555555555555556,
+     "pairs_only_a": 8,
+     "pairs_only_b": 0
     }
    ],
    "coords_file": "bc_tcga.coords.json",
@@ -17134,6 +17518,30 @@
       "loop_saddles": 10,
       "edges": 88368,
       "mean_degree": 22.1
+     }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 20",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "flower_2d.ours_ul.json",
+     "peaks": 12,
+     "saddles": 21,
+     "notes": {
+      "maxima": 12,
+      "saddles": 21,
+      "loop_saddles": 10,
+      "saddle_entries": 21,
+      "saddles_reaching_3plus": 0
      }
     }
    ],
@@ -17389,6 +17797,30 @@
      "pair_jaccard": 0.13157894736842105,
      "pairs_only_a": 18,
      "pairs_only_b": 15
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.72,
+     "pair_jaccard": 0.9130434782608695,
+     "pairs_only_a": 2,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.5526315789473685,
+     "pair_jaccard": 0.9545454545454546,
+     "pairs_only_a": 1,
+     "pairs_only_b": 0
     }
    ],
    "coords_file": "flower_2d.coords.json",
@@ -17449,6 +17881,30 @@
       "raw_maxima": 11,
       "preprocess_maxima": 11
      }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 20",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "flower_10d.ours_ul.json",
+     "peaks": 11,
+     "saddles": 20,
+     "notes": {
+      "maxima": 11,
+      "saddles": 20,
+      "loop_saddles": 10,
+      "saddle_entries": 20,
+      "saddles_reaching_3plus": 0
+     }
     }
    ],
    "comparisons": [
@@ -17460,6 +17916,30 @@
      "maxima_only_b": 0,
      "region_agreement": 1.0,
      "saddle_jaccard": 0.3404255319148936,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.6666666666666666,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.46511627906976744,
      "pair_jaccard": 1.0,
      "pairs_only_a": 0,
      "pairs_only_b": 0
@@ -17650,6 +18130,30 @@
       "loop_saddles": 6,
       "edges": 45451,
       "mean_degree": 22.7
+     }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 20",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "demo_300d.ours_ul.json",
+     "peaks": 5,
+     "saddles": 9,
+     "notes": {
+      "maxima": 5,
+      "saddles": 9,
+      "loop_saddles": 5,
+      "saddle_entries": 9,
+      "saddles_reaching_3plus": 0
      }
     }
    ],
@@ -17905,6 +18409,30 @@
      "pair_jaccard": 1.0,
      "pairs_only_a": 0,
      "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.38461538461538464,
+     "pair_jaccard": 0.9,
+     "pairs_only_a": 1,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.2647058823529412,
+     "pair_jaccard": 0.9,
+     "pairs_only_a": 1,
+     "pairs_only_b": 0
     }
    ],
    "coords_file": "demo_300d.coords.json",
@@ -17965,6 +18493,30 @@
       "raw_maxima": 11,
       "preprocess_maxima": 11
      }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 20",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "cyclic_3d.ours_ul.json",
+     "peaks": 6,
+     "saddles": 6,
+     "notes": {
+      "maxima": 11,
+      "saddles": 22,
+      "loop_saddles": 12,
+      "saddle_entries": 22,
+      "saddles_reaching_3plus": 0
+     }
     }
    ],
    "comparisons": [
@@ -17979,6 +18531,30 @@
      "pair_jaccard": 0.9583333333333334,
      "pairs_only_a": 0,
      "pairs_only_b": 1
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.43333333333333335,
+     "pair_jaccard": 0.9565217391304348,
+     "pairs_only_a": 1,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.09859154929577464,
+     "pair_jaccard": 0.9166666666666666,
+     "pairs_only_a": 2,
+     "pairs_only_b": 0
     }
    ],
    "id": "cyclic_3d",
@@ -18038,6 +18614,30 @@
       "raw_maxima": 44,
       "preprocess_maxima": 44
      }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 20",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "cyclic_10d.ours_ul.json",
+     "peaks": 6,
+     "saddles": 6,
+     "notes": {
+      "maxima": 44,
+      "saddles": 318,
+      "loop_saddles": 285,
+      "saddle_entries": 328,
+      "saddles_reaching_3plus": 9
+     }
     }
    ],
    "comparisons": [
@@ -18052,6 +18652,30 @@
      "pair_jaccard": 0.9126436781609195,
      "pairs_only_a": 10,
      "pairs_only_b": 28
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.3860369609856263,
+     "pair_jaccard": 0.8014705882352942,
+     "pairs_only_a": 80,
+     "pairs_only_b": 1
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.025975461478943297,
+     "pair_jaccard": 0.7593457943925234,
+     "pairs_only_a": 100,
+     "pairs_only_b": 3
     }
    ],
    "id": "cyclic_10d",
@@ -18183,12 +18807,60 @@
       "saddles_reaching_3plus": 0,
       "pieces": 1
      }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "two_peaks_2d.ours_ul.json",
+     "peaks": 2,
+     "saddles": 1,
+     "notes": {
+      "maxima": 2,
+      "saddles": 1,
+      "loop_saddles": 0,
+      "saddle_entries": 1,
+      "saddles_reaching_3plus": 0
+     }
     }
    ],
    "comparisons": [
     {
      "a": "ours",
      "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.2,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 1.0,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
      "maxima_jaccard": 1.0,
      "maxima_only_a": 0,
      "maxima_only_b": 0,
@@ -18257,6 +18929,30 @@
       "raw_maxima": 7,
       "preprocess_maxima": 7
      }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "volcano_intact.ours_ul.json",
+     "peaks": 6,
+     "saddles": 6,
+     "notes": {
+      "maxima": 7,
+      "saddles": 7,
+      "loop_saddles": 1,
+      "saddle_entries": 7,
+      "saddles_reaching_3plus": 0
+     }
     }
    ],
    "comparisons": [
@@ -18271,6 +18967,30 @@
      "pair_jaccard": 0.7,
      "pairs_only_a": 0,
      "pairs_only_b": 3
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 1.0,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.1346153846153846,
+     "pair_jaccard": 0.7,
+     "pairs_only_a": 3,
+     "pairs_only_b": 0
     }
    ],
    "id": "volcano_intact",
@@ -18331,6 +19051,30 @@
       "raw_maxima": 6,
       "preprocess_maxima": 6
      }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "volcano_notched.ours_ul.json",
+     "peaks": 6,
+     "saddles": 6,
+     "notes": {
+      "maxima": 6,
+      "saddles": 6,
+      "loop_saddles": 1,
+      "saddle_entries": 6,
+      "saddles_reaching_3plus": 0
+     }
     }
    ],
    "comparisons": [
@@ -18345,6 +19089,30 @@
      "pair_jaccard": 0.75,
      "pairs_only_a": 0,
      "pairs_only_b": 2
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 1.0,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.10714285714285714,
+     "pair_jaccard": 0.75,
+     "pairs_only_a": 2,
+     "pairs_only_b": 0
     }
    ],
    "id": "volcano_notched",
@@ -18405,12 +19173,60 @@
       "raw_maxima": 6,
       "preprocess_maxima": 6
      }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "kNN graph, k = 15",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima; of several saddles between the same two maxima only the highest is kept (on a kNN graph the others are sampling noise)",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "volcano_breached.ours_ul.json",
+     "peaks": 6,
+     "saddles": 6,
+     "notes": {
+      "maxima": 6,
+      "saddles": 6,
+      "loop_saddles": 1,
+      "saddle_entries": 6,
+      "saddles_reaching_3plus": 0
+     }
     }
    ],
    "comparisons": [
     {
      "a": "ours",
      "b": "anyeg",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.125,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 1.0,
+     "pair_jaccard": 1.0,
+     "pairs_only_a": 0,
+     "pairs_only_b": 0
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
      "maxima_jaccard": 1.0,
      "maxima_only_a": 0,
      "maxima_only_b": 0,
@@ -18501,6 +19317,30 @@
       "saddles": 244,
       "loop_saddles": 180
      }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "grid with 14 neighbours (TTK's triangulation, as AnyEG)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "fuel.ours_ul.json",
+     "peaks": 27,
+     "saddles": 44,
+     "notes": {
+      "maxima": 65,
+      "saddles": 120,
+      "loop_saddles": 56,
+      "saddle_entries": 120,
+      "saddles_reaching_3plus": 0
+     }
     }
    ],
    "comparisons": [
@@ -18539,6 +19379,42 @@
      "pair_jaccard": 0.5936254980079682,
      "pairs_only_a": 7,
      "pairs_only_b": 95
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 0.7386363636363636,
+     "maxima_only_a": 23,
+     "maxima_only_b": 0,
+     "region_agreement": 0.7695274353027344,
+     "saddle_jaccard": 0.1994535519125683,
+     "pair_jaccard": 0.29411764705882354,
+     "pairs_only_a": 232,
+     "pairs_only_b": 8
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.9916666666666667,
+     "pair_jaccard": 0.6815286624203821,
+     "pairs_only_a": 49,
+     "pairs_only_b": 1
+    },
+    {
+     "a": "ours14",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.39763779527559057,
+     "pair_jaccard": 0.4426229508196721,
+     "pairs_only_a": 136,
+     "pairs_only_b": 0
     }
    ],
    "id": "fuel",
@@ -18621,6 +19497,30 @@
       "saddles": 689,
       "loop_saddles": 515
      }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "grid with 14 neighbours (TTK's triangulation, as AnyEG)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "neghip.ours_ul.json",
+     "peaks": 22,
+     "saddles": 26,
+     "notes": {
+      "maxima": 175,
+      "saddles": 834,
+      "loop_saddles": 730,
+      "saddle_entries": 904,
+      "saddles_reaching_3plus": 65
+     }
     }
    ],
    "comparisons": [
@@ -18659,6 +19559,42 @@
      "pair_jaccard": 0.4947613504074505,
      "pairs_only_a": 170,
      "pairs_only_b": 264
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 0.19444444444444445,
+     "maxima_only_a": 725,
+     "maxima_only_b": 0,
+     "region_agreement": 0.4480476379394531,
+     "saddle_jaccard": 0.07881773399014778,
+     "pair_jaccard": 0.08636688079942897,
+     "pairs_only_a": 2385,
+     "pairs_only_b": 175
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.6581291759465479,
+     "pair_jaccard": 0.36941813261163736,
+     "pairs_only_a": 322,
+     "pairs_only_b": 144
+    },
+    {
+     "a": "ours14",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.3589990375360924,
+     "pair_jaccard": 0.6052249637155298,
+     "pairs_only_a": 272,
+     "pairs_only_b": 0
     }
    ],
    "id": "neghip",
@@ -18741,6 +19677,30 @@
       "saddles": 1648,
       "loop_saddles": 1429
      }
+    },
+    {
+     "id": "ours_ul",
+     "label": "Ours, upper-link saddles",
+     "summary": "Our pipeline with true saddles: a vertex whose higher neighbours fall into two or more separate groups, one arc per group; on grids with TTK's 14 neighbours. Same persistence and simplification as ours.",
+     "simplifiable": true,
+     "traits": {
+      "neighbourhood": "grid with 14 neighbours (TTK's triangulation, as AnyEG)",
+      "ties": "broken by vertex index (a strict total order)",
+      "saddles": "vertices whose higher neighbours fall into two or more separate groups (true saddles)",
+      "links": "one arc per group of higher neighbours, up to its maximum, so a saddle can join three or more maxima",
+      "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
+      "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links"
+     },
+     "file": "bucky.ours_ul.json",
+     "peaks": 198,
+     "saddles": 385,
+     "notes": {
+      "maxima": 220,
+      "saddles": 582,
+      "loop_saddles": 368,
+      "saddle_entries": 587,
+      "saddles_reaching_3plus": 5
+     }
     }
    ],
    "comparisons": [
@@ -18779,6 +19739,42 @@
      "pair_jaccard": 0.23216444981862153,
      "pairs_only_a": 6,
      "pairs_only_b": 1264
+    },
+    {
+     "a": "ours",
+     "b": "ours_ul",
+     "maxima_jaccard": 0.6832298136645962,
+     "maxima_only_a": 102,
+     "maxima_only_b": 0,
+     "region_agreement": 0.484466552734375,
+     "saddle_jaccard": 0.10220125786163523,
+     "pair_jaccard": 0.20921985815602837,
+     "pairs_only_a": 1269,
+     "pairs_only_b": 69
+    },
+    {
+     "a": "anyeg",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.7559322033898305,
+     "pair_jaccard": 0.635814889336016,
+     "pairs_only_a": 74,
+     "pairs_only_b": 107
+    },
+    {
+     "a": "ours14",
+     "b": "ours_ul",
+     "maxima_jaccard": 1.0,
+     "maxima_only_a": 0,
+     "maxima_only_b": 0,
+     "region_agreement": 1.0,
+     "saddle_jaccard": 0.2347560975609756,
+     "pair_jaccard": 0.2566747572815534,
+     "pairs_only_a": 1225,
+     "pairs_only_b": 0
     }
    ],
    "id": "bucky",

@@ -15,7 +15,11 @@ Besides our own graph (``<name>.json``, which also holds the field data), every
 registered extraction variant (``comparison/variants.py``: AnyEG, ours on the
 14-neighbour grid, ...) is written as ``<name>.<variant>.json`` for the viewer's
 compare mode, in the same 2D frame. ``--no-variants`` skips them (and keeps the
-variants already listed in index.json).
+variants already listed in index.json). ``--add-variant ID`` writes only that
+one variant for entries that are already built, and leaves every other file as
+it is:
+
+    python3 web/build_data.py fuel neghip --add-variant ours_ul
 
 Point clouds also get ``<name>.coords.json``: the original coordinates of every
 point, for the parallel-coordinates mode (loaded only when that mode is opened).
@@ -34,8 +38,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from comparison.sources import FieldSource  # noqa: E402
-from comparison.variants import TRAIT_LABELS  # noqa: E402
-from comparison.viewer_export import export_variants  # noqa: E402
+from comparison.variants import TRAIT_LABELS, VARIANTS  # noqa: E402
+from comparison.viewer_export import add_variant, export_variants  # noqa: E402
 from pipeline.export_json import build_document, coords_document, write_json  # noqa: E402
 
 OUT = Path(__file__).resolve().parent / "data"
@@ -196,6 +200,38 @@ def scalar_menu(spec: dict) -> dict | None:
     return {"main": f"{sc['main']['id']}_s{sc['main']['smooth']}", "choices": choices}
 
 
+def add_one_variant(name: str, spec: dict, index: dict, variant) -> None:
+    """Write one variant's file for an entry that is already built and update its index record."""
+    entry = index.get(name)
+    if not entry or not (OUT / entry["file"]).exists():
+        print(f"{name:11s} skipped: not built yet (run without --add-variant first)")
+        return
+    t0 = time.time()
+    try:
+        source = (FieldSource.volume(spec["volume"]) if "volume" in spec
+                  else FieldSource.dataset(spec["dataset"], spec["k"]))
+    except Exception as err:              # e.g. a generated dataset that is not on this machine
+        print(f"{name:11s} skipped: {err}")
+        return
+    if not variant.applies_to(source):
+        print(f"{name:11s} skipped: {variant.id} does not apply")
+        return
+    main_doc = json.loads((OUT / entry["file"]).read_text())
+    others = [json.loads((OUT / v["file"]).read_text()) for v in entry.get("variants", [])
+              if v.get("file") and v["file"] != entry["file"] and v["id"] != variant.id
+              and (OUT / v["file"]).exists()]
+    try:
+        record, comparisons = add_variant(source, variant, main_doc, entry["file"], others,
+                                          write=lambda d, f: write_json(d, OUT / f))
+    except ValueError as err:             # e.g. too many nodes for the spine layout
+        print(f"{name:11s} {variant.id} not exported: {err}")
+        return
+    entry["variants"] = [v for v in entry.get("variants", []) if v["id"] != variant.id] + [record]
+    entry["comparisons"] = [c for c in entry.get("comparisons", [])
+                            if variant.id not in (c["a"], c["b"])] + comparisons
+    print(f"{name:11s} {variant.id}: done in {time.time() - t0:5.1f}s")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("names", nargs="*", help=f"entries to build (default: all of {list(ENTRIES)})")
@@ -203,11 +239,15 @@ def main() -> None:
                     help="only our own graph; keep the variant files listed in index.json")
     ap.add_argument("--coords-only", action="store_true",
                     help="only write <name>.coords.json for point clouds (parallel coordinates)")
+    ap.add_argument("--add-variant", metavar="ID",
+                    help="only (re)write this registered variant for entries already built")
     args = ap.parse_args()
     names = args.names or list(ENTRIES)
     unknown = [n for n in names if n not in ENTRIES]
     if unknown:
         ap.error(f"unknown entries {unknown}")
+    if args.add_variant and args.add_variant not in VARIANTS:
+        ap.error(f"unknown variant {args.add_variant!r}; registered: {list(VARIANTS)}")
 
     index_path = OUT / "index.json"
     index = ({d["id"]: d for d in json.loads(index_path.read_text())["datasets"]}
@@ -215,6 +255,9 @@ def main() -> None:
     for name in names:
         spec = dict(ENTRIES[name])
         label, text = spec.pop("label"), spec.pop("text")
+        if args.add_variant:
+            add_one_variant(name, spec, index, VARIANTS[args.add_variant])
+            continue
         if args.coords_only:
             if name in index:
                 index[name]["coords_file"] = write_coords(name, spec)

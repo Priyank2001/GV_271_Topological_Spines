@@ -6,6 +6,8 @@ the graph that connects them here, after loading:
 
   * point clouds -> k-nearest-neighbour graph, any k   (``knn_graph``)
   * regular grids -> axis-aligned grid adjacency          (``grid_graph``)
+                     or the triangulated grid, diagonals included
+                                                          (``triangulated_grid_graph``)
 
 Both return a ``NeighborGraph``: an undirected graph stored as a unique edge
 list plus CSR adjacency, which is what extremum-graph extraction needs
@@ -226,6 +228,34 @@ def grid_graph(shape: tuple[int, ...], backend: BackendSpec = None) -> NeighborG
     for axis in range(len(shape)):
         a = np.take(ids, np.arange(shape[axis] - 1), axis=axis).reshape(-1)
         b = np.take(ids, np.arange(1, shape[axis]), axis=axis).reshape(-1)
+        parts.append(np.stack([a, b], axis=1))
+    edges = np.concatenate(parts) if parts else np.empty((0, 2), np.int64)
+    return NeighborGraph.from_edges(ids.size, edges, backend=backend)
+
+
+def triangulated_grid_graph(shape: tuple[int, ...], backend: BackendSpec = None) -> NeighborGraph:
+    """Edges of the Freudenthal (Kuhn) triangulation of a regular grid.
+
+    Vertex ``x`` is linked to ``x + o`` for every offset ``o`` in {0, 1}^d other
+    than 0, so an interior vertex has 2 (2^d - 1) neighbours: 6 in 2D, 14 in 3D
+    (TTK's and AnyEG's grid; theirs runs the diagonals the mirrored way, which
+    is the same triangulation reflected). Unlike ``grid_graph`` it contains the
+    diagonals, so a diagonal ridge stays one ridge.
+
+    The triangulation is a flag complex: three vertices that are pairwise
+    linked span a triangle. That makes the upper-link test of
+    ``extremum_graph(..., saddles="upper_link")`` exact on this graph.
+    Numbering as in ``grid_graph``.
+    """
+    import itertools
+
+    ids = np.arange(int(np.prod(shape)), dtype=np.int64).reshape(shape)
+    parts = []
+    for off in itertools.product((0, 1), repeat=len(shape)):
+        if not any(off):
+            continue
+        a = ids[tuple(slice(0, s - o) for s, o in zip(shape, off))].reshape(-1)
+        b = ids[tuple(slice(o, s) for s, o in zip(shape, off))].reshape(-1)
         parts.append(np.stack([a, b], axis=1))
     edges = np.concatenate(parts) if parts else np.empty((0, 2), np.int64)
     return NeighborGraph.from_edges(ids.size, edges, backend=backend)

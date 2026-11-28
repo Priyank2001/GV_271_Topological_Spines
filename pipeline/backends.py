@@ -6,7 +6,8 @@ The extremum-graph code (``extremum_graph.py``) and the graph builders
 
 * **bulk array work** over every vertex or edge: sorting the field into a
   total order, steepest ascent with pointer jumping, finding the highest
-  pass between adjacent regions, and turning an edge list into CSR;
+  pass between adjacent regions, splitting each vertex's upper link into
+  its connected pieces, and turning an edge list into CSR;
 * **small sequential sweeps** over the saddles (union-find, the paper's
   Algorithm 1), which touch only a few thousand items.
 
@@ -62,6 +63,18 @@ class Passes(NamedTuple):
     support: np.ndarray   # (S,)   number of graph edges between the two regions
 
 
+class UpperLink(NamedTuple):
+    """The connected pieces of the upper link of every saddle vertex, one row per piece.
+
+    Only vertices with two or more pieces are listed. Rows are sorted by vertex
+    and, within a vertex, by the height of the piece's top, highest first (so a
+    vertex's first piece is the one holding its steepest-ascent neighbour).
+    """
+
+    vertex: np.ndarray    # (Q,) the saddle vertex the piece belongs to
+    top: np.ndarray       # (Q,) the highest vertex of the piece: where its arc starts
+
+
 class CSR(NamedTuple):
     """An undirected graph as a unique edge list plus CSR adjacency."""
 
@@ -94,6 +107,19 @@ class ComputeBackend(ABC):
         Among all edges between regions A and B, the pass is the edge whose
         lower endpoint is highest; that endpoint is the pass vertex. Results
         are sorted from the highest pass down (ties keep the (A, B) order).
+        """
+
+    @abstractmethod
+    def upper_link(self, rank: np.ndarray, region: np.ndarray,
+                   graph: "NeighborGraph") -> UpperLink:
+        """Pieces of the upper link of every vertex that has two or more.
+
+        The upper link of v is the set of its higher neighbours, two of them
+        joined when they are neighbours of each other. One piece is one way up
+        from v; two or more pieces make v a saddle. Only *candidates* are
+        tested, vertices with a higher neighbour in another region (AnyEG's
+        module 3): if every higher neighbour of v lies in v's own region,
+        every arc from v returns to v's own maximum and links nothing.
         """
 
     @abstractmethod
@@ -157,6 +183,44 @@ class NumpyBackend(ComputeBackend):
         return Passes(vertex=low_vertex[pick],
                       peaks=np.stack([a[pick], b[pick]], axis=1),
                       support=(group_end - group_start + 1)[top_down])
+
+    def upper_link(self, rank, region, graph):
+        n, ip, ix = graph.num_nodes, graph.indptr, graph.indices
+        deg = np.diff(ip)
+        row = np.repeat(np.arange(n, dtype=np.int64), deg)
+        up = rank[ix] > rank[row]
+        cand = np.zeros(n, dtype=bool)
+        cand[row[up & (region[ix] != region[row])]] = True
+        sel = np.flatnonzero(up & cand[row])          # entries v -> a, a higher, v a candidate
+        if sel.shape[0] == 0:
+            return _no_upper_link()
+        ev, ea = row[sel], ix[sel]
+        key = ev * n + ea                    # ascending, because CSR rows are sorted
+        if not (key[1:] > key[:-1]).all():
+            raise ValueError("upper_link needs a graph from NeighborGraph.from_edges (sorted CSR rows)")
+
+        # Pairs of higher neighbours (a, b) of the same v that are neighbours of each
+        # other: for every entry v -> a, every neighbour b of a that is also an entry v -> b.
+        src, dst = [], []
+        for lo, hi in _weight_chunks(np.cumsum(deg[ea])):
+            a, v = ea[lo:hi], ev[lo:hi]
+            cnt = deg[a]
+            base = np.repeat(ip[a] - (np.cumsum(cnt) - cnt), cnt)   # concatenated neighbour lists
+            b = ix[base + np.arange(base.shape[0])]
+            k = np.repeat(v, cnt) * n + b
+            pos = np.minimum(np.searchsorted(key, k), key.shape[0] - 1)
+            hit = key[pos] == k
+            src.append(np.repeat(np.arange(lo, hi), cnt)[hit])
+            dst.append(pos[hit])
+
+        from scipy.sparse import coo_matrix
+        from scipy.sparse.csgraph import connected_components
+
+        m = sel.shape[0]
+        s, d = np.concatenate(src), np.concatenate(dst)
+        adj = coo_matrix((np.ones(s.shape[0], dtype=np.int8), (s, d)), shape=(m, m))
+        label = connected_components(adj, directed=False)[1]
+        return _pieces(ev, ea, label, rank, n)
 
     def build_csr(self, num_nodes, edges):
         e = np.asarray(edges, dtype=np.int64).reshape(-1, 2)
@@ -262,6 +326,52 @@ class TorchBackend(ComputeBackend):
                       peaks=self.to_numpy(torch.stack([a[pick], b[pick]], dim=1)),
                       support=self.to_numpy(counts[top_down]))
 
+    def upper_link(self, rank, region, graph):
+        torch = self._torch
+        g = self._graph_cache.get(graph)
+        n = graph.num_nodes
+        r, reg = self.to_device(rank), self.to_device(region)
+        ip = self.to_device(graph.indptr)
+        deg = ip[1:] - ip[:-1]
+        row, ix = g.row, g.indices
+        up = r[ix] > r[row]
+        cand = torch.zeros(n, dtype=torch.bool, device=self.device)
+        cand[row[up & (reg[ix] != reg[row])]] = True
+        sel = torch.nonzero(up & cand[row]).flatten()
+        if sel.numel() == 0:
+            return _no_upper_link()
+        ev, ea = row[sel], ix[sel]
+        key = ev * n + ea                    # ascending, because CSR rows are sorted
+        if not bool((key[1:] > key[:-1]).all()):
+            raise ValueError("upper_link needs a graph from NeighborGraph.from_edges (sorted CSR rows)")
+
+        src, dst = [], []
+        weights = self.to_numpy(torch.cumsum(deg[ea], 0))
+        for lo, hi in _weight_chunks(weights):
+            a, v = ea[lo:hi], ev[lo:hi]
+            cnt = deg[a]
+            base = torch.repeat_interleave(ip[a] - (torch.cumsum(cnt, 0) - cnt), cnt)
+            b = ix[base + self._arange(base.shape[0])]
+            k = torch.repeat_interleave(v, cnt) * n + b
+            pos = torch.searchsorted(key, k).clamp(max=key.shape[0] - 1)
+            hit = key[pos] == k
+            src.append(torch.repeat_interleave(self._arange(hi)[lo:], cnt)[hit])
+            dst.append(pos[hit])
+        s, d = torch.cat(src), torch.cat(dst)
+
+        # Connected components: every entry takes the smallest label of its pieces'
+        # members (min-label propagation with pointer jumping) until nothing changes.
+        label = self._arange(sel.shape[0])
+        while True:
+            nxt = label.clone()
+            nxt.scatter_reduce_(0, s, label[d], reduce="amin", include_self=True)
+            nxt.scatter_reduce_(0, d, label[s], reduce="amin", include_self=True)
+            nxt = nxt[nxt]
+            if torch.equal(nxt, label):
+                break
+            label = nxt
+        return _pieces(self.to_numpy(ev), self.to_numpy(ea), self.to_numpy(label), rank, n)
+
     def build_csr(self, num_nodes, edges):
         torch = self._torch
         e = self.to_device(np.asarray(edges, dtype=np.int64).reshape(-1, 2))
@@ -360,6 +470,9 @@ class AutoBackend(ComputeBackend):
     def passes(self, rank, region, graph, num_regions):
         return self._run(graph.num_nodes, "passes", rank, region, graph, num_regions)
 
+    def upper_link(self, rank, region, graph):
+        return self._run(graph.num_nodes, "upper_link", rank, region, graph)
+
     def build_csr(self, num_nodes, edges):
         return self._run(len(edges), "build_csr", num_nodes, edges)
 
@@ -447,3 +560,33 @@ def _pair_key(a, b, n: int):
 def _no_passes() -> Passes:
     empty = np.empty(0, dtype=np.int64)
     return Passes(empty, np.empty((0, 2), dtype=np.int64), empty)
+
+
+def _no_upper_link() -> UpperLink:
+    empty = np.empty(0, dtype=np.int64)
+    return UpperLink(empty, empty.copy())
+
+
+def _weight_chunks(cum_weight: np.ndarray, budget: int = 1 << 23):
+    """(lo, hi) ranges of items whose summed weight stays near ``budget`` (cumulative sums given)."""
+    cum_weight = np.asarray(cum_weight)
+    lo, total = 0, cum_weight.shape[0]
+    while lo < total:
+        done = int(cum_weight[lo - 1]) if lo else 0
+        hi = max(int(np.searchsorted(cum_weight, done + budget, side="right")), lo + 1)
+        yield lo, hi
+        lo = hi
+
+
+def _pieces(ev: np.ndarray, ea: np.ndarray, label: np.ndarray, rank: np.ndarray, n: int) -> UpperLink:
+    """From the piece label of every upper entry v -> a to ``UpperLink`` (shared by all backends).
+
+    Labels are arbitrary integers; the result does not depend on them.
+    """
+    o = np.lexsort((rank[ea], label))
+    last = np.r_[label[o][1:] != label[o][:-1], True]       # the highest entry of each piece
+    vertex, top = ev[o[last]], ea[o[last]]
+    saddle = np.bincount(vertex, minlength=n)[vertex] >= 2
+    vertex, top = vertex[saddle], top[saddle]
+    order = np.lexsort((-rank[top], vertex))
+    return UpperLink(vertex[order].astype(np.int64), top[order].astype(np.int64))

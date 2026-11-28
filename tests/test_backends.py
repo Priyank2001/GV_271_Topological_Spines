@@ -15,7 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from pipeline.backends import (AutoBackend, NumpyBackend, TorchBackend, cuda_available,  # noqa: E402
                                get_backend)
 from pipeline.extremum_graph import extremum_graph  # noqa: E402
-from pipeline.neighbor_graph import NeighborGraph, grid_graph, knn_graph  # noqa: E402
+from pipeline.neighbor_graph import (NeighborGraph, grid_graph, knn_graph,  # noqa: E402
+                                     triangulated_grid_graph)
 
 torch = pytest.importorskip("torch")
 
@@ -38,12 +39,19 @@ def graphs_and_fields():
         np.array([1.0, 2.0, 5.0, 3.0, 1.0, 0.0])
 
 
+@pytest.mark.parametrize("saddles", ["pass", "upper_link"])
 @pytest.mark.parametrize("device", DEVICES)
-def test_extremum_graph_identical_to_numpy(device):
+def test_extremum_graph_identical_to_numpy(device, saddles):
     gpu = TorchBackend(device)
-    for name, g, f in graphs_and_fields():
-        a = extremum_graph(f, g, backend="numpy")
-        b = extremum_graph(f, g, backend=gpu)
+    cases = list(graphs_and_fields())
+    rng = np.random.default_rng(4)
+    cases.append(("triangulated grid", triangulated_grid_graph((9, 10, 11), backend="numpy"),
+                  rng.random(990)))
+    cases.append(("triangulated ties", triangulated_grid_graph((25, 25), backend="numpy"),
+                  rng.integers(0, 3, 625).astype(float)))
+    for name, g, f in cases:
+        a = extremum_graph(f, g, backend="numpy", saddles=saddles)
+        b = extremum_graph(f, g, backend=gpu, saddles=saddles)
         for field in FIELDS:
             assert np.array_equal(getattr(a, field), getattr(b, field)), (name, field)
 

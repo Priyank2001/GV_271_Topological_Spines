@@ -6,6 +6,69 @@ and what is still open.
 
 ---
 
+## 2026-11-28 — upper-link saddles (`saddles="upper_link"`)
+
+**Why.** Our saddles are the highest pass between two touching basins: one
+per pair of basins. So (1) a saddle vertex that joins three maxima keeps only
+the links for which it is the highest pass (neghip, 14-neighbour grid: 65 real
+3-maxima saddles, all links kept for 28; 87 links lost, all to this rule), (2)
+a second saddle between the same two peaks is lost (a ring of 2 peaks gives 1
+saddle), and (3) many passes are not critical points at all.
+
+**What we did.** `extremum_graph(..., saddles="upper_link")`: a vertex is a
+saddle when its higher neighbours, joined when they are neighbours of each
+other, fall into two or more pieces; each piece gives one arc (from its
+highest vertex, by steepest ascent). k pieces reaching k maxima = k - 1
+entries at the same vertex. New `triangulated_grid_graph` (Freudenthal, 14
+neighbours in 3D), on which the test is exact. Backends: NumPy and torch, bit
+identical (`tests/test_backends.py`). `parallel_saddles=False` keeps only the
+highest saddle per pair (used on kNN). Compare-mode variant `ours_ul`
+("Ours, upper-link saddles"): 14-neighbour grid for volumes, kNN for point
+clouds. `python3 web/build_data.py NAMES --add-variant ID` adds one variant
+without rebuilding the rest. Default is still `"pass"`. Tests:
+`tests/test_upper_link.py`.
+
+**Results** (same graph for both methods, so only the saddle step differs):
+
+| field | pass | upper link |
+|---|---|---|
+| Ackley 3D grid, true / extra links (simplified to 27 peaks) | 54/54, 62 extra | 54/54, 8 extra |
+| Ackley 4D grid (81 peaks) | 216/216, 484 extra | 216/216, 38 extra |
+| ring of 2 peaks, triangulated grid: saddles (2 true) | 1 | 2 |
+| neghip full graph: linked pairs (AnyEG 595) | 689 | 417 |
+| neghip at t = 0.1: peaks / links | 21 / 28 | 21 / 25 |
+| fuel at t = 0.1: peaks / links | 6 / 6 | 6 / 5 |
+| two_peaks, volcano x3, cyclic_3d, flower_2d (known answers) | all correct* | identical to pass |
+
+\* volcano_breached: both keep the breached link (needs p_hi), as before.
+
+Peak persistence is identical in every test (merge saddles always pass the
+test). On kNN graphs the method finds many saddles that are noise: without
+`parallel_saddles=False`, volcano_notched gets 26 saddle points for 6 links.
+Cost (NumPy, CPU): neghip 0.72 s against 0.08 s, fuel 0.30 s against 0.04 s.
+
+**Bucky: open.** Simplified to ~60 peaks, the upper-link graph has far fewer
+links between atoms that are not nearest neighbours (95 against 267), but
+also fewer between nearest neighbours (45 of 60 against 57). The missing ones
+are not removed by the relief filter, and they stay missing after smoothing
+(sigma 0.5, 0.8) or 2-3x cubic upsampling, so neither value ties nor grid
+resolution explain it. C60 has a bond saddle at each of its 90 bonds, so these
+are probably real saddles the method misses (arcs may climb to a
+neighbouring atom), but our reference is weak: "each other's 3 nearest
+peaks" finds only 56-60 of the 90 bonds.
+
+**Still open**
+- [ ] Bucky (above): find out where the arcs of the missing bonds go.
+- [ ] Make `"upper_link"` the default (and the 14-neighbour grid for volumes)?
+      It changes every volume result.
+- [ ] Arc geometry (the vertex path of each arc) is not stored or drawn yet.
+- [ ] `simplify` (Python and simplify.js) still keeps one saddle per pair of
+      surviving peaks, so the second saddle of a 2-peak ring is only drawn in
+      the p* arcs mode.
+- [ ] `ext_10d` and `silicium` have no `ours_ul` file (data not on this machine).
+
+---
+
 ## 2026-11-11 — AnyEG vs our pipeline, and our pipeline on the GPU
 
 **What we did.** `anyeg/` is a separate pipeline that computes extremum

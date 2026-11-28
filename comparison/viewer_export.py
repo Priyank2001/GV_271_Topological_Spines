@@ -143,6 +143,46 @@ def export_variants(source: FieldSource, main_doc: dict, main_file: str,
     return entries, comparisons
 
 
+def add_variant(source: FieldSource, variant: ExtractionVariant, main_doc: dict, main_file: str,
+                other_docs: List[dict], write, log=print,
+                compare_with: Tuple[str, ...] = (MAIN_VARIANT, "anyeg", "ours14")
+                ) -> Tuple[dict, List[dict]]:
+    """Export one variant next to a field's existing files, without rebuilding the others.
+
+    ``main_doc`` and ``other_docs`` are the documents already written for the field (the
+    main file first, then the variant files in index order). Their nodes keep their
+    places; the new variant is laid out around them, as ``export_variants`` would do.
+    Agreement numbers are computed against the variants in ``compare_with``, which are
+    extracted again for that (variants that do not apply are skipped).
+    Returns the variant's index.json entry and its comparisons.
+    """
+    registry = PositionRegistry.from_document(main_doc)
+    for doc in other_docs:
+        registry.add_document(doc)
+    result = variant.extract(source)
+    doc = variant_document(variant, result, source, registry, main_doc, main_file)
+    filename = main_file.replace(".json", f".{variant.id}.json")
+    write(doc, filename)
+    entry = {**variant.describe(source), "file": filename, "peaks": len(doc["peaks"]),
+             "saddles": len(doc["saddles"]), "notes": result.notes}
+    log(f"  {variant.id}: {len(doc['peaks'])} peaks, {len(doc['saddles'])} saddle entries")
+
+    applicable = {v.id: v for v in variants_for(source)}
+    comparisons = []
+    for other in compare_with:
+        if other == variant.id or other not in applicable:
+            continue
+        try:
+            common = applicable[other].extract(source).common
+        except Exception as err:          # e.g. AnyEG without a GPU build: no numbers for this pair
+            log(f"  {other}: no agreement numbers ({err})")
+            continue
+        agree = compare(common, result.common)
+        comparisons.append({"a": other, "b": variant.id, **{k: v for k, v in agree.as_dict().items()
+                                                            if k not in ("a", "b")}})
+    return entry, comparisons
+
+
 def _related(a: str, b: str) -> bool:
     """Two scalar-family ids that share the function and smoothing, or the k."""
     import re

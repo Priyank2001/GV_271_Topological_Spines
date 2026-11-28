@@ -19,11 +19,30 @@ the saddles and stay in plain Python.
    neighbour is higher than the point itself. Following these pointers from
    any point ends at a **maximum** (a point with no higher neighbour). The
    maximum a point ends at is its **region** (its steepest-ascent basin).
-3. *Saddles.* Two regions are adjacent if some graph edge joins them. Among
-   all edges between regions A and B, the edge whose *lower* endpoint is
-   highest is the pass between them: the highest level at which A and B are
-   still directly linked. Its lower endpoint is the **saddle** of (A, B).
-   Each saddle is linked to the two maxima it separates.
+3. *Saddles.* Two ways, chosen with ``saddles=``:
+
+   * ``"pass"`` (default). Two regions are adjacent if some graph edge joins
+     them. Among all edges between regions A and B, the edge whose *lower*
+     endpoint is highest is the pass between them: the highest level at which
+     A and B are still directly linked. Its lower endpoint is the **saddle**
+     of (A, B). Each saddle is linked to the two maxima it separates. At most
+     one saddle per pair of regions, and the pass need not be a critical point.
+   * ``"upper_link"``. A vertex is a saddle when its *upper link* (its higher
+     neighbours, two joined when they are neighbours of each other) falls
+     into two or more pieces: each piece is one way up. The arc of a piece
+     starts at its highest vertex and follows the steepest-ascent links to a
+     maximum. A saddle whose k pieces reach k maxima is stored as k - 1
+     entries at the same vertex, ``(own maximum, other maximum)``: what k - 1
+     ordinary saddles look like when they meet at one point, so steps 4-6 run
+     unchanged. Pieces that lead back to the saddle's own maximum link
+     nothing and are left out. On a triangulated grid
+     (``triangulated_grid_graph``) these are exactly the saddles of the
+     piecewise-linear field joined to maxima; on a kNN graph the test is an
+     approximation, because a kNN graph is not a triangulation.
+
+   Both give the same merge saddles and so the same peak persistence: a
+   saddle that joins two groups of peaks always has its higher neighbours in
+   two or more pieces, because neighbours in one piece are joined above it.
 4. *Persistence.* Visit the saddles from highest to lowest and merge regions
    with union-find. A saddle that joins two different groups of peaks is a
    ``merge`` saddle: the lower of the two groups' top peaks dies there, with
@@ -48,8 +67,11 @@ the saddles and stay in plain Python.
 
 Known limits:
 
-* At most one saddle is reported per pair of peaks (the highest pass). Two
-  true saddles between the same two peaks show up as one link.
+* With ``saddles="pass"``, at most one saddle is reported per pair of peaks
+  (the highest pass): two true saddles between the same two peaks show up as
+  one link, and a saddle joining three or more peaks keeps only the links for
+  which it is the highest pass. ``saddles="upper_link"`` has neither limit.
+  ``simplify`` still keeps only the highest saddle per pair of *surviving* peaks.
 * With a small k (8 or less) a few false passes survive, mostly in sparse
   regions far from the data.
 * Saddles are data points, so their position is only as precise as the
@@ -99,7 +121,9 @@ class ExtremumGraph:
                                   #      across the saddle that cancels it (paper's Algorithm 1)
 
     # ---- saddles ----
-    saddles: np.ndarray           # (S,) vertex of each saddle, highest first
+    saddles: np.ndarray           # (S,) vertex of each saddle, highest first. With
+                                  #      saddles="upper_link" a vertex can repeat: one
+                                  #      entry per extra maximum it reaches (saddle_reach)
     saddle_values: np.ndarray     # (S,)
     saddle_peaks: np.ndarray      # (S, 2) peak ids joined by the saddle, [higher, lower]
     saddle_is_merge: np.ndarray   # (S,) bool, False if the saddle closes a loop
@@ -120,6 +144,17 @@ class ExtremumGraph:
     @property
     def num_saddles(self) -> int:
         return self.saddles.shape[0]
+
+    def saddle_reach(self) -> dict:
+        """``{saddle vertex: sorted peak ids}``: every maximum a saddle vertex links.
+
+        Entries at the same vertex are one saddle; a vertex with k peaks here is
+        a saddle that joins k maxima.
+        """
+        out: dict = {}
+        for v, (a, b) in zip(self.saddles.tolist(), self.saddle_peaks.tolist()):
+            out.setdefault(v, set()).update((a, b))
+        return {v: sorted(p) for v, p in out.items()}
 
     @property
     def edges(self) -> np.ndarray:
@@ -236,13 +271,31 @@ class ExtremumGraph:
 # ---------------------------------------------------------------------------
 def extremum_graph(values: np.ndarray, graph: NeighborGraph,
                    min_loop_relief: float = 0.5,
-                   backend: BackendSpec = None) -> ExtremumGraph:
+                   backend: BackendSpec = None,
+                   saddles: str = "pass",
+                   parallel_saddles: bool = True) -> ExtremumGraph:
     """Compute the extremum graph of ``values`` sampled on ``graph``.
 
     Saddles that join two separate groups of peaks (``merge``) are always
     kept. A saddle that only closes a loop is kept when its relief is at
     least ``min_loop_relief`` (see ``_relief``); lower values drop more
     loops. Use ``0`` to keep every pass between adjacent regions.
+
+    ``saddles`` chooses how saddles are found (module docstring, step 3):
+    ``"pass"``, the highest pass between every two touching regions, or
+    ``"upper_link"``, the vertices whose higher neighbours fall into two or
+    more pieces, with one arc per piece. The upper-link test is exact on a
+    triangulated grid (``triangulated_grid_graph``). Do not use it on
+    ``grid_graph``: there no two neighbours of a vertex are neighbours of
+    each other, so every pass between two regions passes the test and it
+    filters nothing.
+
+    ``parallel_saddles`` (upper-link saddles only): keep every saddle between
+    the same two maxima (right on a triangulated grid: a ring of two peaks has
+    two saddles), or with ``False`` only the highest one per pair. On a kNN
+    graph sampling noise splits one saddle into several nearby ones, so
+    ``False`` is the better choice there. Only loop saddles are dropped, so
+    the persistence does not change.
 
     ``backend`` chooses where steps 1-3 and the relief run: ``"auto"``
     (default: GPU for large graphs), ``"numpy"``, ``"torch"``, ``"cuda:N"``,
@@ -253,6 +306,8 @@ def extremum_graph(values: np.ndarray, graph: NeighborGraph,
     n = graph.num_nodes
     if values.shape != (n,):
         raise ValueError(f"values must have shape ({n},), got {values.shape}")
+    if saddles not in ("pass", "upper_link"):
+        raise ValueError(f"saddles must be 'pass' or 'upper_link', got {saddles!r}")
     kernels = get_backend(backend)
 
     rank = kernels.total_order(values)
@@ -266,7 +321,16 @@ def extremum_graph(values: np.ndarray, graph: NeighborGraph,
     peak_id[max_vertices] = np.arange(num_peaks)
     region = peak_id[up]
 
-    sad_vertex, sad_peaks, sad_support = kernels.passes(rank, region, graph, num_peaks)
+    if saddles == "pass":
+        sad_vertex, sad_peaks, sad_support = kernels.passes(rank, region, graph, num_peaks)
+    else:
+        sad_vertex, sad_peaks = _upper_link_saddles(kernels.upper_link(rank, region, graph),
+                                                    rank, region)
+        if not parallel_saddles:          # highest per pair: entries are sorted highest first
+            _, first = np.unique(sad_peaks, axis=0, return_index=True)
+            first = np.sort(first)
+            sad_vertex, sad_peaks = sad_vertex[first], sad_peaks[first]
+        sad_support = _pair_support(region, graph, num_peaks, sad_peaks)
     persistence = _sweep(values, max_vertices, sad_vertex, sad_peaks)
     relief = _relief(values, rank, graph, sad_vertex, kernels)
 
@@ -299,6 +363,50 @@ def extremum_graph(values: np.ndarray, graph: NeighborGraph,
         region=region,
         region_size=np.bincount(region, minlength=num_peaks),
     )
+
+
+def _upper_link_saddles(pieces, rank: np.ndarray, region: np.ndarray):
+    """Saddle entries from the upper-link pieces (``ComputeBackend.upper_link``).
+
+    Each piece's arc ends at the maximum of the region of its top vertex. A
+    vertex's first piece holds its steepest-ascent neighbour, so it reaches the
+    vertex's own maximum (the *anchor*). Every other piece that reaches a
+    different maximum gives one entry ``(anchor, that maximum)``; a second
+    piece reaching the same maximum adds nothing (it can only close a loop at
+    the same point, which a graph on the maxima cannot show). Entries are
+    sorted from the highest vertex down, as ``passes`` sorts them.
+    """
+    v, top = pieces.vertex, pieces.top
+    if v.shape[0] == 0:
+        return np.empty(0, dtype=np.int64), np.empty((0, 2), dtype=np.int64)
+    peak = region[top]
+    first = np.r_[True, v[1:] != v[:-1]]
+    anchor = peak[np.maximum.accumulate(np.where(first, np.arange(v.shape[0]), 0))]
+    keep = ~first & (peak != anchor)
+    sv, a, b = v[keep], anchor[keep], peak[keep]
+    sp = np.stack([np.minimum(a, b), np.maximum(a, b)], axis=1)
+    # one entry per (vertex, pair of maxima)
+    _, first_of = np.unique(np.stack([sv, sp[:, 0], sp[:, 1]], axis=1), axis=0, return_index=True)
+    sv, sp = sv[first_of], sp[first_of]
+    order = np.lexsort((sp[:, 1], sp[:, 0], -rank[sv]))
+    return sv[order], sp[order]
+
+
+def _pair_support(region: np.ndarray, graph: NeighborGraph, num_peaks: int,
+                  sad_peaks: np.ndarray) -> np.ndarray:
+    """Number of graph edges between the two regions of every saddle entry (as ``passes`` reports)."""
+    if sad_peaks.shape[0] == 0:
+        return np.empty(0, dtype=np.int64)
+    e = graph.edges
+    ra, rb = region[e[:, 0]], region[e[:, 1]]
+    cross = ra != rb
+    key = np.minimum(ra, rb)[cross] * num_peaks + np.maximum(ra, rb)[cross]
+    uniq, count = np.unique(key, return_counts=True)
+    if uniq.shape[0] == 0:
+        return np.zeros(sad_peaks.shape[0], dtype=np.int64)
+    q = sad_peaks[:, 0] * num_peaks + sad_peaks[:, 1]
+    pos = np.minimum(np.searchsorted(uniq, q), uniq.shape[0] - 1)
+    return np.where(uniq[pos] == q, count[pos], 0).astype(np.int64)
 
 
 def _sweep(values, max_vertices, sad_vertex, sad_peaks) -> dict:
