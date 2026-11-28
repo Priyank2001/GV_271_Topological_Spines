@@ -148,3 +148,14 @@ def test_too_many_nodes_is_refused(monkeypatch):
     monkeypatch.setattr(sl, "MAX_NODES", 5)
     with pytest.raises(ValueError, match="simplify"):
         spine_layout(eg, ds.points)
+
+
+def test_rows_of_one_saddle_share_one_position():
+    """A saddle of 10 peaks (9 rows on one vertex) is laid out at a single point."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "generator"))
+    from make_star_saddle_dataset import field, sample
+    pts = sample()
+    eg = extremum_graph(field(pts), knn_graph(pts, 20))
+    assert (eg.saddles == 0).sum() == 9
+    xy = sl.spine_layout(eg, pts).saddle_xy
+    assert np.unique(xy, axis=0).shape[0] == 1

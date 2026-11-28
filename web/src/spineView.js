@@ -43,9 +43,33 @@ const SPACING_FIT = 0.35; // reference contour radius <= this x median nearest-p
 // yellow, orange, magenta, white at the top), read off the figure.
 export const FIG1_STOPS = [[0.80,0.84,0.93], [0.55,0.65,0.86], [0.45,0.66,0.38], [0.72,0.84,0.42],
   [0.97,0.93,0.55], [0.97,0.74,0.38], [0.90,0.50,0.40], [0.74,0.42,0.66], [0.93,0.80,0.92], [1, 1, 1]];
-const FIG1_FIT = 1.4;
-const FIG1_SPACING = 0.45;  // 'fig1': reference radius <= this x median nearest-peak distance      // 'fig1': saddle-level contour radius / median peak-saddle link
+const FIG1_ROOM = 0.9;      // 'fig1': a peak's circle at a saddle's value fills at most this share of its room (#fig1Scale)
+const FIG1_QUANTILE = 0.1;  // 'fig1': the scale fits this share of the tightest (peak, saddle) pairs' limits exactly
+const FIG1_SPACING = 0.45;  // 'fig1' without links: reference radius = this x median nearest-peak distance
 const FIG1_BG = '#ffffff';
+/**
+ * Saddles of three or more peaks among the drawn ones. The pipeline stores such a saddle as
+ * several rows (highest peak, other) on the same vertex (pipeline/anyeg_saddles.py); this puts
+ * them back together. Returns [{vertex, rows: indices into vis.saddles, peaks: distinct indices
+ * into vis.peaks}] for every vertex with two or more drawn rows.
+ */
+export function sharedSaddles(doc, vis) {
+  const byVertex = new Map();
+  vis.saddles.forEach((sid, j) => {
+    const v = doc.saddles[sid]?.vertex;
+    if (v === undefined) return;
+    if (!byVertex.has(v)) byVertex.set(v, []);
+    byVertex.get(v).push(j);
+  });
+  const out = [];
+  for (const [vertex, rows] of byVertex) {
+    if (rows.length < 2) continue;
+    const peaks = [...new Set(rows.flatMap((j) => vis.saddleEnds[j]))];
+    if (peaks.length >= 2) out.push({ vertex, rows, peaks });
+  }
+  return out;
+}
+
 export function fig1Color(t) {
   const S = FIG1_STOPS, x = Math.min(1, Math.max(0, t)) * (S.length - 1);
   const i = Math.min(S.length - 2, Math.floor(x)), f = x - i;
@@ -199,6 +223,7 @@ export class SpineView {
     this.vis = vis;
     const doc = this.doc;
     this.#applyRelayout(vis);
+    this.#snapSharedSaddles(vis);
     const nP = vis.peaks.length, nS = vis.saddles.length;
 
     const maxSize = Math.max(...vis.size, 1);
@@ -738,14 +763,18 @@ export class SpineView {
     const rBase = nddav ? this.#nddavRadius(vis) : this.rMax;
     // 'fig1': radius ~ volume^(1/k), the radius of a ball holding that many points, with k = min(d, 3)
     // (in high dimensions 1/d flattens every size to the same; 3 keeps the rings nested). Sized so the
-    // contours fill about half of each link, as in the paper's Fig. 1. Above 3-D also never more than
-    // FIG1_SPACING x the median nearest-peak distance, so neighbouring circles do not swallow each other.
+    // circles fit around their saddles with the peaks where the layout put them (#fig1Scale); ordinary
+    // saddles are drawn where their two circles meet (#fig1Saddles).
     const d = Number(this.doc?.meta?.dimensions) >= 1 ? Number(this.doc.meta.dimensions) : 2;
-    const rRef = this.contourScale * (fig1
-      ? Math.min(FIG1_FIT * this.#medianLink(vis), d > 3 ? FIG1_SPACING * this.#peakSpacing(vis) : Infinity)
-      : Math.min(rBase, SPACING_FIT * this.#peakSpacing(vis)));
     const exponent = fig1 ? 1 / Math.min(d, 3) : this.effectiveExponent;
-    if (fig1) this.#fig1Positions(vis, h, rRef / sc.ref ** exponent, exponent);
+    let rRef;
+    if (fig1) {
+      this.#fig1Saddles(vis, h, exponent);
+      const rs = this.#fig1Scale(vis, h, exponent);
+      rRef = this.contourScale * (rs !== null ? rs * sc.ref ** exponent : FIG1_SPACING * this.#peakSpacing(vis));
+    } else {
+      rRef = this.contourScale * Math.min(rBase, SPACING_FIT * this.#peakSpacing(vis));
+    }
     const g = buildContours(this.doc, vis, h, this.peakXY, this.saddleXY, {
       rs: rRef / sc.ref ** exponent,
       maxRadius: rRef * sc.capFactor,
@@ -828,79 +857,93 @@ export class SpineView {
   }
 
   /**
-   * 'fig1' style: where the drawing puts the saddles and some leaf peaks, to look like the paper's
-   * Fig. 1. A saddle sits on the straight line between its two peaks, where their circles at the
-   * saddle's value meet. An arm (a single-link peak much lower than the peak it hangs from) gets its
-   * saddle beyond the big peak's circle, so the big contour spikes out to it and the arm's teardrop
-   * meets the spike (a figure-eight); the arm is moved out to make room. Only drawing copies change.
+   * 'fig1': the scale rs (circle radius = rs * volume^k) at which the circles fit around their saddles,
+   * with the peaks where the layout put them (no peak is moved):
+   *
+   * - an ordinary saddle (two peaks A, B): their circles at the saddle's value, side by side, fill at
+   *   most FIG1_ROOM of the distance |AB|; the saddle is then drawn where they meet (#fig1Saddles);
+   * - a saddle of m >= 3 peaks (``sharedSaddles``) stays at its layout position, and each peak's circle
+   *   at its value is at most FIG1_ROOM x d x sin(pi / m) wide (d = distance from the peak to the
+   *   saddle), so it stays inside its 360/m-degree wedge and neighbouring circles do not overlap.
+   *
+   * The FIG1_QUANTILE-th smallest of these limits is used: a few very short links (sampling noise) do
+   * not shrink every circle. Returns null when no link has a limit.
    */
-  #fig1Positions(vis, h, rs, k) {
+  #fig1Scale(vis, h, k) {
     const doc = this.doc;
-    const P = this.peakXY.slice(), S = this.saddleXY.slice();
-    const deg = new Array(vis.peaks.length).fill(0);
-    vis.saddleEnds.forEach(([a, b]) => { if (a !== b) { deg[a]++; deg[b]++; } });
-    const top = (i) => doc.peaks[vis.peaks[i]].value;
-    const rad = (i, c) => rs * volumeBetween(h, i, c, top(i)) ** k;   // circle of peak i at value c
-    const floorC = this.#contourFloor(vis) ?? (doc.meta.value_range?.[0] ?? 0);
-    // big peaks first, so an arm is placed after the circle it hangs from
-    const order = vis.saddles.map((_, j) => j).sort((x, y) => {
-      const [a, b] = vis.saddleEnds[y], [c, d] = vis.saddleEnds[x];
-      return Math.max(vis.size[a], vis.size[b]) - Math.max(vis.size[c], vis.size[d]);
+    const limits = [];
+    const v = (i, c) => volumeBetween(h, i, c, doc.peaks[vis.peaks[i]].value);
+    const xy = (i) => this.peakXY[vis.peaks[i]];
+    const shared = sharedSaddles(doc, vis);
+    const inShared = new Set(shared.flatMap((g) => g.rows));
+    vis.saddles.forEach((sid, j) => {
+      const [a, b] = vis.saddleEnds[j];
+      if (inShared.has(j) || a === b) return;
+      const c = doc.saddles[sid].value;
+      const w = (v(a, c) >= 1 ? v(a, c) ** k : 0) + (v(b, c) >= 1 ? v(b, c) ** k : 0);
+      const dist = Math.hypot(xy(a)[0] - xy(b)[0], xy(a)[1] - xy(b)[1]);
+      if (w > 0 && dist > 0) limits.push(FIG1_ROOM * dist / w);
     });
-    for (const j of order) {
-      const [a0, b0] = vis.saddleEnds[j];
-      if (a0 === b0) continue;
-      const sv = doc.saddles[vis.saddles[j]].value;
-      const ra0 = rad(a0, sv), rb0 = rad(b0, sv);
-      const [A, B] = ra0 >= rb0 ? [a0, b0] : [b0, a0];          // A: the larger at the saddle's value
-      const rA = Math.max(ra0, rb0), rB = Math.min(ra0, rb0);
-      const pa = P[vis.peaks[A]], pb = P[vis.peaks[B]];
-      let dx = pb[0] - pa[0], dy = pb[1] - pa[1];
-      let dist = Math.hypot(dx, dy);
-      if (dist < 1e-9) { dx = 1; dy = 0; dist = 1e-9; }
-      const ux = dx / dist, uy = dy / dist;
-      let t;                                                    // distance of the saddle from A
-      // An arm: a single-link peak that rises only a little above its saddle compared with the peak
-      // it hangs from (fuel's four side peaks; not the jet's tip, which is as high as its neighbour).
-      const arm = deg[B] === 1 && top(B) - sv < 0.5 * (top(A) - sv);
-      if (arm) {
-        // A's contour at the saddle's value runs out as a spike to the saddle (0.7 x its circle beyond
-        // the circle), and the arm's teardrop comes back from the other side: the figure-eight.
-        t = rA * 1.7;
-        const tear = 3.2 * Math.max(rad(B, floorC), 0.25 * rA); // length of the arm's teardrop
-        if (dist < t + tear) {
-          dist = t + tear;
-          P[vis.peaks[B]] = [pa[0] + ux * dist, pa[1] + uy * dist];
-        }
-      } else {
-        // two peaks of a chain: where their circles at the saddle's value would meet, pushed apart
-        // if they overlap so the lens pinches visibly
-        const need = 1.15 * (rA + rB);
-        if (deg[B] === 1 && dist < need) {
-          dist = need;
-          P[vis.peaks[B]] = [pa[0] + ux * dist, pa[1] + uy * dist];
-        }
-        t = dist * (rA / Math.max(1e-12, rA + rB));
+    for (const g of shared) {
+      const sid = vis.saddles[g.rows[0]], c = doc.saddles[sid].value;
+      const [sx, sy] = this.saddleXY[sid];
+      const wedge = Math.sin(Math.PI / Math.max(2, g.peaks.length));
+      for (const i of g.peaks) {
+        const vol = v(i, c), dist = Math.hypot(xy(i)[0] - sx, xy(i)[1] - sy);
+        if (vol >= 1 && dist > 0) limits.push(FIG1_ROOM * dist * wedge / vol ** k);
       }
-      S[vis.saddles[j]] = [pa[0] + ux * t, pa[1] + uy * t];
     }
-    this.peakXY = P;
-    this.saddleXY = S;
+    if (!limits.length) return null;
+    limits.sort((x, y) => x - y);
+    return limits[Math.floor(FIG1_QUANTILE * (limits.length - 1))];
   }
 
-  /** Median layout length of the shown peak-saddle links (rMax * 2 without links). */
-  #medianLink(vis) {
-    const len = [];
-    vis.saddles.forEach((id, j) => {
-      const [sx, sy] = this.saddleXY[id];
-      for (const e of new Set(vis.saddleEnds[j])) {
-        const [px, py] = this.peakXY[vis.peaks[e]];
-        len.push(Math.hypot(px - sx, py - sy));
-      }
+  /**
+   * Saddle rows on the same vertex are one saddle (the pipeline stores a saddle of k peaks as k - 1
+   * rows): draw them all at one point, the mean of their positions, in every style. The re-layout lays
+   * them out as separate nodes and can leave them a hair apart. Only the drawing copy changes.
+   */
+  #snapSharedSaddles(vis) {
+    const byVertex = new Map();
+    for (const sid of vis.saddles) {
+      const v = this.doc.saddles[sid]?.vertex;
+      if (v === undefined || !this.saddleXY?.[sid]) continue;
+      if (!byVertex.has(v)) byVertex.set(v, []);
+      byVertex.get(v).push(sid);
+    }
+    let S = null;
+    for (const ids of byVertex.values()) {
+      if (ids.length < 2) continue;
+      S ??= this.saddleXY.slice();
+      const c = [0, 1].map((q) => ids.reduce((s, id) => s + this.saddleXY[id][q], 0) / ids.length);
+      for (const id of ids) S[id] = c;
+    }
+    if (S) this.saddleXY = S;
+  }
+
+  /**
+   * 'fig1': draws every ordinary saddle (two peaks) on the straight line between its peaks, where their
+   * circles at the saddle's value meet (the split of |AB| in the ratio of the two radii), as in the
+   * paper's Fig. 1. In high dimensions the layout can put a saddle far from both its peaks, which would
+   * stretch both lobes out to it. A saddle of three or more peaks keeps its layout position (one point
+   * for all its rows, see #snapSharedSaddles). Peaks are not moved. Only the drawing copy of the
+   * saddle positions changes.
+   */
+  #fig1Saddles(vis, h, k) {
+    const doc = this.doc;
+    const inShared = new Set(sharedSaddles(doc, vis).flatMap((g) => g.rows));
+    const S = this.saddleXY.slice();
+    vis.saddles.forEach((sid, j) => {
+      const [a, b] = vis.saddleEnds[j];
+      if (inShared.has(j) || a === b) return;
+      const c = doc.saddles[sid].value;
+      const r = (i) => { const vol = volumeBetween(h, i, c, doc.peaks[vis.peaks[i]].value); return vol >= 1 ? vol ** k : 0; };
+      const ra = r(a), rb = r(b);
+      const t = ra + rb > 0 ? ra / (ra + rb) : 0.5;
+      const pa = this.peakXY[vis.peaks[a]], pb = this.peakXY[vis.peaks[b]];
+      S[sid] = [pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t];
     });
-    if (!len.length) return this.rMax * 2;
-    len.sort((a, b) => a - b);
-    return len[len.length >> 1];
+    this.saddleXY = S;
   }
 
   #nddavRadius(vis) {

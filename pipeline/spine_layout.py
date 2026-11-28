@@ -118,6 +118,7 @@ def spine_layout(eg: ExtremumGraph, coords: Coords, *,
     final_stress = stress(xy, D)
     if final_stress > pca_stress:        # cannot happen in exact arithmetic
         xy, final_stress = start, pca_stress
+    xy = _snap_shared(xy, vertices)
 
     xy, scale = _fit_to_unit_box(xy)
     p = eg.num_peaks
@@ -363,6 +364,22 @@ def _align_to(xy: np.ndarray, fixed: np.ndarray, target: np.ndarray) -> np.ndarr
 def _raw_stress(X, W, Dc) -> float:
     low = np.linalg.norm(X[:, None, :] - X[None, :, :], axis=-1)
     return float((W * (low - Dc) ** 2).sum() / 2.0)
+
+
+def _snap_shared(xy: np.ndarray, vertices: np.ndarray) -> np.ndarray:
+    """Nodes on the same vertex at one point, the mean of their positions.
+
+    A saddle of k peaks is stored as k - 1 saddle rows on one vertex
+    (pipeline/anyeg_saddles.py). They start at the same position with the same
+    target distances, so the layout keeps them together up to rounding; this
+    makes it exact, so the viewer draws one saddle.
+    """
+    _, inv = np.unique(vertices, return_inverse=True)
+    if inv.max(initial=-1) + 1 == len(vertices):
+        return xy
+    sums = np.zeros((inv.max() + 1, xy.shape[1]))
+    np.add.at(sums, inv, xy)
+    return (sums / np.bincount(inv)[:, None])[inv]
 
 
 def _fit_to_unit_box(xy: np.ndarray):

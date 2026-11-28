@@ -130,6 +130,13 @@ ENTRIES = {
         label="two_peaks_2d (2D, simplest case)", dataset="two_peaks_2d", k=15,
         initial_threshold=0.02, embed=["pca"],
         text="Two Gaussian peaks and one saddle between them: the spine is a single path, peak - saddle - peak."),
+    "star_saddle_2d": dict(
+        label="star_saddle_2d (one saddle shared by 10 peaks, 2D)", dataset="star_saddle_2d", k=20,
+        initial_threshold=0.02, embed=["pca"],
+        text="A star of 20 arms meeting at one point: 10 ridges, each with a peak, alternate with 10 valleys. "
+             "The hub is the only saddle and it joins all 10 peaks (a degenerate monkey saddle: 10 ways up, "
+             "10 ways down), so the spine is a star around one saddle. Our files store it as 9 saddle rows "
+             "(highest peak, other) on the same point. Needs k >= 20 (the hub's neighbours are the 20 arm tips)."),
     "volcano_intact": dict(
         label="volcano_intact (paper Fig. 5, 2D)", dataset="volcano_intact", k=15,
         initial_threshold=0.02, embed=["pca"],

@@ -97,5 +97,5 @@ if [ "$SERVE" = 1 ]; then
         echo "Port $PORT is already in use; pick another with --port." >&2; exit 1
     fi
     step "Serving web/ at http://$HOST:$PORT/   (Ctrl+C to stop)"
-    exec "$PY" -m http.server -d web --bind "$HOST" "$PORT"
+    exec "$PY" web/serve.py --bind "$HOST" "$PORT"
 fi

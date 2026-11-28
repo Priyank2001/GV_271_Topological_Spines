@@ -255,7 +255,7 @@ shrink big files.
 ```bash
 python3 web/build_data.py              # writes web/data/*.json (once, or after pipeline changes)
 python3 web/build_data.py --coords-only  # only the point clouds' coordinates (parallel coordinates)
-python3 -m http.server -d web 8000     # then open http://localhost:8000/#fuel
+python3 web/serve.py 8000     # then open http://localhost:8000/#fuel (sends no-cache, so edited JS is picked up)
 ```
 
 Or use `./run.sh` from the repo root: `./run.sh` only serves, `./run.sh --rebuild`

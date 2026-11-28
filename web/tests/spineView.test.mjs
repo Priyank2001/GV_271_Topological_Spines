@@ -9,7 +9,7 @@ globalThis.window = { devicePixelRatio: 1 };
 globalThis.ResizeObserver = class { observe() {} disconnect() {} };
 globalThis.requestAnimationFrame = () => 0;      // no render loop: tests call render by hand
 
-const { SpineView, peakColor } = await import('../src/spineView.js');
+const { SpineView, peakColor, sharedSaddles } = await import('../src/spineView.js');
 const { simplify } = await import('../src/simplify.js');
 
 const W = 800, H = 600;
@@ -210,4 +210,13 @@ test('a document without a spine is refused', () => {
   const doc = toyDoc();
   delete doc.spine;
   assert.throws(() => view.setGraph(doc), /no spine/);
+});
+
+test('rows of one saddle of many peaks (same vertex) are grouped back into one saddle', () => {
+  // the pipeline stores a saddle of 4 peaks as 3 rows (highest, other) on one vertex
+  const doc = { saddles: [{ vertex: 7 }, { vertex: 7 }, { vertex: 9 }, { vertex: 7 }] };
+  const vis = { saddles: [0, 1, 2, 3], saddleEnds: [[0, 1], [0, 2], [2, 3], [0, 3]] };
+  assert.deepEqual(sharedSaddles(doc, vis), [{ vertex: 7, rows: [0, 1, 3], peaks: [0, 1, 2, 3] }]);
+  // only drawn rows count: one row left on a vertex is an ordinary saddle
+  assert.deepEqual(sharedSaddles(doc, { saddles: [0, 2], saddleEnds: [[0, 1], [1, 2]] }), []);
 });
