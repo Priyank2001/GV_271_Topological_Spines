@@ -24,7 +24,7 @@
 // Drag to rotate, wheel to zoom, double-click to reset.
 
 import * as THREE from 'three';
-import { peakColor, regionColor, COLORMAPS } from './spineView.js';
+import { peakColor, regionColor, COLORMAPS, fig1Color } from './spineView.js';
 import { sharedLevels } from './contours.js';
 
 export const RAMP = 0.15;        // value range over which a voxel fades in above the threshold
@@ -68,10 +68,20 @@ export const BAND_PALETTES = {
 
 /**
  * Colour ([r, g, b] sRGB) of band ``k`` of ``n``. ``map``: 'spine' (the shared value colour
- * map, ``peakColor``), a key of ``COLORMAPS`` (sampled evenly over the bands) or of
- * ``BAND_PALETTES`` (one colour per band). ``reversed`` runs the bands the other way.
+ * map, ``peakColor``), 'fig1' (the paper-style palette, ``fig1Color``), a key of ``COLORMAPS``
+ * (sampled evenly over the bands) or of ``BAND_PALETTES`` (one colour per band). ``reversed``
+ * runs the bands the other way. With ``levels`` and ``range``, 'spine' and 'fig1' colour a band
+ * by its value (its lower iso value), exactly as the spine colours the contour at that value.
  */
-export function bandColor(k, n, map = 'spine', reversed = false) {
+export function bandColor(k, n, map = 'spine', reversed = false, levels = null, range = null) {
+  if ((map === 'spine' || map === 'fig1') && levels && range && levels.length === n - 1) {
+    const [lo, hi] = range;
+    let t = k === 0 ? 0 : (levels[k - 1] - lo) / ((hi - lo) || 1);
+    t = Math.min(1, Math.max(0, t));
+    if (reversed) t = 1 - t;
+    return map === 'fig1' ? fig1Color(t) : peakColor(t);
+  }
+  if (map === 'fig1') return fig1Color(n > 1 ? (reversed ? n - 1 - k : k) / (n - 1) : 0.5);
   if (reversed) k = n - 1 - k;
   const pal = BAND_PALETTES[map];
   if (pal) return pal[k % pal.length];
@@ -87,10 +97,10 @@ export function bandColor(k, n, map = 'spine', reversed = false) {
  * the band colour, a the band index (a band change between two ray samples means the
  * ray crossed an iso surface; at most 256 bands, far more than the menus offer).
  */
-export function isoTable(levels, { bins = ISO_BINS, map = 'spine', reversed = false } = {}) {
+export function isoTable(levels, { bins = ISO_BINS, map = 'spine', reversed = false, range = null } = {}) {
   const rgba = new Uint8Array(bins * 4);
   const n = levels.length + 1;
-  const cols = Array.from({ length: n }, (_, k) => bandColor(k, n, map, reversed).map((c) => Math.round(c * 255)));
+  const cols = Array.from({ length: n }, (_, k) => bandColor(k, n, map, reversed, levels, range).map((c) => Math.round(c * 255)));
   for (let b = 0; b < bins; b++) {
     const k = bandOf((b + 0.5) / bins, levels);
     rgba.set([...cols[k], Math.min(255, k)], 4 * b);
@@ -522,7 +532,7 @@ export class VolumeView {
   /** Rebuild the iso-band table from the current levels and colour map. */
   #fillIso() {
     this.levels = isoLevels(this.doc, this.vis, this.isoSource);
-    this.isoTex.image.data.set(isoTable(this.levels, this.bandMap).rgba);
+    this.isoTex.image.data.set(isoTable(this.levels, { ...this.bandMap, range: this.doc?.meta?.value_range ?? [0, 1] }).rgba);
     this.isoTex.needsUpdate = true;
     this.dirty = true;
   }

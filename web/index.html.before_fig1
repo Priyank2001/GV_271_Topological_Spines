@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Topological spines</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.js" } }
+  </script>
+</head>
+<body>
+  <header>
+    <h1>Extremum graph spine</h1>
+    <label>Dataset
+      <select id="dataset" aria-label="Dataset"></select>
+    </label>
+    <span id="status" role="status"></span>
+    <div class="toggles" role="group" aria-label="Show or hide panels">
+      <button id="toggleSpine" type="button" aria-pressed="false" title="Draw the topological spine (nested contours) around the extremum graph (key: s)">Spine</button>
+      <button id="toggleData" type="button" aria-pressed="true" title="Show or hide the data view (key: d)">Data view</button>
+      <button id="toggleSide" type="button" aria-pressed="true" title="Show or hide the controls (key: c)">Controls</button>
+    </div>
+  </header>
+
+  <main>
+    <nav id="modeRail" aria-label="Modes">
+      <button type="button" class="mode" data-mode="explore" aria-pressed="true"
+              title="Explore: the spine next to the scatterplot or volume">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.6"/><circle cx="19" cy="5.5" r="2.6"/><circle cx="19" cy="18.5" r="2.6"/><path d="M7.4 10.9l9.2-4.3M7.4 13.1l9.2 4.3M19 8.1v7.8"/></svg>
+        <span>Explore</span>
+      </button>
+      <button type="button" class="mode" id="toggleCompare" data-mode="compare" aria-pressed="false"
+              title="Compare two extraction methods side by side (key: m)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4" width="8.5" height="16" rx="1.6"/><rect x="13" y="4" width="8.5" height="16" rx="1.6"/><circle cx="6.75" cy="10" r="1.4"/><circle cx="17.25" cy="10" r="1.4"/><path d="M5 15h3.5M15.5 15h3.5"/></svg>
+        <span>Compare</span>
+      </button>
+      <button type="button" class="mode" data-mode="parallel" aria-pressed="false"
+              title="Parallel coordinates: every point as a line across all original dimensions (key: p)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18M12 3v18M20 3v18"/><path d="M4 6.5l8 10 8-11" opacity=".9"/><path d="M4 17l8-9 8 7"/></svg>
+        <span>Parallel</span>
+      </button>
+    </nav>
+
+    <div id="views">
+      <div id="spines">
+        <div class="spine-panel">
+          <div class="panel-bar" id="barA" hidden>
+            <label>Method <select id="variantA" aria-label="Extraction method of the left spine"></select></label>
+            <button id="swapVariants" type="button" hidden title="Swap the two methods">⇄ swap</button>
+          </div>
+          <section id="spine" aria-label="Spine view">
+            <div id="tooltip" hidden></div>
+            <div id="hint">drag to pan · wheel to zoom · double-click to reset · click a node to select</div>
+          </section>
+        </div>
+        <div class="spine-panel" id="panelB" hidden>
+          <div class="panel-bar" title="Selecting a node in one spine selects the node at the same vertex in the other">
+            <label>Method <select id="variantB" aria-label="Extraction method of the right spine"></select></label>
+          </div>
+          <section id="spineB" aria-label="Second spine view (compare mode)"></section>
+        </div>
+      </div>
+
+      <section id="data" aria-label="Data view">
+        <div id="dataBar">
+          <label id="embeddingRow">Dimensionality reduction
+            <select id="embedding" aria-label="Dimensionality reduction"></select>
+          </label>
+          <label>Colour
+            <select id="colorBy" aria-label="Colour points by">
+              <option value="region">peak region (distinct colours)</option>
+              <option value="value">field value</option>
+              <option value="iso" id="colorByIso" hidden>iso-value bands</option>
+            </select>
+          </label>
+          <span id="isoControls" hidden>
+            <label>Iso values
+              <select id="volIsoLevels" aria-label="Iso values that bound the colour bands">
+                <option value="spine">critical values (as the spine)</option>
+                <option value="4">4 even bands</option>
+                <option value="6">6 even bands</option>
+                <option value="8">8 even bands</option>
+                <option value="12">12 even bands</option>
+                <option value="16">16 even bands</option>
+              </select>
+            </label>
+            <label>Band colours
+              <select id="volIsoCmap" aria-label="Colour map of the iso bands">
+                <option value="spine">as the spine colour map</option>
+                <optgroup label="Sequential">
+                  <option value="viridis">viridis</option>
+                  <option value="plasma">plasma</option>
+                  <option value="inferno">inferno</option>
+                  <option value="magma">magma</option>
+                  <option value="cividis">cividis</option>
+                  <option value="turbo">turbo</option>
+                  <option value="grey">grey</option>
+                </optgroup>
+                <optgroup label="Diverging">
+                  <option value="coolwarm">coolwarm</option>
+                  <option value="RdYlBu">RdYlBu</option>
+                  <option value="Spectral">Spectral</option>
+                </optgroup>
+                <optgroup label="Qualitative (one colour per band)">
+                  <option value="tab10">tab10</option>
+                  <option value="Set1">Set1</option>
+                  <option value="Dark2">Dark2</option>
+                  <option value="Paired">Paired</option>
+                </optgroup>
+              </select>
+            </label>
+            <label><input id="volIsoRev" type="checkbox"> Reverse</label>
+            <label>Iso surfaces
+              <select id="volIsoSurf" aria-label="Draw the iso surfaces">
+                <option value="off">off</option>
+                <option value="add">over the volume</option>
+                <option value="only">only the surfaces</option>
+              </select>
+            </label>
+          </span>
+          <span id="volumeControls" hidden>
+            <label>Show above
+              <input id="volThresh" type="range" min="0" max="0.9" step="0.01" value="0.3" aria-label="Lowest field value shown">
+              <output id="volThreshOut"></output>
+            </label>
+            <label>Opacity
+              <input id="volDensity" type="range" min="0.1" max="3" step="0.05" value="1" aria-label="Opacity">
+            </label>
+            <label><input id="volShade" type="checkbox" checked> Shading</label>
+          </span>
+        </div>
+        <div id="dataCanvas"></div>
+        <div id="volumeCanvas" hidden></div>
+        <p id="dataNote" hidden></p>
+        <div id="colorLegend" class="color-legend" hidden aria-label="Colour legend of the data view">
+          <div class="cl-title" id="clTitle"></div>
+          <div class="cl-sub" id="clSub"></div>
+          <div class="cl-bar" id="clBar"><div class="cl-fade" id="clFade"></div><div class="cl-tick" id="clTick"></div></div>
+          <div class="cl-range" id="clRange"><span id="clLo"></span><span id="clHi"></span></div>
+          <div class="cl-swatches" id="clSwatches"></div>
+          <div class="cl-note" id="clNote"></div>
+        </div>
+        <div class="hint" id="dataHint"></div>
+      </section>
+
+      <section id="parallel" aria-label="Parallel coordinates" hidden>
+        <div id="pcBar" class="view-bar">
+          <label>Colour
+            <select id="pcColorBy" aria-label="Colour lines by">
+              <option value="region">peak region (distinct colours)</option>
+              <option value="value">field value</option>
+            </select>
+          </label>
+          <label>Line opacity
+            <input id="pcOpacity" type="range" min="0.01" max="1" step="0.01" value="0.3" aria-label="Line opacity">
+            <output id="pcOpacityOut"></output>
+          </label>
+          <details id="pcAxes" class="pc-axes">
+            <summary title="Choose which axes are drawn">Axes <span id="pcAxesCount"></span></summary>
+            <div class="pc-axes-menu" role="group" aria-label="Axes to draw">
+              <div class="pc-axes-head">
+                <button id="pcAxesAll" type="button">Show all</button>
+                <button id="pcAxesCoords" type="button" title="Hide the coordinates, keep f and peak">Only f and peak</button>
+              </div>
+              <div id="pcAxesList" class="pc-axes-list"></div>
+              <p class="pc-axes-note">At least two axes stay. Hiding an axis removes its brush.</p>
+            </div>
+          </details>
+          <button id="pcClear" type="button" disabled title="Remove every brush (or double-click the plot)">Clear brushes</button>
+        </div>
+        <div id="pcBrush" class="pc-brush" aria-live="polite"></div>
+        <div id="pcCanvas"></div>
+        <p id="pcNote" class="pc-note" hidden></p>
+        <div class="hint" id="pcHint">drag along an axis to brush · click an axis to clear its brush ·
+          click a name to flip the axis, drag it to move · click a line to select its peak</div>
+      </section>
+    </div>
+
+    <aside>
+      <p id="blurb"></p>
+      <section id="compareBox" class="compare-box" hidden aria-live="polite"></section>
+
+      <h2>Simplification</h2>
+      <label class="slider">
+        <span>Persistence threshold <output id="thresholdOut"></output></span>
+        <input id="threshold" type="range" min="0" max="1" step="0.001" value="0">
+      </label>
+      <label class="slider">
+        <span>Variation threshold (p_hi) <output id="variationOut"></output></span>
+        <input id="variation" type="range" min="0" max="1" step="0.001" value="1">
+      </label>
+      <canvas id="plot" aria-label="Peaks left against the noise threshold (blue) and links left against the variation threshold (red)"></canvas>
+      <p class="caption"><b class="blue">Blue</b>: peaks left at each noise threshold. <b class="red">Red</b>: links
+        left at each variation threshold; links (saddles) above p<sub>hi</sub> are cut, which can split the graph
+        into separate pieces. A flat stretch means the structure is stable. Click the plot to set the noise
+        threshold, shift+click to set p<sub>hi</sub>. Grey: below this file's base threshold.</p>
+      <p id="sliderNote" class="caption" hidden></p>
+      <p id="counts"></p>
+
+      <h2>Spine drawing</h2>
+      <label class="field">Style
+        <select id="style" aria-label="Spine drawing style">
+          <option value="simple" selected>Extremum graph</option>
+          <option value="nddav">Spine: NDDAV contours</option>
+          <option value="paper">Spine: paper contours</option>
+        </select>
+      </label>
+      <label class="field">Colour map
+        <select id="colormap" aria-label="Colour map for field values">
+          <option value="viridis">viridis</option>
+          <option value="plasma">plasma</option>
+          <option value="inferno">inferno</option>
+          <option value="magma">magma</option>
+          <option value="cividis">cividis</option>
+          <option value="turbo">turbo</option>
+          <option value="coolwarm">coolwarm (diverging)</option>
+          <option value="RdYlBu">RdYlBu (diverging)</option>
+          <option value="Spectral">Spectral (diverging)</option>
+          <option value="BrBG">BrBG (diverging, as in NDDAV)</option>
+          <option value="grey">grey</option>
+        </select>
+      </label>
+      <label class="check"><input id="cmapReverse" type="checkbox"> Reverse colour map</label>
+      <div class="cmap-preview" id="cmapPreview" aria-hidden="true"></div>
+      <div id="paperRows">
+      <label class="slider" id="scaleRow">
+        <span>Contour size <output id="scaleOut"></output></span>
+        <input id="scale" type="range" min="0.25" max="3" step="0.05" value="1">
+      </label>
+      <label class="field">Scale by
+        <select id="scaleMode" aria-label="Which contour sets the size">
+          <option value="saddle" selected>lowest saddle contour (halo capped)</option>
+          <option value="halo">outer halo (field minimum)</option>
+        </select>
+      </label>
+      <label class="field">Radius
+        <select id="radiusLaw" aria-label="Contour radius law">
+          <option value="nddav" selected>∝ volume^(2/d) (NDDAV)</option>
+          <option value="1">∝ volume (paper)</option>
+          <option value="0.5">∝ √volume (area ∝ volume)</option>
+        </select>
+      </label>
+      <label class="slider" id="gapRow" hidden>
+        <span>Min. isovalue gap <output id="gapOut"></output></span>
+        <input id="gap" type="range" min="0.005" max="0.2" step="0.005" value="0.02">
+      </label>
+      <label class="slider" id="levelsRow">
+        <span>Even isovalues <output id="levelsOut"></output></span>
+        <input id="levels" type="range" min="3" max="30" step="1" value="10">
+      </label>
+      </div>
+      <p class="caption" id="styleNote"></p>
+      <label class="check"><input id="arcs" type="checkbox" checked> Keep the arcs of merged peaks (p*)</label>
+      <p class="caption">Saturated persistence, as in the paper: a link to a peak that absorbed smaller ones runs
+        along the ridge through them (small grey dots), so a ring stays a ring after its peaks merge. Off: straight
+        links between the peaks that are left.</p>
+      <label class="check"><input id="relayout" type="checkbox" checked> Re-layout after simplifying</label>
+      <p class="caption">Lays out the peaks and saddles that are left again, so their positions fit their
+        own distances (the exported layout was made for the full graph). Used up to 150 nodes. In compare
+        mode the two spines then no longer share positions; untick it to line them up again.</p>
+
+      <h2>Selection</h2>
+      <div id="info"><p class="muted">Hover or click a node.</p></div>
+
+      <h2>Legend</h2>
+      <div class="legend">
+        <div><span class="sw peak-bar" id="valueBar"></span>
+          <span class="range"><span id="vLo"></span><span>peak value</span><span id="vHi"></span></span></div>
+        <div><span class="sw disc"></span> <span id="discLegend">disc area is proportional to the points in the peak's region</span></div>
+        <div><span class="sw diamond merge"></span> saddle</div>
+        <div><span class="sw diamond loop"></span> saddle that closes a loop</div>
+        <div><span class="sw ghost"></span> peak merged away, on a kept arc (p*)</div>
+        <div id="markLegend" hidden><span class="sw mark-ring"></span> maximum the other method does not have</div>
+      </div>
+
+      <h2>Layout</h2>
+      <p id="layoutInfo" class="muted"></p>
+    </aside>
+  </main>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+"""Tests for the point-cloud variants (neighbourhood, input and function choices) and the
+relaxed Gabriel graph. No torch needed.
+
+Run from the repo root: python3 -m pytest tests
+"""
+
+import sys
+from pathlib import Path
+
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from comparison.sources import FieldSource  # noqa: E402
+from comparison.variants import TRAIT_LABELS, VARIANTS, OursOnVariant  # noqa: E402
+from pipeline.neighbor_graph import relaxed_gabriel_graph  # noqa: E402
+
+
+def two_bumps(n=900, seed=0, noise=0.0) -> FieldSource:
+    """Points in the unit square, f = two Gaussian bumps (plus optional noise)."""
+    rng = np.random.default_rng(seed)
+    pts = rng.random((n, 2))
+    f = (np.exp(-((pts - [0.3, 0.5]) ** 2).sum(1) / 0.02)
+         + 0.8 * np.exp(-((pts - [0.75, 0.5]) ** 2).sum(1) / 0.02)
+         + noise * rng.standard_normal(n))
+    return FieldSource(name="two_bumps", kind="points", values=f, raw_values=f,
+                       coords=lambda v: pts[v], k=12, points=pts)
+
+
+def test_relaxed_gabriel_square():
+    # four corners of a square and its centre: the centre blocks both diagonals
+    pts = np.array([[0, 0], [1, 0], [1, 1], [0, 1], [0.5, 0.5]], dtype=float)
+    g = relaxed_gabriel_graph(pts, candidates=4)
+    edges = {tuple(e) for e in g.edges.tolist()}
+    assert (0, 2) not in edges and (1, 3) not in edges          # diagonals blocked by the centre
+    assert {(0, 1), (1, 2), (2, 3), (0, 3)} <= edges             # the sides stay
+    assert all((i, 4) in edges for i in range(4))                # the centre reaches every corner
+
+
+def test_gabriel_is_sparser_than_knn_in_2d():
+    src = two_bumps()
+    knn = VARIANTS["ours"].graph_for(src)
+    gab = VARIANTS["ours_gabriel"].graph_for(src)
+    assert gab.degree.mean() < knn.degree.mean()
+    assert gab.num_components() == 1
+
+
+def test_point_variants_registered_and_find_the_two_bumps():
+    src = two_bumps()
+    for vid in ("ours_k8", "ours_k40", "ours_gabriel", "ours_std", "ours_smooth"):
+        v = VARIANTS[vid]
+        assert isinstance(v, OursOnVariant) and v.applies_to(src)
+        assert set(v.traits(src)) <= set(TRAIT_LABELS)
+        g = v.extract(src).graph.simplify(0.1)
+        assert g.num_peaks == 2, (vid, g.num_peaks)
+
+
+def test_smoothing_removes_noise_peaks_and_standardising_changes_only_the_input():
+    noisy = two_bumps(noise=0.05)
+    raw = VARIANTS["ours"].extract(noisy).graph.num_peaks
+    smooth = VARIANTS["ours_smooth"].extract(noisy).graph.num_peaks
+    assert smooth < raw
+    t = VARIANTS["ours_std"].traits(noisy)
+    assert "standardised" in t["input"] and t["function"] == "f as given"
+
+
+def test_point_variants_skip_volumes():
+    vol = FieldSource(name="g", kind="grid", values=np.zeros(8), raw_values=np.zeros(8),
+                      coords=lambda v: v, grid_shape=(2, 2, 2))
+    assert not any(VARIANTS[v].applies_to(vol) for v in ("ours_k8", "ours_gabriel", "ours_smooth"))

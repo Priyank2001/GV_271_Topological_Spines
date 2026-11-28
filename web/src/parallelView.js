@@ -312,7 +312,7 @@ export class ParallelView {
     if (!brushed) { this.handlers.onBrush?.(null); return; }
     let count = 0;
     for (let i = 0; i < n; i++) count += brushed[i];
-    this.handlers.onBrush?.({ count, total: n, peaks: peakCounts(doc, vis, brushed) });
+    this.handlers.onBrush?.({ count, total: n, peaks: peakCounts(doc, vis, brushed), mask: brushed });
   }
 
   #applyOpacity() {

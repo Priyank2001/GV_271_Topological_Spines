@@ -30,13 +30,15 @@ from anyeg import ArcAssembler, FreudenthalGridNeighborhood, NeighborTable, Scal
 from anyeg.graph import AnyEGGraph
 from anyeg.kernels import ExtremumGraphKernels
 from pipeline.extremum_graph import ExtremumGraph, extremum_graph
-from pipeline.neighbor_graph import NeighborGraph
+from pipeline.neighbor_graph import NeighborGraph, knn_graph, relaxed_gabriel_graph
 
 from .common import CommonGraph, from_anyeg, from_ours
 from .sources import FieldSource
 
 # Order and wording of the traits in the viewer's comparison box.
 TRAIT_LABELS = {
+    "input": "Input",
+    "function": "Function",
     "neighbourhood": "Neighbourhood",
     "ties": "Equal values",
     "saddles": "Saddles",
@@ -124,6 +126,72 @@ class OursVariant(ExtractionVariant):
         return VariantResult(graph=eg, common=from_ours(eg, self.id, {}),
                              notes={"maxima": eg.num_peaks, "saddles": eg.num_saddles,
                                     "loop_saddles": int((~eg.saddle_is_merge).sum())})
+
+
+class OursOnVariant(ExtractionVariant):
+    """Our algorithm with another neighbourhood, input or function (point clouds only).
+
+    The choices NDDAV leaves to the user: the neighbour graph (``k`` of the kNN graph, or the
+    relaxed Gabriel graph), the input scaling (``standardise``: every coordinate to mean 0 and
+    standard deviation 1 before neighbours are found) and, for several output functions on the
+    same points, a second function (``smooth``: f averaged with its neighbours that many times).
+    Side by side in compare mode they show how much the spine depends on each choice.
+    """
+
+    def __init__(self, id: str, label: str, *, k: Optional[int] = None, gabriel: bool = False,
+                 standardise: bool = False, smooth: int = 0, summary: str = ""):
+        self.id, self.label = id, label
+        self.k, self.gabriel, self.standardise, self.smooth = k, gabriel, standardise, smooth
+        self.summary = summary or "Our pipeline with another neighbourhood or input."
+
+    def applies_to(self, source: FieldSource) -> bool:
+        return source.kind == "points" and source.points is not None
+
+    def traits(self, source: FieldSource) -> Dict[str, str]:
+        base = OursVariant(MAIN_VARIANT, "Ours").traits(source)
+        k = self.k or source.k
+        base["neighbourhood"] = (f"relaxed Gabriel graph (from the {max(k, 30)} nearest candidates)"
+                                 if self.gabriel else f"kNN graph, k = {k}")
+        base["input"] = ("every coordinate standardised (mean 0, standard deviation 1)"
+                         if self.standardise else "the coordinates as given")
+        base["function"] = (f"f averaged with its kNN neighbours, {self.smooth} times (a second, smoother function)"
+                            if self.smooth else "f as given")
+        return base
+
+    def points_for(self, source: FieldSource) -> np.ndarray:
+        pts = np.asarray(source.points, dtype=np.float64)
+        if self.standardise:
+            sd = pts.std(axis=0)
+            pts = (pts - pts.mean(axis=0)) / np.where(sd > 0, sd, 1.0)
+        return pts
+
+    def graph_for(self, source: FieldSource) -> NeighborGraph:
+        pts = self.points_for(source)
+        k = self.k or source.k
+        if self.gabriel:
+            return relaxed_gabriel_graph(pts, candidates=max(k, 30))
+        if self.k is None and not self.standardise:
+            return source.base_graph
+        return knn_graph(pts.astype(np.float32), k)
+
+    def values_for(self, source: FieldSource, graph: NeighborGraph) -> np.ndarray:
+        v = np.asarray(source.values, dtype=np.float64)
+        if not self.smooth:
+            return v
+        deg = np.maximum(graph.degree, 1)
+        rows = np.repeat(np.arange(graph.num_nodes), graph.degree)
+        for _ in range(self.smooth):              # half own value, half the neighbours' mean
+            nbsum = np.bincount(rows, weights=v[graph.indices], minlength=graph.num_nodes)
+            v = 0.5 * v + 0.5 * nbsum / deg
+        return v
+
+    def extract(self, source: FieldSource) -> VariantResult:
+        graph = self.graph_for(source)
+        eg = extremum_graph(self.values_for(source, graph), graph)
+        notes = {"maxima": eg.num_peaks, "saddles": eg.num_saddles,
+                 "loop_saddles": int((~eg.saddle_is_merge).sum()),
+                 "edges": int(graph.num_edges), "mean_degree": round(float(graph.degree.mean()), 1)}
+        return VariantResult(graph=eg, common=from_ours(eg, self.id, {}), notes=notes)
 
 
 # ---------------------------------------------------------------------------
@@ -281,11 +349,102 @@ def register(variant: ExtractionVariant) -> ExtractionVariant:
     return variant
 
 
+# Neighbour counts offered by the viewer's "Neighbours (k)" slider for point clouds: our
+# pipeline is exported once per k (the browser cannot rebuild the graph itself).
+K_CHOICES = (4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50)
+
+
+def neighbour_variants(source: FieldSource) -> List[ExtractionVariant]:
+    """Our pipeline on the kNN graph with each k of ``K_CHOICES`` (point clouds only; the
+    dataset's own k is the main variant, so it is left out here)."""
+    if source.kind != "points" or source.points is None:
+        return []
+    return [OursOnVariant(f"ours_k{k}", f"Ours, kNN k = {k}", k=k,
+                          summary=f"Our pipeline on the kNN graph with k = {k} neighbours.")
+            for k in K_CHOICES if k != source.k and k < source.num_points]
+
+
+class ScalarVariant(OursOnVariant):
+    """Our pipeline with another scalar function on the same points (``source.scalars``).
+
+    The function is smoothed on this variant's own kNN graph (``smooth`` rounds of "half
+    own value, half the neighbours' mean") and scaled to 0..1, like the main file.
+    """
+
+    def __init__(self, id: str, label: str, *, func: dict, smooth: int, k: int, summary: str = ""):
+        super().__init__(id, label, k=k, smooth=smooth, summary=summary)
+        self.func = func
+
+    def traits(self, source: FieldSource) -> Dict[str, str]:
+        base = super().traits(source)
+        base["function"] = self.func["label"] + (f", averaged with its neighbours {self.smooth} times"
+                                                 if self.smooth else ", unsmoothed")
+        return base
+
+    def graph_for(self, source: FieldSource) -> NeighborGraph:
+        return source.base_graph if self.k == source.k else knn_graph(source.points, self.k)
+
+    def values_for(self, source: FieldSource, graph: NeighborGraph) -> np.ndarray:
+        return scalar_values(self.func["values"], graph, self.smooth)
+
+
+def scalar_values(raw: np.ndarray, graph: NeighborGraph, smooth: int) -> np.ndarray:
+    """``raw`` smoothed ``smooth`` times on ``graph``, scaled to 0..1."""
+    v = np.asarray(raw, dtype=np.float64).copy()
+    deg = np.maximum(graph.degree, 1)
+    rows = np.repeat(np.arange(graph.num_nodes), graph.degree)
+    for _ in range(smooth):
+        v = 0.5 * v + 0.5 * np.bincount(rows, weights=v[graph.indices], minlength=graph.num_nodes) / deg
+    lo, hi = v.min(), v.max()
+    return (v - lo) / (hi - lo) if hi > lo else np.zeros_like(v)
+
+
+def scalar_id(func: str, smooth: int, k: int, source: FieldSource) -> str:
+    """Variant id of one (function, smoothing, k): 'ours' for the main file, 'ours_k<k>' for
+    the main function at another k, else 'ours_f_<func>_s<smooth>[_k<k>]'."""
+    main = source.scalars["main"]
+    if func == main["id"] and smooth == main["smooth"]:
+        return MAIN_VARIANT if k == source.k else f"ours_k{k}"
+    return f"ours_f_{func}_s{smooth}" + ("" if k == source.k else f"_k{k}")
+
+
+def scalar_variants(source: FieldSource) -> List[ExtractionVariant]:
+    """One variant per extra scalar function x smoothing x k (``truth.json`` "scalars")."""
+    sc = source.scalars
+    if not sc or source.kind != "points":
+        return []
+    out = []
+    ks = [source.k] + [k for k in sc["ks"] if k != source.k and k < source.num_points]
+    for func in sc["functions"]:
+        for smooth in sc["smooths"]:
+            for k in ks:
+                vid = scalar_id(func["id"], smooth, k, source)
+                if vid == MAIN_VARIANT:
+                    continue
+                how = f"averaged with its neighbours {smooth} times" if smooth else "unsmoothed"
+                out.append(ScalarVariant(
+                    vid, f"Ours, f = {func['label']} ({how}), k = {k}", func=func, smooth=smooth, k=k,
+                    summary=f"Same points and kNN graph (k = {k}); f = {func['label']}, {how}. "
+                            + func.get("summary", "")))
+    return out
+
+
 def variants_for(source: FieldSource) -> List[ExtractionVariant]:
-    """Registered variants that apply to ``source``, the main one first."""
-    return [v for v in VARIANTS.values() if v.applies_to(source)]
+    """Registered variants that apply to ``source``, the main one first, then one per k
+    (and, for datasets with extra scalar functions, one per function x smoothing x k)."""
+    base = [v for v in VARIANTS.values() if v.applies_to(source)]
+    if source.scalars:                      # the scalar family replaces ours_smooth and the k family
+        return [v for v in base if v.id != "ours_smooth"] + scalar_variants(source)
+    return base + neighbour_variants(source)
 
 
 register(OursVariant(MAIN_VARIANT, "Ours"))
 register(AnyEGVariant())
 register(OursVariant("ours14", "Ours, 14-neighbour grid", neighbourhood="freudenthal-14"))
+# point clouds: the neighbourhood, input and function choices of NDDAV, one at a time
+register(OursOnVariant("ours_gabriel", "Ours, relaxed Gabriel graph", gabriel=True,
+                       summary="Our pipeline on the relaxed Gabriel graph, NDDAV's default neighbourhood."))
+register(OursOnVariant("ours_std", "Ours, standardised input", standardise=True,
+                       summary="Our pipeline after scaling every coordinate to mean 0 and spread 1."))
+register(OursOnVariant("ours_smooth", "Ours, smoothed f", smooth=3,
+                       summary="A second function on the same points: f averaged over its neighbours 3 times."))

@@ -213,7 +213,8 @@ def embed_points(points: np.ndarray, method: str, seed: int = 0) -> np.ndarray:
     return make_reducer(method, **kwargs).fit_transform(points)
 
 
-def coords_document(points: np.ndarray, names: Optional[list] = None) -> dict:
+def coords_document(points: np.ndarray, names: Optional[list] = None,
+                    classes: Optional[dict] = None) -> dict:
     """Original coordinates of a point cloud for the viewer's parallel coordinates
     (written next to the main file as ``<name>.coords.json`` and loaded only when
     that mode is opened, so the main file stays small).
@@ -222,6 +223,11 @@ def coords_document(points: np.ndarray, names: Optional[list] = None) -> dict:
     base64 of little-endian uint16 (``x = min + (max - min) * u / 65535``), about
     2.7 bytes per value instead of ~8 for decimal text. 1/65535 of the range is far
     below a pixel on any axis.
+
+    ``classes``: optional known labels of the points, ``{"name": str, "names": [str, ...],
+    "values": [int per point, -1 unknown]}`` (e.g. tumour / normal), or a list of such sets
+    (e.g. ER status, grade, metastasis), offered by the viewer's Clustering section as
+    "known labels" to set beside the peak regions.
     """
     import base64
 
@@ -242,8 +248,18 @@ def coords_document(points: np.ndarray, names: Optional[list] = None) -> dict:
         q = np.round(u * 65535).astype("<u2")
         axes.append({"name": names[j], "min": lo, "max": hi,
                      "data": base64.b64encode(q.tobytes()).decode("ascii")})
-    return {"version": 1, "num_points": int(n), "dimensions": int(d),
-            "encoding": "uint16-base64", "axes": axes}
+    doc = {"version": 1, "num_points": int(n), "dimensions": int(d),
+           "encoding": "uint16-base64", "axes": axes}
+    if classes:
+        sets = []
+        for c in (classes if isinstance(classes, (list, tuple)) else [classes]):
+            values = [int(v) for v in c["values"]]          # -1: unknown
+            if len(values) != n:
+                raise ValueError(f"{len(values)} class labels for {n} points")
+            sets.append({"name": str(c.get("name", "class")),
+                         "names": [str(x) for x in c["names"]], "values": values})
+        doc["classes"] = sets[0] if len(sets) == 1 else sets
+    return doc
 
 
 def decode_coords(doc: dict) -> np.ndarray:

@@ -55,7 +55,7 @@ import numpy as np
 
 from .extremum_graph import ExtremumGraph
 
-MAX_NODES = 3000
+MAX_NODES = 6000   # neghip's full graph has ~3500 nodes (about 2 minutes)
 _CHUNK_PAIRS = 4_000_000     # link pairs tested at once by count_crossings
 
 Coords = Union[np.ndarray, Callable[[np.ndarray], np.ndarray]]

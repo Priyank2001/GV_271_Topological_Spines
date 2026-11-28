@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Callable, Optional, Tuple
 
+from pathlib import Path
+
 import numpy as np
 
 from pipeline.neighbor_graph import NeighborGraph, grid_graph, knn_graph
@@ -36,6 +38,9 @@ class FieldSource:
     grid_shape: Optional[Tuple[int, int, int]] = None   # (nz, ny, nx), grids only
     k: Optional[int] = None                     # kNN size, point clouds only
     points: Optional[np.ndarray] = field(default=None, repr=False)
+    # other scalar functions on the same points (``truth.json`` "scalars"): the viewer's
+    # Scalar menu. A dict with "functions" [{id, label, values}], "smooths", "ks", "main".
+    scalars: Optional[dict] = field(default=None, repr=False)
 
     # -- constructors ---------------------------------------------------------
     @classmethod
@@ -58,7 +63,8 @@ class FieldSource:
         points = np.asarray(ds.points)
         values = np.asarray(ds.values, dtype=np.float64)
         return cls(name=name, kind="points", values=values, raw_values=values,
-                   coords=lambda v: points[v], k=k, points=points)
+                   coords=lambda v: points[v], k=k, points=points,
+                   scalars=_scalars(ds.path, ds.truth))
 
     # -- derived (computed once) ------------------------------------------------
     @property
@@ -78,3 +84,14 @@ class FieldSource:
         if self.kind == "grid":
             return grid_graph(self.grid_shape)
         return knn_graph(self.points, self.k)
+
+
+def _scalars(path, truth: dict) -> Optional[dict]:
+    """The extra scalar functions listed in ``truth.json`` (None if there are none)."""
+    spec = truth.get("scalars")
+    if not spec:
+        return None
+    funcs = [{"id": f["id"], "label": f["label"], "summary": f.get("summary", ""),
+              "values": np.load(Path(path) / f["file"]).astype(np.float64)} for f in spec["functions"]]
+    return {"functions": funcs, "smooths": list(spec.get("smooths", [0])),
+            "ks": list(spec.get("ks", [])), "main": spec["main"]}
