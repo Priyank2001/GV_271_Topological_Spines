@@ -113,8 +113,13 @@ eg.arc_mask(0.04, variation=0.2)    # saddles whose arcs are drawn: the paper's 
 ```
 
 Peaks are points with no higher neighbour. Every point climbs to its highest
-neighbour until it reaches a peak, which gives its region. Where two regions
-touch, the highest pass is the saddle between them. Persistence comes from
+neighbour until it reaches a peak, which gives its region. The saddles are
+AnyEG's (`pipeline/anyeg_saddles.py`): points whose higher neighbours fall into
+two or more separate groups, linked to the peaks those neighbours climb to;
+only the highest saddle per pair of peaks is kept (`saddles="passes"` gives the
+older choice, the highest pass between two touching regions). Volumes use
+TTK's 14-neighbour grid (`ttk_grid_graph`), since this saddle test needs a
+triangulated neighbourhood. Persistence comes from
 merging regions from the highest saddle down. Simplification then replays the
 paper's Algorithm 1: a removed peak's region joins the peak across the saddle
 that cancels it, and the paths the flow takes through removed peaks give each
@@ -197,10 +202,12 @@ Main differences from our pipeline (details and numbers in `observations.md`,
   is a maximum (243,266 on `fuel`), even after its own preprocessing.
 - With distinct values and the same 14-neighbour grid, maxima and basins are
   identical. AnyEG keeps only true saddles (upper link in two or more pieces)
-  and has no persistence simplification. We link all touching basins and
-  simplify afterwards.
+  and has no persistence simplification. Our pipeline now takes AnyEG's
+  saddles (highest per pair of peaks, uphill links only) and simplifies
+  afterwards; these studies still run our earlier highest-pass saddles.
 - Our 6-neighbour `grid_graph` cuts diagonal ridges into extra maxima (6,184
-  vs 938 on `hydrogen_atom`). AnyEG, TTK and TACHYON use 14 neighbours.
+  vs 938 on `hydrogen_atom`). AnyEG, TTK and TACHYON use 14 neighbours, and
+  so do our volumes now (`ttk_grid_graph`).
 
 ## 2D spine layout
 

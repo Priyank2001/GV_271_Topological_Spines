@@ -417,7 +417,7 @@ try {
     const entry = index.datasets.find((d) => d.id === 'fuel');
     const ours = fuelDoc, anyeg = load('fuel.anyeg');
     check('index.json lists the variants of fuel and the trait labels',
-          entry.variants.map((v) => v.id).join() === 'ours,anyeg,ours14' && Object.keys(index.trait_labels).length === 6);
+          entry.variants.map((v) => v.id).join() === 'ours,anyeg' && Object.keys(index.trait_labels).length === 8);
     check('isSimplifiable: ours yes, AnyEG no', CMP.isSimplifiable(ours) && !CMP.isSimplifiable(anyeg));
     const all = showAll(anyeg);
     check('showAll: every peak and saddle, nothing merged or deduplicated',
@@ -436,11 +436,10 @@ try {
     });
     check('a maximum in both files has the same layout position', sharedXY);
     const diffs = CMP.traitDifferences(entry.variants[0], entry.variants[1], index.trait_labels);
-    check('traitDifferences: ours vs AnyEG differ in every listed choice', diffs.length === 6, diffs.map((d) => d.key).join());
-    check('traitDifferences: ours vs ours14 differ only in the neighbourhood',
-          CMP.traitDifferences(entry.variants[0], entry.variants[2], index.trait_labels).map((d) => d.key).join() === 'neighbourhood');
-    const ag = CMP.findAgreement(entry, 'anyeg', 'ours14'), agRev = CMP.findAgreement(entry, 'ours14', 'anyeg');
-    check('findAgreement works in both orders (AnyEG and ours14 share all maxima)',
+    check('traitDifferences: ours vs AnyEG share the 14-neighbour grid and differ in every other listed choice',
+          diffs.length === 6 && !diffs.some((d) => d.key === 'neighbourhood'), diffs.map((d) => d.key).join());
+    const ag = CMP.findAgreement(entry, 'anyeg', 'ours'), agRev = CMP.findAgreement(entry, 'ours', 'anyeg');
+    check('findAgreement works in both orders (AnyEG and ours share all maxima)',
           ag.maxima_jaccard === 1 && agRev.pairs_only_a === ag.pairs_only_b);
     const ids = CMP.sharedColorIds(ours, anyeg);
     check('sharedColorIds: a shared maximum borrows the colour id of its peak in the other file',

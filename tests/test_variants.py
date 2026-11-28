@@ -15,12 +15,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 pytest.importorskip("torch")
 
 from comparison.sources import FieldSource  # noqa: E402
-from comparison.variants import (TRAIT_LABELS, VARIANTS, AnyEGVariant, OursVariant,  # noqa: E402
-                                 anyeg_to_extremum_graph)
+from comparison.variants import TRAIT_LABELS, VARIANTS, AnyEGVariant  # noqa: E402
 from comparison.viewer_export import PositionRegistry, export_variants  # noqa: E402
 from pipeline.export_json import check_export, extremum_graph_to_dict  # noqa: E402
 from pipeline.extremum_graph import extremum_graph  # noqa: E402
-from pipeline.neighbor_graph import grid_graph  # noqa: E402
+from pipeline.neighbor_graph import ttk_grid_graph  # noqa: E402
 from pipeline.spine_layout import anchored_layout, spine_layout  # noqa: E402
 
 
@@ -46,7 +45,7 @@ def bumpy_grid(shape=(10, 12, 14), levels=None, seed=0) -> FieldSource:
 
 
 def main_document(src: FieldSource, base: float = 0.01) -> dict:
-    raw = extremum_graph(src.values, grid_graph(src.grid_shape))
+    raw = extremum_graph(src.values, ttk_grid_graph(src.grid_shape))
     eg = raw.simplify(base)
     meta = {"name": src.name, "kind": "grid", "dimensions": 3, "grid_shape": list(src.grid_shape),
             "spacing": [1.0, 1.0, 1.0], "simplify_threshold": base, "initial_threshold": base}
@@ -59,7 +58,7 @@ def main_document(src: FieldSource, base: float = 0.01) -> dict:
 # ---------------------------------------------------------------------------
 def test_anchored_layout_keeps_anchors_and_places_the_rest():
     src = bumpy_grid()
-    eg = extremum_graph(src.values, grid_graph(src.grid_shape))
+    eg = extremum_graph(src.values, ttk_grid_graph(src.grid_shape))
     first = spine_layout(eg, src.coords)
     anchors = {int(v): first.peak_xy[i] for i, v in enumerate(eg.peaks[:3])}
     second = anchored_layout(eg, src.coords, anchors, first.scale)
@@ -70,7 +69,7 @@ def test_anchored_layout_keeps_anchors_and_places_the_rest():
 
 def test_anchored_layout_gives_one_position_per_vertex():
     src = bumpy_grid()
-    eg = extremum_graph(src.values, grid_graph(src.grid_shape))
+    eg = extremum_graph(src.values, ttk_grid_graph(src.grid_shape))
     lay = anchored_layout(eg, src.coords, {}, 1.0)
     pos = {}
     for v, xy in zip(np.concatenate([eg.peaks, eg.saddles]), np.concatenate([lay.peak_xy, lay.saddle_xy])):
@@ -81,15 +80,12 @@ def test_anchored_layout_gives_one_position_per_vertex():
 # variants
 # ---------------------------------------------------------------------------
 def test_registry_and_traits():
-    assert list(VARIANTS)[:3] == ["ours", "anyeg", "ours14"]
+    assert list(VARIANTS)[:2] == ["ours", "anyeg"] and "ours14" not in VARIANTS
     src = bumpy_grid()
-    ours, anyeg, ours14 = (VARIANTS[k].traits(src) for k in ("ours", "anyeg", "ours14"))
+    ours, anyeg = (VARIANTS[k].traits(src) for k in ("ours", "anyeg"))
     assert set(ours) == set(TRAIT_LABELS)
-    assert [k for k in TRAIT_LABELS if ours[k] != ours14[k]] == ["neighbourhood"]
-    # Both read the same data; every other design choice differs.
-    assert [k for k in TRAIT_LABELS if ours[k] == anyeg[k]] == ["input"]
-    assert not VARIANTS["ours14"].applies_to(FieldSource(
-        "p", "points", np.zeros(3), np.zeros(3), coords=lambda v: v, k=2))
+    # On a grid both read the same data on the same 14-neighbour grid; the rest differs.
+    assert [k for k in TRAIT_LABELS if ours[k] == anyeg[k]] == ["input", "neighbourhood"]
 
 
 def test_anyeg_variant_in_our_format_adds_nothing_of_ours():
@@ -112,12 +108,13 @@ def test_anyeg_variant_in_our_format_adds_nothing_of_ours():
     assert all(p["persistence"] is None for p in doc["peaks"])
 
 
-def test_anyeg_and_ours_on_the_same_14_neighbour_grid_share_maxima_and_basins():
+def test_anyeg_and_ours_on_the_same_14_neighbour_grid_share_maxima_basins_and_saddles():
     src = bumpy_grid(levels=20)
     a = AnyEGVariant().extract(src)
-    b = OursVariant("o14", "ours14", neighbourhood="freudenthal-14").extract(src)
+    b = VARIANTS["ours"].extract(src)
     assert np.array_equal(np.sort(a.graph.peaks), np.sort(b.graph.peaks))
     assert np.array_equal(a.graph.peaks[a.graph.region], b.graph.peaks[b.graph.region])
+    assert set(b.graph.saddles.tolist()) <= set(a.graph.saddles.tolist())   # ours uses AnyEG's saddles
 
 
 # ---------------------------------------------------------------------------
@@ -129,9 +126,9 @@ def test_export_variants_writes_every_variant_in_one_frame():
     written = {}
     entries, comparisons = export_variants(src, main, "bumps.json",
                                            write=lambda d, f: written.__setitem__(f, d), log=lambda *_: None)
-    assert [e["id"] for e in entries] == ["ours", "anyeg", "ours14"]
-    assert set(written) == {"bumps.anyeg.json", "bumps.ours14.json"}
-    assert len(comparisons) == 3
+    assert [e["id"] for e in entries] == ["ours", "anyeg"]
+    assert set(written) == {"bumps.anyeg.json"}
+    assert len(comparisons) == 1
     assert main["meta"]["variant"]["id"] == "ours" and main["meta"]["all_maxima"]
 
     reg = PositionRegistry.from_document(main)
@@ -143,5 +140,5 @@ def test_export_variants_writes_every_variant_in_one_frame():
                 assert np.allclose(reg.xy[node["vertex"]], xy), name
     anyeg = written["bumps.anyeg.json"]
     assert anyeg["meta"]["variant"]["simplifiable"] is False and anyeg["meta"]["simplify_threshold"] is None
-    ag = next(c for c in comparisons if {c["a"], c["b"]} == {"anyeg", "ours14"})
+    ag = next(c for c in comparisons if {c["a"], c["b"]} == {"anyeg", "ours"})
     assert ag["maxima_jaccard"] == 1.0 and ag["region_agreement"] == 1.0

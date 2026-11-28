@@ -88,45 +88,34 @@ class ExtractionVariant(ABC):
 # Our pipeline
 # ---------------------------------------------------------------------------
 class OursVariant(ExtractionVariant):
-    """``pipeline.extremum_graph`` on our usual graph, or on TTK's 14-neighbour grid."""
+    """``pipeline.extremum_graph`` on our usual graph (TTK's 14-neighbour grid for volumes).
 
-    def __init__(self, id: str, label: str, neighbourhood: str = "base"):
-        if neighbourhood not in ("base", "freudenthal-14"):
-            raise ValueError(neighbourhood)
-        self.id, self.label, self.neighbourhood = id, label, neighbourhood
-        self.summary = ("Our pipeline: steepest ascent, the highest pass between touching basins, "
-                        "then persistence simplification.")
-        if neighbourhood == "freudenthal-14":
-            self.summary = "Our algorithm on AnyEG's (TTK's) 14-neighbour grid."
+    Since 2026-11-27 its saddles are AnyEG's (``pipeline/anyeg_saddles.py``), so
+    on volumes it uses AnyEG's grid, and the former "ours14" variant is gone.
+    """
 
-    def applies_to(self, source: FieldSource) -> bool:
-        return self.neighbourhood == "base" or source.kind == "grid"
+    def __init__(self, id: str, label: str):
+        self.id, self.label = id, label
+        self.summary = ("Our pipeline: steepest ascent, AnyEG's saddles (the highest one per pair "
+                        "of maxima), then persistence simplification.")
 
     def traits(self, source: FieldSource) -> Dict[str, str]:
-        if self.neighbourhood == "freudenthal-14":
-            nb = "grid with 14 neighbours (TTK's triangulation, as AnyEG)"
-        elif source.kind == "grid":
-            nb = "grid with 6 axis neighbours (a diagonal ridge can split into several maxima)"
-        else:
-            nb = f"kNN graph, k = {source.k}"
+        nb = ("grid with 14 neighbours (TTK's triangulation)" if source.kind == "grid"
+              else f"kNN graph, k = {source.k}")
         return {
             "input": _input_trait(source),
             "function": "f as given",
             "neighbourhood": nb,
             "ties": "broken by vertex index (a strict total order)",
-            "saddles": "the highest pass between every two basins that touch",
-            "links": "each saddle joins exactly two maxima",
+            "saddles": "AnyEG's: vertices whose higher neighbours fall into two or more separate "
+                       "groups; only the highest one per pair of maxima",
+            "links": "a saddle joins the maxima its higher neighbours climb to (two per link)",
             "loops": "a loop-closing saddle is kept only if the valley below it runs deep (relief >= 0.5)",
             "simplification": "persistence: the noise slider (p_lo) merges small peaks, p_hi cuts deep links",
         }
 
     def graph_for(self, source: FieldSource) -> NeighborGraph:
-        if self.neighbourhood == "base":
-            return source.base_graph
-        nz, ny, nx = source.grid_shape
-        dummy = ScalarField(np.zeros(source.num_points, np.float32), dims=(nx, ny, nz))
-        table = FreudenthalGridNeighborhood().build(dummy)
-        return NeighborGraph.from_edges(source.num_points, table.edges())
+        return source.base_graph
 
     def extract(self, source: FieldSource) -> VariantResult:
         eg = extremum_graph(source.values, self.graph_for(source))
@@ -450,7 +439,6 @@ def variants_for(source: FieldSource) -> List[ExtractionVariant]:
 
 register(OursVariant(MAIN_VARIANT, "Ours"))
 register(AnyEGVariant())
-register(OursVariant("ours14", "Ours, 14-neighbour grid", neighbourhood="freudenthal-14"))
 # point clouds: the neighbourhood, input and function choices of NDDAV, one at a time
 register(OursOnVariant("ours_gabriel", "Ours, relaxed Gabriel graph", gabriel=True,
                        summary="Our pipeline on the relaxed Gabriel graph, NDDAV's default neighbourhood."))

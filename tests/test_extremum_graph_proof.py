@@ -102,7 +102,7 @@ def _brute_persistence(values, g):
 @pytest.mark.parametrize("seed,k,ties", list(_cases()))
 def test_theorem1_every_saddle_has_degree_two(seed, k, ties):
     values, g = _make(seed, k, ties)
-    eg = extremum_graph(values, g, min_loop_relief=0.0)
+    eg = extremum_graph(values, g, min_loop_relief=0.0, saddles="passes")
     graphs = [eg] + [eg.simplify(t) for t in np.quantile(np.abs(values), [0.1, 0.3, 0.6])]
     for h in graphs:
         sp = h.saddle_peaks
@@ -120,7 +120,7 @@ def test_theorem1_every_saddle_has_degree_two(seed, k, ties):
 def test_theorem2_saddle_is_the_bottleneck_inside_the_two_regions(seed, k, ties):
     values, g = _make(seed, k, ties)
     rank = _rank(values)
-    eg = extremum_graph(values, g, min_loop_relief=0.0)
+    eg = extremum_graph(values, g, min_loop_relief=0.0, saddles="passes")
     for s, (a, b) in zip(eg.saddles, eg.saddle_peaks):
         inside = (eg.region == a) | (eg.region == b)
         ma, mb = eg.peaks[a], eg.peaks[b]
@@ -149,7 +149,7 @@ def test_theorem2_saddle_is_the_bottleneck_inside_the_two_regions(seed, k, ties)
 def test_theorem3_superlevel_components_match_the_region_graph(seed, k, ties):
     values, g = _make(seed, k, ties)
     rank = _rank(values)
-    eg = extremum_graph(values, g, min_loop_relief=0.0)
+    eg = extremum_graph(values, g, min_loop_relief=0.0, saddles="passes")
     peak_rank, sad_rank = rank[eg.peaks], rank[eg.saddles]
     for t in range(0, g.num_nodes, 3):
         comp = _components(g, rank >= t)
@@ -175,7 +175,7 @@ def test_theorem4_sweep_is_superlevel_persistence(seed, k, ties):
     values, g = _make(seed, k, ties)
     want_pers, want_merges = _brute_persistence(values, g)
     for relief in (0.0, 0.5):                          # the loop filter never drops a merge
-        eg = extremum_graph(values, g, min_loop_relief=relief)
+        eg = extremum_graph(values, g, min_loop_relief=relief, saddles="passes")
         got = dict(zip(eg.peaks.tolist(), eg.peak_persistence.tolist()))
         assert got.keys() == want_pers.keys()
         for m, p in want_pers.items():
@@ -191,7 +191,7 @@ def test_theorem4_sweep_is_superlevel_persistence(seed, k, ties):
 def test_corollary5_merge_saddles_have_a_disconnected_upper_link(seed, k, ties):
     values, g = _make(seed, k, ties)
     rank = _rank(values)
-    eg = extremum_graph(values, g)
+    eg = extremum_graph(values, g, saddles="passes")
     for s in set(eg.saddles[eg.saddle_is_merge].tolist()):
         upper = np.zeros(g.num_nodes, bool)
         upper[[u for u in g.neighbors(s) if rank[u] > rank[s]]] = True

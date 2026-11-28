@@ -368,7 +368,7 @@ def build_document(dataset: Optional[str] = None, volume: Optional[str] = None, 
                        They are for drawing only; the graph is built in the original space.
     """
     from .extremum_graph import extremum_graph
-    from .neighbor_graph import grid_graph, knn_graph
+    from .neighbor_graph import knn_graph, ttk_grid_graph
     from .spine_layout import spine_layout
 
     if bool(dataset) == bool(volume):
@@ -379,7 +379,8 @@ def build_document(dataset: Optional[str] = None, volume: Optional[str] = None, 
 
         download(volume)
         vol = load_volume(volume)
-        raw = extremum_graph(vol.values.reshape(-1), grid_graph(vol.shape))
+        # TTK's 14-neighbour grid: AnyEG's saddle test needs a triangulation.
+        raw = extremum_graph(vol.values.reshape(-1), ttk_grid_graph(vol.shape))
         coords: Coords = vol.coords
         meta = {"name": volume, "kind": "grid", "dimensions": 3,
                 "grid_shape": [int(s) for s in vol.shape],

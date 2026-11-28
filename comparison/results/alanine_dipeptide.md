@@ -23,8 +23,8 @@ Saddles (highest first: the easiest transitions):
 | Peak = mostly | Shapes | Largest region | Persistence (kT) | Median phi, psi |
 |---|---|---|---|---|
 | alpha-R | 2184 | 97% | 3.4 | -78, -13 |
-| PPII | 2162 | 97% | highest | -72, 150 |
-| beta | 654 | 99% | 1.0 | -145, 155 |
+| PPII | 2167 | 97% | highest | -72, 150 |
+| beta | 649 | 99% | 1.0 | -146, 155 |
 
 Saddles (highest first: the easiest transitions):
 

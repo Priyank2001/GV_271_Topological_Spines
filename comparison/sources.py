@@ -24,7 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
-from pipeline.neighbor_graph import NeighborGraph, grid_graph, knn_graph
+from pipeline.neighbor_graph import NeighborGraph, knn_graph, ttk_grid_graph
 
 
 @dataclass
@@ -82,7 +82,7 @@ class FieldSource:
     def base_graph(self) -> NeighborGraph:
         """The neighbour graph our pipeline uses for this field."""
         if self.kind == "grid":
-            return grid_graph(self.grid_shape)
+            return ttk_grid_graph(self.grid_shape)   # AnyEG's saddle test needs a triangulation
         return knn_graph(self.points, self.k)
 
 

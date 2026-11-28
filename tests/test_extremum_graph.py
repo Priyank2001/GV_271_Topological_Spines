@@ -9,7 +9,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from pipeline.extremum_graph import extremum_graph
-from pipeline.neighbor_graph import NeighborGraph, grid_graph, knn_graph
+from pipeline.neighbor_graph import NeighborGraph, freudenthal_grid_graph, grid_graph, knn_graph
 
 
 def path_graph(n):
@@ -45,10 +45,13 @@ def test_disconnected_graph_gives_one_peak_per_piece_and_no_saddle():
     assert sorted(eg.peaks.tolist()) == [1, 3] and eg.num_saddles == 0
 
 
-def test_two_bumps_on_a_grid():
+@pytest.mark.parametrize("make_graph,saddles", [(freudenthal_grid_graph, "anyeg"),
+                                                 (grid_graph, "passes")])
+def test_two_bumps_on_a_grid(make_graph, saddles):
+    # AnyEG's saddles need a triangulated grid; highest passes work on either.
     x, y = np.meshgrid(np.linspace(-3, 3, 41), np.linspace(-2, 2, 31), indexing="ij")
     f = (np.exp(-((x - 1.5) ** 2 + y ** 2)) + 0.8 * np.exp(-((x + 1.5) ** 2 + y ** 2))).ravel()
-    eg = extremum_graph(f, grid_graph(x.shape))
+    eg = extremum_graph(f, make_graph(x.shape), saddles=saddles)
     assert eg.num_peaks == 2 and eg.num_saddles == 1
     sx = x.ravel()[eg.saddles[0]]
     assert abs(sx) < 0.3                                   # saddle sits between the bumps
@@ -74,7 +77,7 @@ def test_only_the_highest_pass_between_two_regions_is_kept():
     # Both valleys (1 and 3) climb to peak 0, so peaks 0 and 2 touch twice;
     # the lower pass (vertex 1) is not reported as a second saddle.
     g = NeighborGraph.from_edges(4, np.array([[0, 1], [1, 2], [2, 3], [3, 0]]))
-    eg = extremum_graph(np.array([9.0, 3.0, 8.0, 4.0]), g, min_loop_relief=0.0)
+    eg = extremum_graph(np.array([9.0, 3.0, 8.0, 4.0]), g, min_loop_relief=0.0, saddles="passes")
     assert eg.saddles.tolist() == [3]
 
 

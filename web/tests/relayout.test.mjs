@@ -86,8 +86,10 @@ test('fuel at 0.08: the four head peaks form a symmetric cross around the jet ti
       v.setVisible(vis);
       assert.ok(v.relayoutInfo, `${style}/${arcs}: relayout ran`);
       assert.ok(v.relayoutInfo.stressAfter < v.relayoutInfo.stressBefore, `${style}/${arcs}: stress went down`);
-      const tip = v.peakXY[6];
-      const ang = [18, 19, 20, 21].map((p) => Math.atan2(v.peakXY[p][1] - tip[1], v.peakXY[p][0] - tip[0]) * 180 / Math.PI).sort((a, b) => a - b);
+      // Peaks by voxel position (x, y, z), not by id: ids change when the grid or saddles do.
+      const at = (x, y, z) => fuel.peaks.findIndex((p) => p.position.join() === [x, y, z].join());
+      const tip = v.peakXY[at(47, 31, 34)];
+      const ang = [at(50, 40, 40), at(50, 23, 40), at(50, 40, 23), at(50, 23, 23)].map((p) => Math.atan2(v.peakXY[p][1] - tip[1], v.peakXY[p][0] - tip[0]) * 180 / Math.PI).sort((a, b) => a - b);
       // two arms on each side of the jet, mirror images within 15 degrees
       assert.ok(ang[0] < 0 && ang[1] < 0 && ang[2] > 0 && ang[3] > 0, `arms ${ang}`);
       assert.ok(Math.abs(ang[0] + ang[3]) < 15 && Math.abs(ang[1] + ang[2]) < 15, `arms ${ang}`);

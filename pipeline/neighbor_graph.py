@@ -231,7 +231,8 @@ def grid_graph(shape: tuple[int, ...], backend: BackendSpec = None) -> NeighborG
     return NeighborGraph.from_edges(ids.size, edges, backend=backend)
 
 
-def freudenthal_grid_graph(shape: tuple[int, ...], backend: BackendSpec = None) -> NeighborGraph:
+def freudenthal_grid_graph(shape: tuple[int, ...], backend: BackendSpec = None,
+                           flip_axes: tuple[int, ...] = ()) -> NeighborGraph:
     """Edges of the Freudenthal (Kuhn) triangulation of a regular grid, in any dimension.
 
     Vertex ``u`` and ``u + o`` are joined for every offset ``o`` in {0, 1}^d without the
@@ -240,12 +241,16 @@ def freudenthal_grid_graph(shape: tuple[int, ...], backend: BackendSpec = None) 
     piecewise linear, so its maxima and merge saddles are exact for the PL field (unlike the
     axis-only ``grid_graph``, where a diagonal ridge can split into several maxima).
     In 3-D this is TTK's (and AnyEG's) 14-neighbour grid up to flipping the y and z axes
-    (``anyeg.neighborhood.FREUDENTHAL_OFFSETS``). Vertices are numbered in C order.
+    (``anyeg.neighborhood.FREUDENTHAL_OFFSETS``); ``ttk_grid_graph`` does that flip.
+    ``flip_axes`` reverses those array axes before splitting, which turns the main
+    diagonal (+1, ..., +1) into one with -1 on those axes. Vertices are numbered in C order.
     """
     import itertools
 
     d = len(shape)
     ids = np.arange(int(np.prod(shape)), dtype=np.int64).reshape(shape)
+    if flip_axes:
+        ids = np.flip(ids, axis=flip_axes)
     parts = []
     for o in itertools.product((0, 1), repeat=d):
         if not any(o):
@@ -255,3 +260,17 @@ def freudenthal_grid_graph(shape: tuple[int, ...], backend: BackendSpec = None) 
         parts.append(np.stack([src, dst], axis=1))
     edges = np.concatenate(parts) if parts else np.empty((0, 2), np.int64)
     return NeighborGraph.from_edges(ids.size, edges, backend=backend)
+
+
+def ttk_grid_graph(shape: tuple[int, int, int], backend: BackendSpec = None) -> NeighborGraph:
+    """TTK's (and AnyEG's) 14-neighbour triangulation of a 3-D grid of shape (nz, ny, nx).
+
+    Its diagonal is (+x, -y, -z), i.e. the Kuhn split of ``freudenthal_grid_graph``
+    with the z and y axes reversed; the edges equal ``anyeg``'s
+    ``FreudenthalGridNeighborhood`` (``tests/test_anyeg_saddles.py``). Volumes use
+    it because AnyEG's saddle test needs a triangulated neighbourhood.
+    """
+    if len(shape) != 3:
+        raise ValueError(f"ttk_grid_graph is for 3-D grids, got shape {shape}")
+    return freudenthal_grid_graph(shape, backend=backend, flip_axes=(0, 1))
+

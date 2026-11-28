@@ -19,11 +19,18 @@ the saddles and stay in plain Python.
    neighbour is higher than the point itself. Following these pointers from
    any point ends at a **maximum** (a point with no higher neighbour). The
    maximum a point ends at is its **region** (its steepest-ascent basin).
-3. *Saddles.* Two regions are adjacent if some graph edge joins them. Among
-   all edges between regions A and B, the edge whose *lower* endpoint is
-   highest is the pass between them: the highest level at which A and B are
-   still directly linked. Its lower endpoint is the **saddle** of (A, B).
-   Each saddle is linked to the two maxima it separates.
+3. *Saddles* (``saddles=``). By default (``"anyeg"``) they are AnyEG's
+   saddles (``pipeline/anyeg_saddles.py``): vertices with a higher neighbour
+   in another region whose higher neighbours form two or more separate
+   pieces (the upper-link test). Each is linked to the maxima its higher
+   neighbours ascend to; one that reaches k maxima gives k - 1 links
+   ``(highest maximum, other)``. Only the highest saddle per pair of maxima
+   is kept. AnyEG's test needs a triangulated neighbourhood: use
+   ``freudenthal_grid_graph`` for grids (on the axis grid, no two neighbours
+   of a vertex touch, so almost every basin-boundary vertex passes). The
+   older choice, ``"passes"``: among all edges between regions A
+   and B, the edge whose *lower* endpoint is highest is the pass between
+   them, and that endpoint is the one **saddle** of (A, B).
 4. *Persistence.* Visit the saddles from highest to lowest and merge regions
    with union-find. A saddle that joins two different groups of peaks is a
    ``merge`` saddle: the lower of the two groups' top peaks dies there, with
@@ -48,7 +55,7 @@ the saddles and stay in plain Python.
 
 Known limits:
 
-* At most one saddle is reported per pair of peaks (the highest pass). Two
+* At most one saddle is reported per pair of peaks (the highest one). Two
   true saddles between the same two peaks show up as one link.
 * With a small k (8 or less) a few false passes survive, mostly in sparse
   regions far from the data.
@@ -77,8 +84,11 @@ from typing import Optional
 
 import numpy as np
 
+from .anyeg_saddles import anyeg_saddles
 from .backends import BackendSpec, ComputeBackend, get_backend
 from .neighbor_graph import NeighborGraph
+
+SADDLE_METHODS = ("anyeg", "passes")
 
 
 @dataclass
@@ -105,7 +115,8 @@ class ExtremumGraph:
     saddle_peaks: np.ndarray      # (S, 2) peak ids joined by the saddle, [higher, lower]
     saddle_is_merge: np.ndarray   # (S,) bool, False if the saddle closes a loop
     saddle_persistence: np.ndarray  # (S,) see module docstring
-    saddle_support: np.ndarray    # (S,) number of graph edges between the two regions
+    saddle_support: np.ndarray    # (S,) "anyeg": higher neighbours of the saddle in the two regions;
+                                  #      "passes": graph edges between the two regions
     saddle_relief: np.ndarray     # (S,) in [0, 1], how deep the valley below the saddle goes
     saddle_saturation: np.ndarray  # (S,) saturated persistence p* >= persistence, see _saturation
 
@@ -238,7 +249,8 @@ class ExtremumGraph:
 def extremum_graph(values: np.ndarray, graph: NeighborGraph,
                    min_loop_relief: float = 0.5,
                    backend: BackendSpec = None,
-                   timings: Optional[dict] = None) -> ExtremumGraph:
+                   timings: Optional[dict] = None,
+                   saddles: str = "anyeg") -> ExtremumGraph:
     """Compute the extremum graph of ``values`` sampled on ``graph``.
 
     Saddles that join two separate groups of peaks (``merge``) are always
@@ -251,12 +263,19 @@ def extremum_graph(values: np.ndarray, graph: NeighborGraph,
     or a ``ComputeBackend``. Every backend gives the same result. The
     union-find sweeps (steps 4-6) are sequential and always run on the CPU.
 
+    ``saddles``: ``"anyeg"`` (default) uses AnyEG's saddles (true saddles by
+    the upper-link test, see ``pipeline/anyeg_saddles.py``); ``"passes"`` the
+    highest pass between every two touching regions (the earlier method, the
+    one ``docs/extremum_graph_correctness.md`` proves).
+
     ``timings``: if a dict is given, the wall time in seconds of each stage is
     stored in it: ``order``, ``ascent`` (maxima and regions), ``passes``
     (saddles), ``persistence``, ``relief``, ``simplification`` (p* and
     cancellations). Backends return NumPy arrays, so GPU work is finished
     when each stage's clock stops.
     """
+    if saddles not in SADDLE_METHODS:
+        raise ValueError(f"saddles must be one of {SADDLE_METHODS}, got {saddles!r}")
     values = np.asarray(values)
     n = graph.num_nodes
     if values.shape != (n,):
@@ -277,7 +296,10 @@ def extremum_graph(values: np.ndarray, graph: NeighborGraph,
     region = peak_id[up]
     clock.lap("ascent")
 
-    sad_vertex, sad_peaks, sad_support = kernels.passes(rank, region, graph, num_peaks)
+    if saddles == "anyeg":
+        sad_vertex, sad_peaks, sad_support = anyeg_saddles(rank, region, max_vertices, graph, kernels)
+    else:
+        sad_vertex, sad_peaks, sad_support = kernels.passes(rank, region, graph, num_peaks)
     clock.lap("passes")
     persistence = _sweep(values, max_vertices, sad_vertex, sad_peaks)
     clock.lap("persistence")

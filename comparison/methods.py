@@ -73,7 +73,8 @@ class OursMethod(Method):
         t1 = time.perf_counter()
         # Heights for our height-based loop filter; the order is the same either way.
         values = field.heights if field.heights is not None else field.values
-        eg = extremum_graph(values.astype(np.float64), g, backend=self.backend)
+        # The original highest-pass saddles: this study compares that method with AnyEG.
+        eg = extremum_graph(values.astype(np.float64), g, backend=self.backend, saddles="passes")
         t2 = time.perf_counter()
         return from_ours(eg, self.name, {"graph": t1 - t0, "core": t2 - t1, "post": 0.0,
                                          "total": t2 - t0})

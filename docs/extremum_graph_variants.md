@@ -76,10 +76,12 @@ results.
 ### What this buys for the comparison
 
 Both methods now see the same strict order. When they also use the same
-neighbourhood, they find exactly the same maxima and basins: AnyEG vs "Ours,
-14-neighbour grid" has a maxima Jaccard of 1.0 on every volume. So whatever
-differs in the compare mode comes from the algorithms (saddles, links,
-simplification), not from tie handling. Tie handling is not hidden. It is
+neighbourhood, they find exactly the same maxima and basins: AnyEG vs "Ours"
+has a maxima Jaccard of 1.0 on every volume, since both use TTK's 14-neighbour
+grid (since 2026-11-27; the former "Ours, 14-neighbour grid" variant is now the
+same as "Ours" and was removed). Ours also takes AnyEG's saddles (the highest
+per pair of maxima), so whatever differs in the compare mode comes from the
+links and the simplification, not from tie handling. Tie handling is not hidden. It is
 reported as a fact in the comparison box ("on the stored values it would report
 243,266 maxima; 156 after its own preprocessing script"). Those two numbers are
 computed only when the stored values actually have ties

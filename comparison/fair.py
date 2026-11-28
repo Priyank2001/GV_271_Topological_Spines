@@ -205,7 +205,8 @@ class OursContender(Contender):
         t = {}
         # A new backend per run: the graph is copied to the GPU every time, as AnyEG's table is.
         eg = extremum_graph(case.heights, case.graph, min_loop_relief=self.min_loop_relief,
-                            backend=self.backend(), timings=t)
+                            backend=self.backend(), timings=t,
+                            saddles="passes")   # the original method, as in the saved results
         detect = t["order"] + t["ascent"] + t["passes"]
         post = t["persistence"] + t["relief"] + t["simplification"]
         return Run(from_ours(eg, self.name, {}), detect, post, dict(t),

@@ -9,7 +9,7 @@ which is cached in ``data/klacansky/datasets.json``.
 Layout of a ``.raw`` file: ``size = [nx, ny, nz]`` with x varying fastest,
 so the array is read with shape ``(nz, ny, nx)``. ``Volume.values`` keeps
 that (z, y, x) order, and the flat index of a voxel matches
-``pipeline.neighbor_graph.grid_graph(volume.shape)``.
+``pipeline.neighbor_graph.ttk_grid_graph(volume.shape)`` (and ``grid_graph``).
 
 Note: on 2026-11-09 the server refused HTTPS connections but served plain
 HTTP, so the URLs from ``datasets.json`` (which are ``http://``) are used as
@@ -18,12 +18,12 @@ they are.
 Usage
 -----
     from pipeline.volume_loader import download, load_volume
-    from pipeline.neighbor_graph import grid_graph
+    from pipeline.neighbor_graph import ttk_grid_graph
     from pipeline.extremum_graph import extremum_graph
 
     download("fuel")                       # no-op if the file is already there
     vol = load_volume("fuel")              # values scaled to [0, 1]
-    eg = extremum_graph(vol.values.reshape(-1), grid_graph(vol.shape))
+    eg = extremum_graph(vol.values.reshape(-1), ttk_grid_graph(vol.shape))
     vol.coords(eg.peaks)                   # (P, 3) voxel positions as (x, y, z)
 """
 

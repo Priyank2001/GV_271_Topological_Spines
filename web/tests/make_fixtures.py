@@ -20,7 +20,7 @@ sys.path.insert(0, str(HERE.parent.parent))
 from pipeline.data_loader import load_dataset  # noqa: E402
 from pipeline.export_json import extremum_graph_to_dict  # noqa: E402
 from pipeline.extremum_graph import extremum_graph  # noqa: E402
-from pipeline.neighbor_graph import grid_graph, knn_graph  # noqa: E402
+from pipeline.neighbor_graph import knn_graph, ttk_grid_graph  # noqa: E402
 from pipeline.volume_loader import download, load_volume  # noqa: E402
 
 THRESHOLDS = [0.0, 0.03, 0.08, 0.1, 0.2, 0.5, 2.0]
@@ -52,7 +52,7 @@ def main() -> None:
     for vol_name in ("neghip", "silicium"):
         download(vol_name)
         vol = load_volume(vol_name)
-        raw = extremum_graph(vol.values.reshape(-1), grid_graph(vol.shape))
+        raw = extremum_graph(vol.values.reshape(-1), ttk_grid_graph(vol.shape))
         cases.append(case(vol_name, raw, 0.02))
     ds = load_dataset("cyclic_10d")
     cases.append(case("cyclic_10d", extremum_graph(ds.values, knn_graph(ds.points, 20)), 0.005))
